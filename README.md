@@ -14,3 +14,7 @@ Base Image: kamailio/kamailio-ci:5.3
 ## Run container
 
 You need enviroment variables related to the asterisk and rtpengine you want
+
+## Tags of images
+
+* 5.3-67ea87fb: initial image for oml 2.0 
