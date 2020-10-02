@@ -1,20 +1,17 @@
-# ACD for OMniLeads
+# NGINX for OMniLeads
 
-This repository has the code of ACD component, configuration used for OMniLeads
+This repository has the code of NGINX component, configuration used for OMniLeads
 
-Asterisk Version: 5.3
-Base Image: kamailio/kamailio-ci:5.3
+Nginx Version: 1.19
+Base Image: nginx:1.19.0-alpine
 
 ## Build
 
 ```
-  docker build -t freetechsolutions/omlkam:5.3 .
+  docker build -t freetechsolutions/omlknginx:$TAG .
 ```
+Where $TAG is the docker tag you want for image.
 
 ## Run container
 
-You need enviroment variables related to the asterisk and rtpengine you want
-
-## Tags of images
-
-* 5.3-67ea87fb: initial image for oml 2.0 
+You need environment variables so raise up with docker-compose of OML project
