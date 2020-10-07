@@ -37,6 +37,3 @@ location / {
 }
 EOF
 fi
-
-
-#exec /docker-entrypoint.sh nginx -g daemon
