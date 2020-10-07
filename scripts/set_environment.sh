@@ -1,4 +1,8 @@
 #!/bin/sh
+if [ ! -d /etc/nginx/conf.d/environment ]; then
+  echo "***[oml-nginx] Creating environment directory"
+  mkdir -p /etc/nginx/conf.d/environment/
+fi
 
 echo "***[oml-nginx] Adding configuration of desired environment"
 if [ $DJANGO_SETTINGS_MODULE == "ominicontacto.settings.develop" ]; then
