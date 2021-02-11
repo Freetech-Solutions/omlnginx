@@ -1,0 +1,74 @@
+- name: Nginx installation and configuration
+  hosts: prodenv-aio
+  vars:
+    nginx_version: '{{ lookup("env","NGINX_VERSION") }}'
+    packages_url: https://fts-public-packages.s3.amazonaws.com
+    nginx_package: "{{ packages_url }}/nginx/nginx-omnileads-{{ nginx_version }}.x86_64.rpm"
+    install_prefix: /opt/omnileads
+    
+  tasks:
+
+    # Se instala nginx
+    - name: Removing existing nginx installtion
+      yum: name={{ item }} state=absent update_cache=yes
+      with_items:
+        - nginx
+        - nginx-all-modules
+      tags: ['never', 'postinstall']
+
+    # Chequeo si la version de nginx instalada es {{ nginx_version }}
+    - name: Check if nginx OMniLeads package {{ nginx_version }} is installed
+      shell:  yum list installed |grep nginx-omnileads | awk -F " " '{print $2}' |awk -F "-" '{print $1}'
+      register: nginx_installed
+      changed_when: false
+      tags: postinstall
+
+    # Se imprime que el nginx OMniLeads configuration no esta instalado si la version actual es inferior a la requerida
+    - debug: msg="nginx OMniLeads {{ nginx_version }} is not installed, proceeding to install"
+      when: nginx_installed.stdout != nginx_version
+      tags: postinstall
+
+    # Por lo contrario se imprime que ya está instalada la version mas actual
+    - debug: msg="nginx OMniLeads package is already installed in version {{ nginx_version }}, skipping installation steps"
+      when: nginx_installed.stdout == nginx_version
+      tags: postinstall
+
+    # Esta tarea es para eliminar paquete viejo de virtualenv generar inconsistencia de binarios
+    - name: Delete old nginx OMniLeads package
+      yum: name=omnileads-nginx state=absent
+      tags: postinstall
+      when: nginx_installed.stdout != nginx_version
+
+    # Se instala el paquete de websockets
+    - name: Install nginx OMniLeads {{ nginx_version }} package (from s3 source)
+      yum: name={{ nginx_package }} state=latest update_cache=yes
+      tags: postinstall
+      retries: 3
+      delay: 3
+      register: s3_download
+      until: s3_download is success
+      when: nginx_installed.stdout != nginx_version
+
+    # Se pasan los certificados creados en kamailio a la carpeta nginx_certs
+    - name: Copy of the certificates in nginx
+      copy: "src={{ repo_location }}/ansible/deploy/certs/{{ item }} dest={{ install_prefix }}/nginx_certs"
+      with_items:
+        - cert.pem
+        - key.pem
+
+    - name: Modify user parameter in nginx.conf
+      lineinfile: path=/etc/nginx/nginx.conf regexp="^user" line="user {{ usuario }};" state=present
+      tags: postinstall
+
+    - name: Modify server name in ominicontacto.conf
+      lineinfile: path=/etc/nginx/conf.d/ominicontacto.conf regexp="server_name" line="  server_name     {{ omni_fqdn }};" state=present
+      tags: postinstall
+
+    - name: Modify kamailio host in ominicontacto.conf
+      lineinfile: path=/etc/nginx/conf.d/ominicontacto.conf regexp="kamailio" line="    proxy_pass https://{{ omni_fqdn }}:14443;" state=present
+      tags: postinstall
+
+    # Starteo y habilito nginx
+    - name: Restart of nginx
+      service: name=nginx state=restarted enabled=yes daemon_reload=yes
+      tags: postinstall
