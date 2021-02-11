@@ -1,7 +1,7 @@
 stages:
   - build
 
-build:
+build-image:
   stage: build
   services:
     - name: docker:dind
@@ -10,10 +10,23 @@ build:
   variables:
     DOCKER_HOST: tcp://docker:2375/
     DOCKER_DRIVER: overlay2
-    # See https://github.com/docker-library/docker/pull/166
     DOCKER_TLS_CERTDIR: ""
+    INFRA: docker
   image: gitlab/dind
   script:
     - bash build_images.sh
   only:
     - web
+    - /.*release.*$/
+
+build-rpm:
+  stage: build
+  variables:
+    INFRA: onpremise
+    ENV: prodenv
+  image: freetechsolutions/fpm-ansible:centos7
+  script:
+    - bash build_rpm.sh
+  only:
+    - web
+    - /.*release.*$/

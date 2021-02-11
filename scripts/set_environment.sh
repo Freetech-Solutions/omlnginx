@@ -1,11 +1,11 @@
-#!/bin/sh
+#!/bin/bash
 if [ ! -d /etc/nginx/conf.d/environment ]; then
   echo "***[oml-nginx] Creating environment directory"
   mkdir -p /etc/nginx/conf.d/environment/
 fi
 
 echo "***[oml-nginx] Adding configuration of desired environment"
-if [ $DJANGO_SETTINGS_MODULE == "ominicontacto.settings.develop" ]; then
+if [ $ENV == "devenv" ]; then
   cat > /etc/nginx/conf.d/environment/devenv.conf <<EOF
 location / {
   proxy_set_header X-Real-IP \$remote_addr;
@@ -20,10 +20,15 @@ location / {
   proxy_send_timeout 600s;
 }
 EOF
-elif [ $DJANGO_SETTINGS_MODULE == "ominicontacto.settings.production" ]; then
-  cat <<EOF >> /etc/nginx/conf.d/environment/prodenv.conf
+elif [ $ENV == "prodenv" ]; then
+  if [ $INFRA == "docker" ]; then
+    UWSGI_PASS="  uwsgi_pass         app:8099;"
+  elif [ $INFRA == "onpremise" ]; then
+    UWSGI_PASS="  uwsgi_pass      unix:/opt/omnileads/run/oml_uwsgi.socket;"
+  fi
+  cat > /etc/nginx/conf.d/environment/prodenv.conf <<EOF
 location / {
-  uwsgi_pass         app:8099;
+  ${UWSGI_PASS}
   include         uwsgi_params;
   uwsgi_send_timeout 600s;
   uwsgi_read_timeout 600s;
