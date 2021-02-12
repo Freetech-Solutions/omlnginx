@@ -5,7 +5,7 @@
     packages_url: https://fts-public-packages.s3.amazonaws.com
     nginx_package: "{{ packages_url }}/nginx/nginx-omnileads-{{ nginx_version }}.x86_64.rpm"
     install_prefix: /opt/omnileads
-    
+
   tasks:
 
     # Se instala nginx
@@ -65,7 +65,7 @@
       tags: postinstall
 
     - name: Modify kamailio host in ominicontacto.conf
-      lineinfile: path=/etc/nginx/conf.d/ominicontacto.conf regexp="kamailio" line="    proxy_pass https://{{ omni_fqdn }}:14443;" state=present
+      lineinfile: path=/etc/nginx/conf.d/ominicontacto.conf regexp="kamailio" line="    proxy_pass https://{{ kamailio_host }}:14443;" state=present
       tags: postinstall
 
     # Starteo y habilito nginx

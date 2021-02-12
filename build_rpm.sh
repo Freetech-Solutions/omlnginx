@@ -1,15 +1,5 @@
 #!/bin/bash
-pwd
-if [[ $CI_COMMIT_REF_NAME == *"release"* ]]; then
-  BRANCH=$(echo $CI_COMMIT_REF_NAME|awk -F '-' '{print $2}')
-elif [ $CI_COMMIT_REF_NAME == "master" ]; then
-  BRANCH="master"
-elif [ $CI_COMMIT_REF_NAME == "develop" ]; then
-  BRANCH="develop"
-elif [[ $CI_COMMIT_REF_NAME == *"oml-"* ]]; then
-  BRANCH=$(echo $CI_COMMIT_REF_NAME|awk -F '-' '{print $2}')
-  BRANCH=$(echo ${BRANCH:0:2}.${BRANCH})
-fi
+PACKAGE_VERSION=$(cat .package_version)
 
 echo "Installing nginx"
 yum install -y nginx nginx-all-modules
@@ -19,7 +9,7 @@ echo "Running set_environment.sh script"
 ./scripts/set_environment.sh
 echo "Packing the rpm"
 cd /root/
-fpm -s dir -t rpm -n nginx -v ${BRANCH} -d openssl11-libs -d gd -d centos-logos -d gperftools-libs -d libXpm -f /etc/nginx/ \
+fpm -s dir -t rpm -n nginx -v ${PACKAGE_VERSION} -d openssl11-libs -d gd -d centos-logos -d gperftools-libs -d libXpm -f /etc/nginx/ \
   /etc/logrotate.d/nginx \
   /var/lib/nginx \
   /var/log/nginx \
@@ -33,4 +23,4 @@ fpm -s dir -t rpm -n nginx -v ${BRANCH} -d openssl11-libs -d gd -d centos-logos 
 
 echo "Uploading RPM to AWS repository"
 echo "Uploading rpm to s3 bucket"
-aws s3 cp nginx* s3://${AWS_BUCKET}/nginx/nginx-omnileads-${BRANCH}.x86_64.rpm
+aws s3 cp nginx* s3://${AWS_BUCKET}/nginx/nginx-omnileads-${PACKAGE_VERSION}.x86_64.rpm
