@@ -31,13 +31,12 @@ If you need to add environment variables and link folders to container, check do
 
 ### Build
 
-Nginx version: 1.16.1
+**Nginx version:** 1.16.1. This is the version installed by Centos7.
+**Package version:** We provide the package with all the files configured for using Nginx with OMniLeads. The version of the package is in `.package_version` file.
 
 Test the RPM build with these steps:
 
-1. Check variables for container builder in `scripts/.env_buildercontainer` file. The RPM version will be builded bases on what is in CI_COMMIT_REF_NAME variable. The values must be
-  * **release-X.X.X:** for a production RPM of nginx
-  * **oml-XXX-dev-bla:** for a develop RPM of nginx, where bla can be a descriptive name
+1. Check variables for container builder in `scripts/.env_buildercontainer` file.
 2. Run builder/builder_container.sh script
 3. Execute build_rpm.sh script
 

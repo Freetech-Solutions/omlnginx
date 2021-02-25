@@ -51,24 +51,7 @@
 
     # Se pasan los certificados creados en kamailio a la carpeta nginx_certs
     - name: Copy of the certificates in nginx
-      copy: "src={{ repo_location }}/ansible/deploy/certs/{{ item }} dest={{ install_prefix }}/nginx_certs"
-      with_items:
-        - cert.pem
-        - key.pem
+      copy: "src={{ repo_location }}/ansible/deploy/certs/   dest={{ install_prefix }}/nginx_certs"
 
-    - name: Modify user parameter in nginx.conf
-      lineinfile: path=/etc/nginx/nginx.conf regexp="^user" line="user {{ usuario }};" state=present
-      tags: postinstall
-
-    - name: Modify server name in ominicontacto.conf
-      lineinfile: path=/etc/nginx/conf.d/ominicontacto.conf regexp="server_name" line="  server_name     {{ omni_fqdn }};" state=present
-      tags: postinstall
-
-    - name: Modify kamailio host in ominicontacto.conf
-      lineinfile: path=/etc/nginx/conf.d/ominicontacto.conf regexp="kamailio" line="    proxy_pass https://{{ kamailio_host }}:14443;" state=present
-      tags: postinstall
-
-    # Starteo y habilito nginx
-    - name: Restart of nginx
-      service: name=nginx state=restarted enabled=yes daemon_reload=yes
-      tags: postinstall
+    - name: Reload nginx
+      systemd: name=nginx state=reloaded enabled=yes daemon_reload=yes
