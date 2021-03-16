@@ -14,7 +14,7 @@ echo "Adding the certificates"
 cp -a /builds/omnileads/omlnginx/certs/* /opt/omnileads/nginx_certs
 echo "Packing the rpm"
 cd /root/
-fpm -s dir -t rpm -n nginx -v ${PACKAGE_VERSION} -d openssl11-libs -d gd -d centos-logos -d gperftools-libs -d libXpm \
+fpm -s dir -t rpm -n nginx -v ${PACKAGE_VERSION} -d openssl11-libs -d gd -d centos-logos -d gperftools-libs -d libXpm -d libxslt \
   --after-install /builds/omnileads/omlnginx/scripts/after_install.sh \
   --after-remove /builds/omnileads/omlnginx/scripts/after_remove.sh \
   -f /etc/nginx/ \
