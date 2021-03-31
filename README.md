@@ -10,7 +10,8 @@ Base Image: nginx:1.19.0-alpine
 ### Build
 
 ```
-  docker build -t freetechsolutions/omlnginx:$TAG .
+  cd build/docker
+  docker build -f Dockerfile -t freetechsolutions/omlnginx:$TAG ../..
 ```
 Where $TAG is the docker tag you want for image.
 
@@ -37,9 +38,11 @@ If you need to add environment variables and link folders to container, check do
 Test the RPM build with these steps:
 
 1. Check variables for container builder in `scripts/.env_buildercontainer` file.
-2. Run builder/builder_container.sh script
-3. Execute build_rpm.sh script
+2. Cd into build/rpm
+3. Run builder_container.sh script
+4. Inside the container, cd again into build/rpm
+5. Execute build_rpm.sh script
 
 ### Deploy
 
-Nginx can't be in a server separate to Django + uWSGI, so the playbook in `ansible` directory is used for deploy nginx from ominicontacto playbook.
+Nginx can't be in a server separate to Django + uWSGI, so the playbook in `deploy` directory is used for deploy nginx from ominicontacto playbook.

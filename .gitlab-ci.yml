@@ -1,7 +1,7 @@
 stages:
   - build
 
-build-image:
+build-docker:
   stage: build
   services:
     - name: docker:dind
@@ -14,10 +14,11 @@ build-image:
     INFRA: docker
   image: gitlab/dind
   script:
-    - bash build_images.sh
+    - cd build/docker && bash build_images.sh
   only:
     - web
     - /.*release.*$/
+    - /.*master.*$/
 
 build-rpm:
   stage: build
@@ -26,7 +27,8 @@ build-rpm:
     ENV: prodenv
   image: freetechsolutions/fpm-ansible:centos7
   script:
-    - bash build_rpm.sh
+    - cd build/rpm && bash build_rpm.sh
   only:
     - web
     - /.*release.*$/
+    - /.*master.*$/
