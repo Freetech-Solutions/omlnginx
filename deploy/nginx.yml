@@ -9,7 +9,7 @@
   tasks:
 
     # Se instala nginx
-    - name: Removing existing nginx installtion
+    - name: Removing existing nginx installation
       yum: name={{ item }} state=absent update_cache=yes
       with_items:
         - nginx
@@ -51,7 +51,7 @@
 
     # Se pasan los certificados creados en kamailio a la carpeta nginx_certs
     - name: Copy of the certificates in nginx
-      copy: "src={{ repo_location }}/ansible/deploy/certs/   dest={{ install_prefix }}/nginx_certs"
+      copy: "src={{ repo_location }}/install/onpremise/deploy/ansible/certs/   dest={{ install_prefix }}/nginx_certs"
 
     - name: Reload nginx
       systemd: name=nginx state=reloaded enabled=yes daemon_reload=yes
