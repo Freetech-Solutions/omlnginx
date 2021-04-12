@@ -5,9 +5,11 @@ echo "Installing nginx"
 yum install -y nginx nginx-all-modules
 cd /builds/omnileads/omlnginx
 echo "Copying configuration folder to /etc/nginx/"
-cp -a source/conf/* /etc/nginx/
+mkdir -p /etc/nginx/conf.d
+cp -a source/conf/conf.d/ominicontacto.conf /etc/nginx/conf.d
+cp -a source/conf/mime.types source/conf/nginx.conf source/conf/uwsgi_params /etc/nginx
 echo "Running set_environment.sh script"
-./source/set_environment.sh
+INFRA=onpremise ENV=prodenv ./source/set_environment.sh
 if [ ! -d /opt/omnileads/nginx_certs ]; then
   mkdir -p /opt/omnileads/nginx_certs
 fi

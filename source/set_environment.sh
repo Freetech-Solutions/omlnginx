@@ -25,6 +25,7 @@ elif [ $ENV == "prodenv" ]; then
     UWSGI_PASS="  uwsgi_pass         app:8099;"
   elif [ $INFRA == "onpremise" ]; then
     UWSGI_PASS="  uwsgi_pass      unix:/opt/omnileads/run/oml_uwsgi.socket;"
+    sed -i "s/alias \/var\/spool\/asterisk\/monitor.*/alias \/opt\/omnileads\/asterisk\/var\/spool\/asterisk\/monitor;/g" /etc/nginx/conf.d/ominicontacto.conf
   fi
   cat > /etc/nginx/conf.d/environment/prodenv.conf <<EOF
 location / {
