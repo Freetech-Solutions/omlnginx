@@ -45,5 +45,11 @@ location / {
   proxy_connect_timeout 600s;
   proxy_send_timeout 600s;
 }
+
+location /static/ {
+  alias /opt/omnileads/static/;
+  autoindex on;
+  allow all;
+}
 EOF
 fi

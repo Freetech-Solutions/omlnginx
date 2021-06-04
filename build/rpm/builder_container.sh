@@ -15,6 +15,6 @@ docker pull freetechsolutions/fpm-ansible:latest
 printf "$GREEN** [OMniLeads] Run and exec the container $NC\n"
 docker run -it --rm --name nginx-fpm \
   --mount type=bind,source="$(pwd)"/../..,target=/builds/omnileads/omlnginx \
-  --env-file .env_buildercontainer \
+  --env-file .env \
   --network=host --workdir=/builds/omnileads/omlnginx \
   freetechsolutions/fpm-ansible:latest bash
