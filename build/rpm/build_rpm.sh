@@ -13,8 +13,7 @@ INFRA=onpremise ENV=prodenv ./source/set_environment.sh
 if [ ! -d /opt/omnileads/nginx_certs ]; then
   mkdir -p /opt/omnileads/nginx_certs
 fi
-echo "Adding the certificates"
-cp -a source/certs/* /opt/omnileads/nginx_certs
+
 echo "Packing the rpm"
 fpm -s dir -t rpm -n nginx -v ${PACKAGE_VERSION} -d openssl11-libs -d gd -d gperftools-libs -d libXpm -d libxslt \
   --before-install build/rpm/scripts/before_install.sh \
