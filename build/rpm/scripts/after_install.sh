@@ -9,6 +9,5 @@ sed -i "s/server_name.*/server_name     $(hostname);/" /etc/nginx/conf.d/ominico
 echo "Modify kamailio host in ominicontacto.conf"
 sed -i "s/kamailio/${KAMAILIO_HOSTNAME}/" /etc/nginx/conf.d/ominicontacto.conf
 chown -R omnileads. /opt/omnileads/nginx_certs
-echo "Restarting and enabling nginx"
+echo "Enabling nginx"
 systemctl enable nginx
-systemctl restart nginx
