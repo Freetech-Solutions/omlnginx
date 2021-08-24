@@ -10,7 +10,7 @@
 
     # Check if Nginx package {{ nginx_version }} is installed
     - name: Check if Nginx package {{ nginx_version }} is installed
-      shell: yum list installed | grep nginx | awk '{print $2}' | awk -F "-" '{print $1}'
+      shell: yum list installed | grep nginx-omnileads | awk '{print $2}' | awk -F "-" '{print $1}'
       register: nginx_installed
       changed_when: false
       tags: postinstall
