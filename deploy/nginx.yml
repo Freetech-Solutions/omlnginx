@@ -25,21 +25,6 @@
       when: nginx_installed.stdout == nginx_version
       tags: postinstall
 
-    # Solution to issue OML-213: Backup of certs, for re-setting after Nginx installation
-    - name: Backup of certs, for re-setting after Nginx installation
-      when: nginx_installed.stdout == "210603.174"
-      copy: src={{ item.src }} dest={{ item.dest }}
-      with_items:
-      - { src: "{{ certs_location }}/cert.pem", dest: "/tmp/nginx-cert.pem" }
-      - { src: "{{ certs_location }}/key.pem", dest: "/tmp/nginx-key.pem" }
-      tags: postinstall
-
-    # Solution to issue OML-213: Remove virtualenv package before Nginx installation
-    - name: Remove virtualenv package before Nginx installation
-      when: nginx_installed.stdout == "210603.174"
-      command: yum remove -y virtualenv
-      tags: postinstall
-
     # Delete previous Nginx package, before installing the latest one
     - name: Delete previous Nginx package, before installing the latest one
       yum: name=nginx state=absent
@@ -55,15 +40,6 @@
       register: s3_download
       until: s3_download is success
       when: nginx_installed.stdout != nginx_version
-
-    # Solution to issue OML-213: Re-setting backed up certs after Nginx installation
-    - name: Re-setting certs after Nginx installation
-      when: nginx_installed.stdout == "210603.174"
-      copy: src={{ item.src }} dest={{ item.dest }}
-      with_items:
-      - { src: "/tmp/nginx-cert.pem", dest: "{{ certs_location }}/cert.pem" }
-      - { src: "/tmp/nginx-key.pem", dest: "{{ certs_location }}/key.pem" }
-      tags: postinstall
 
     # Copy trusted key/cert pair in Nginx location, if these files don't exist already
     - name: Copy trusted key/cert pair in Nginx location
