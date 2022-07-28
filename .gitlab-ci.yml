@@ -17,6 +17,7 @@ build-docker:
     - cd build/docker && bash build_images.sh
   only:
     - web
+    - merge_requests
     - /.*release.*$/
     - /.*master.*$/
 
@@ -32,3 +33,4 @@ build-rpm:
     - web
     - /.*release.*$/
     - /.*master.*$/
+    - merge_requests
