@@ -14,7 +14,7 @@ location / {
   proxy_set_header X-Forwarded-Port \$server_port;
   proxy_set_header X-Forwarded-Proto \$scheme;
   proxy_set_header Referer 	     \$http_referer;
-  proxy_pass http://app:8099;
+  proxy_pass http://${APP}:8099;
   proxy_read_timeout 600s;
   proxy_connect_timeout 600s;
   proxy_send_timeout 600s;
@@ -27,7 +27,7 @@ location ~ ^/(channels) {
   proxy_set_header X-Forwarded-Port \$server_port;
   proxy_set_header X-Forwarded-Proto \$scheme;
   proxy_set_header Referer 	     \$http_referer;
-  proxy_pass http://app:8099;
+  proxy_pass http://${APP}:8099;
   proxy_read_timeout 600s;
   proxy_connect_timeout 600s;
   proxy_send_timeout 600s;
@@ -35,6 +35,20 @@ location ~ ^/(channels) {
   proxy_http_version 1.1;
   proxy_set_header Connection "upgrade";
   proxy_set_header Upgrade \$http_upgrade;
+}
+
+location ~*  \.(mp3|wav|gsm|mp4|pdf)$ {
+	proxy_set_header X-Real-IP \$remote_addr;
+	proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+	proxy_set_header X-Forwarded-Proto \$scheme;
+	proxy_set_header Host \$http_host;
+
+	proxy_connect_timeout 300;
+	# Default is HTTP/1, keepalive is only enabled in HTTP/1.1
+	proxy_http_version 1.1;
+	proxy_set_header Connection "";
+	chunked_transfer_encoding off;
+	proxy_pass http://minio:9000;   
 }
 EOF
 elif [ $ENV == "prodenv" ]; then
