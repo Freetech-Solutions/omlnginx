@@ -20,8 +20,8 @@
 - name: OMniLeads Nginx component deploy
   hosts: prodenv-aio
   vars:
-    img_repo: docker.io/omlnginx
-    nginx_version: develop
+    img_repo: docker.io/freetechsolutions/omlnginx
+    nginx_version: oml-podman
     network: omnileads
     install_prefix: /opt/omnileads
     certs_location: "{{ install_prefix }}/nginx_certs"
@@ -44,7 +44,7 @@
   - name: Copy nginx .env
     template:
       src: "{{ nginx_location }}templates/container-oml-nginx-server.env"
-      dest: /etc/container-oml-nginx-server.env
+      dest: /etc/container-oml-nginx.env
 
   - name: Copy nginx systemd service
     template:
@@ -58,10 +58,10 @@
     tags: postinstall
 
   - name: Copy trusted key/cert pair in Nginx location
-    copy: src={{ nginx_location }}certs/{{ item.src }} dest={{ item.dest }}
-    with_items:
-      - { src: "cert.pem", dest: "{{ certs_location }}/cert.pem" }
-      - { src: "key.pem", dest: "{{ certs_location }}/key.pem" }
+    copy: src={{ nginx_location }}certs/cert.pem dest={{ certs_location }}/cert.pem
+
+  - name: Copy trusted key/cert pair in Nginx location
+    copy: src={{ nginx_location }}certs/key.pem dest={{ certs_location }}/key.pem
 
   - name: Enable and start oml nginx service
     systemd:
