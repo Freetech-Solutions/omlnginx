@@ -1,71 +1,71 @@
-  # Copyright (C) 2018 Freetech Solutions
+# Copyright (C) 2018 Freetech Solutions
 
-  # This file is part of OMniLeads
+# This file is part of OMniLeads
 
-  # This program is free software: you can nginxtribute it and/or modify
-  # it under the terms of the GNU General Public License as published by
-  # the Free Software Foundation, either version 3 of the License, or
-  # (at your option) any later version.
+# This program is free software: you can nginxtribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
 
-  # This program is distributed in the hope that it will be useful,
-  # but WITHOUT ANY WARRANTY; without even the implied warranty of
-  # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  # GNU General Public License for more details.
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
 
-  # You should have received a copy of the GNU General Public License
-  # along with this program.  If not, see http://www.gnu.org/licenses/.
-  #
-  ---
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see http://www.gnu.org/licenses/.
+#
+---
 
-  - name: OMniLeads Nginx component deploy
-    hosts: prodenv-aio
-    vars:
-      img_repo: docker.io/omlnginx
-      nginx_version: develop
-      network: omnileads
-      install_prefix: /opt/omnileads
-      certs_location: "{{ install_prefix }}/nginx_certs"
+- name: OMniLeads Nginx component deploy
+  hosts: prodenv-aio
+  vars:
+    img_repo: docker.io/omlnginx
+    nginx_version: develop
+    network: omnileads
+    install_prefix: /opt/omnileads
+    certs_location: "{{ install_prefix }}/nginx_certs"
 
-    tasks:
+  tasks:
 
-    - name: Install Nginx OS packages
-      apt:
-        name:
-          - podman
-          - net-tools
-          - curl
-        state: present
-      when: nginx_out is defined
+  - name: Install Nginx OS packages
+    apt:
+      name:
+        - podman
+        - net-tools
+        - curl
+      state: present
+    when: nginx_out is defined
 
-    - name: Create Podman Networking
-      command: podman network create {{ network }}
-      when: nginx_out is defined
+  - name: Create Podman Networking
+    command: podman network create {{ network }}
+    when: nginx_out is defined
 
-    - name: Copy nginx .env
-      template:
-        src: templates/container-oml-nginx-server.env
-        dest: /etc/container-oml-nginx-server.env
+  - name: Copy nginx .env
+    template:
+      src: "{{ nginx_location }}templates/container-oml-nginx-server.env"
+      dest: /etc/container-oml-nginx-server.env
 
-    - name: Copy nginx systemd service
-      template:
-        src: templates/container-oml-nginx-server.service
-        dest: /etc/systemd/system/container-oml-nginx.service
+  - name: Copy nginx systemd service
+    template:
+      src: "{{ nginx_location }}templates/container-oml-nginx-server.service"
+      dest: /etc/systemd/system/container-oml-nginx.service
 
-    - name: Pull oml-nginx image
-      command: podman pull --quiet {{ img_repo }}:{{ nginx_version }}
-      register: podman_pull
-      until: podman_pull is success
-      tags: postinstall
+  - name: Pull oml-nginx image
+    command: podman pull --quiet {{ img_repo }}:{{ nginx_version }}
+    register: podman_pull
+    until: podman_pull is success
+    tags: postinstall
 
-    - name: Copy trusted key/cert pair in Nginx location
-      copy: src=certs/{{ item.src }} dest={{ item.dest }}
-      with_items:
-        - { src: "cert.pem", dest: "{{ certs_location }}/cert.pem" }
-        - { src: "key.pem", dest: "{{ certs_location }}/key.pem" }
+  - name: Copy trusted key/cert pair in Nginx location
+    copy: src={{ nginx_location }}certs/{{ item.src }} dest={{ item.dest }}
+    with_items:
+      - { src: "cert.pem", dest: "{{ certs_location }}/cert.pem" }
+      - { src: "key.pem", dest: "{{ certs_location }}/key.pem" }
 
-    - name: Enable and start oml nginx service
-      systemd:
-        name: container-oml-nginx.service
-        state: started
-        enabled: yes
-        daemon_reload: yes
+  - name: Enable and start oml nginx service
+    systemd:
+      name: container-oml-nginx.service
+      state: started
+      enabled: yes
+      daemon_reload: yes
