@@ -17,7 +17,7 @@
 #
 ---
 
-- name: OMniLeads Nginx component deploy
+- name: NGINX OMniLeads Nginx component deploy
   hosts: prodenv-aio
   vars:
     img_repo: docker.io/freetechsolutions/omlnginx
@@ -28,7 +28,7 @@
 
   tasks:
 
-  - name: Install Nginx OS packages
+  - name: NGINX Install Nginx OS packages
     apt:
       name:
         - podman
@@ -37,33 +37,33 @@
       state: present
     when: nginx_out is defined
 
-  - name: Create Podman Networking
+  - name: NGINX Create Podman Networking
     command: podman network create {{ network }}
     when: nginx_out is defined
 
-  - name: Copy nginx .env
+  - name: NGINX Copy nginx .env
     template:
       src: "{{ nginx_location }}templates/container-oml-nginx-server.env"
       dest: /etc/container-oml-nginx.env
 
-  - name: Copy nginx systemd service
+  - name: NGINX Copy nginx systemd service
     template:
       src: "{{ nginx_location }}templates/container-oml-nginx-server.service"
       dest: /etc/systemd/system/container-oml-nginx.service
 
-  - name: Pull oml-nginx image
+  - name: NGINX Pull oml-nginx image
     command: podman pull --quiet {{ img_repo }}:{{ nginx_version }}
     register: podman_pull
     until: podman_pull is success
     tags: postinstall
 
-  - name: Copy trusted key/cert pair in Nginx location
+  - name: NGINX Copy trusted key/cert pair in Nginx location
     copy: src={{ nginx_location }}certs/cert.pem dest={{ certs_location }}/cert.pem
 
-  - name: Copy trusted key/cert pair in Nginx location
+  - name: NGINX Copy trusted key/cert pair in Nginx location
     copy: src={{ nginx_location }}certs/key.pem dest={{ certs_location }}/key.pem
 
-  - name: Enable and start oml nginx service
+  - name: NGINX Enable and start oml nginx service
     systemd:
       name: container-oml-nginx.service
       state: started

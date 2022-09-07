@@ -1,11 +1,12 @@
 #!/bin/bash
+
 if [ ! -d /etc/nginx/conf.d/environment ]; then
   echo "***[oml-nginx] Creating environment directory"
   mkdir -p /etc/nginx/conf.d/environment/
 fi
 
 echo "***[oml-nginx] Adding configuration of desired environment"
-if [ $ENV == "devenv" ]; then
+if [ ${ENV} == "devenv" ]; then
   cat > /etc/nginx/conf.d/environment/devenv.conf <<EOF
 location / {
   proxy_set_header X-Real-IP \$remote_addr;
@@ -37,6 +38,36 @@ location ~ ^/(channels) {
   proxy_set_header Upgrade \$http_upgrade;
 }
 
+location ~* (ws) {
+  alias /opt/omnileads/static/ominicontacto/JS/socket.io.js;
+  proxy_pass https://kamailio:14443;
+  proxy_http_version 1.1;
+  proxy_set_header Upgrade \$http_upgrade;
+  proxy_set_header Connection "upgrade";
+  proxy_set_header X-Real-IP \$remote_addr;
+  proxy_set_header Host \$host;
+  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+  proxy_set_header   X-Forwarded-Proto \$scheme;
+  proxy_connect_timeout 7d;
+  proxy_send_timeout 7d;
+  proxy_read_timeout 7d;
+}
+
+location /consumers {
+  alias /opt/omnileads/static/ominicontacto/JS/socket.io.js;
+  proxy_pass http://websockets:8000;
+  proxy_http_version 1.1;
+  proxy_set_header Upgrade \$http_upgrade;
+  proxy_set_header Connection "upgrade";
+  proxy_set_header X-Real-IP \$remote_addr;
+  proxy_set_header Host \$host;
+  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+  proxy_set_header   X-Forwarded-Proto \$scheme;
+  proxy_connect_timeout 7d;
+  proxy_send_timeout 7d;
+  proxy_read_timeout 7d;
+}
+
 location ~*  \.(mp3|wav|gsm|mp4|pdf)$ {
 	proxy_set_header X-Real-IP \$remote_addr;
 	proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -51,18 +82,10 @@ location ~*  \.(mp3|wav|gsm|mp4|pdf)$ {
 	proxy_pass http://minio:9000;
 }
 EOF
-elif [ $ENV == "prodenv" ]; then
-  if [ $INFRA == "docker" ]; then
-    DAPHNE_URL="proxy_pass http://app:8098;"
-    UWSGI_PASS="  uwsgi_pass         app:8099;"
-  elif [ $INFRA == "onpremise" ]; then
-    DAPHNE_URL="proxy_pass http://unix:/opt/omnileads/run/oml_daphne.socket;"
-    UWSGI_PASS="  uwsgi_pass      127.0.0.1:8098;"
-    sed -i "s/alias \/var\/spool\/asterisk\/monitor.*/alias \/opt\/omnileads\/asterisk\/var\/spool\/asterisk\/monitor;/g" /etc/nginx/conf.d/ominicontacto.conf
-  fi
+else
   cat > /etc/nginx/conf.d/environment/prodenv.conf <<EOF
 location / {
-  ${UWSGI_PASS}
+  uwsgi_pass ${DJANGO_HOSTNAME}:8098;
   include         uwsgi_params;
   uwsgi_send_timeout 600s;
   uwsgi_read_timeout 600s;
@@ -79,8 +102,38 @@ location / {
   proxy_send_timeout 600s;
 }
 
+location ~* (ws) {
+  alias /opt/omnileads/static/ominicontacto/JS/socket.io.js;
+  proxy_pass https://${KAMAILIO_HOSTNAME}:14443;
+  proxy_http_version 1.1;
+  proxy_set_header Upgrade \$http_upgrade;
+  proxy_set_header Connection "upgrade";
+  proxy_set_header X-Real-IP \$remote_addr;
+  proxy_set_header Host \$host;
+  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+  proxy_set_header   X-Forwarded-Proto \$scheme;
+  proxy_connect_timeout 7d;
+  proxy_send_timeout 7d;
+  proxy_read_timeout 7d;
+}
+
+location /consumers {
+  alias /opt/omnileads/static/ominicontacto/JS/socket.io.js;
+  proxy_pass http://${WEBSOCKETS_HOSTNAME}:8000;
+  proxy_http_version 1.1;
+  proxy_set_header Upgrade \$http_upgrade;
+  proxy_set_header Connection "upgrade";
+  proxy_set_header X-Real-IP \$remote_addr;
+  proxy_set_header Host \$host;
+  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+  proxy_set_header   X-Forwarded-Proto \$scheme;
+  proxy_connect_timeout 7d;
+  proxy_send_timeout 7d;
+  proxy_read_timeout 7d;
+}
+
 location ~ ^/(channels) {
-  ${DAPHNE_URL}
+  proxy_pass  http://unix:/opt/omnileads/run/oml_daphne.socket;
   keepalive_timeout 600s;
   send_timeout      600s;
   proxy_set_header X-Real-IP \$remote_addr;
