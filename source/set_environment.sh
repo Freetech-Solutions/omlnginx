@@ -48,7 +48,7 @@ location ~*  \.(mp3|wav|gsm|mp4|pdf)$ {
 	proxy_http_version 1.1;
 	proxy_set_header Connection "";
 	chunked_transfer_encoding off;
-	proxy_pass http://minio:9000;   
+	proxy_pass http://minio:9000;
 }
 EOF
 elif [ $ENV == "prodenv" ]; then
@@ -57,7 +57,7 @@ elif [ $ENV == "prodenv" ]; then
     UWSGI_PASS="  uwsgi_pass         app:8099;"
   elif [ $INFRA == "onpremise" ]; then
     DAPHNE_URL="proxy_pass http://unix:/opt/omnileads/run/oml_daphne.socket;"
-    UWSGI_PASS="  uwsgi_pass      unix:/opt/omnileads/run/oml_uwsgi.socket;"
+    UWSGI_PASS="  uwsgi_pass      127.0.0.1:8098;"
     sed -i "s/alias \/var\/spool\/asterisk\/monitor.*/alias \/opt\/omnileads\/asterisk\/var\/spool\/asterisk\/monitor;/g" /etc/nginx/conf.d/ominicontacto.conf
   fi
   cat > /etc/nginx/conf.d/environment/prodenv.conf <<EOF

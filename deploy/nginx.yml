@@ -1,54 +1,71 @@
-- name: Nginx installation and configuration
-  hosts: prodenv-aio
-  vars:
-    install_prefix: /opt/omnileads
-    nginx_version: '{{ lookup("env","NGINX_VERSION") }}'
-    packages_url: https://fts-public-packages.s3.amazonaws.com
-    nginx_package: "{{ packages_url }}/nginx/nginx-omnileads-{{ nginx_version }}.x86_64.rpm"
-    certs_location: "{{ install_prefix }}/nginx_certs"
-  tasks:
+  # Copyright (C) 2018 Freetech Solutions
 
-    # Check if Nginx package {{ nginx_version }} is installed
-    - name: Check if Nginx package {{ nginx_version }} is installed
-      shell: yum list installed | grep "nginx\." | awk '{print $2}' | awk -F "-" '{print $1}'
-      register: nginx_installed
-      changed_when: false
+  # This file is part of OMniLeads
+
+  # This program is free software: you can nginxtribute it and/or modify
+  # it under the terms of the GNU General Public License as published by
+  # the Free Software Foundation, either version 3 of the License, or
+  # (at your option) any later version.
+
+  # This program is distributed in the hope that it will be useful,
+  # but WITHOUT ANY WARRANTY; without even the implied warranty of
+  # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  # GNU General Public License for more details.
+
+  # You should have received a copy of the GNU General Public License
+  # along with this program.  If not, see http://www.gnu.org/licenses/.
+  #
+  ---
+
+  - name: OMniLeads Nginx component deploy
+    hosts: prodenv-aio
+    vars:
+      img_repo: docker.io/omlnginx
+      nginx_version: develop
+      network: omnileads
+      install_prefix: /opt/omnileads
+      certs_location: "{{ install_prefix }}/nginx_certs"
+
+    tasks:
+
+    - name: Install Nginx OS packages
+      apt:
+        name:
+          - podman
+          - net-tools
+          - curl
+        state: present
+      when: nginx_out is defined
+
+    - name: Create Podman Networking
+      command: podman network create {{ network }}
+      when: nginx_out is defined
+
+    - name: Copy nginx .env
+      template:
+        src: templates/container-oml-nginx-server.env
+        dest: /etc/container-oml-nginx-server.env
+
+    - name: Copy nginx systemd service
+      template:
+        src: templates/container-oml-nginx-server.service
+        dest: /etc/systemd/system/container-oml-nginx.service
+
+    - name: Pull oml-nginx image
+      command: podman pull --quiet {{ img_repo }}:{{ nginx_version }}
+      register: podman_pull
+      until: podman_pull is success
       tags: postinstall
 
-    # Print message if Nginx package {{ nginx_version }} is not installed yet
-    - debug: msg="Nginx package {{ nginx_version }} is not installed. Proceeding with installation."
-      when: nginx_installed.stdout != nginx_version
-      tags: postinstall
-
-    # Print message if Nginx package {{ nginx_version }} is already installed
-    - debug: msg="Nginx package is already installed in version {{ nginx_version }}. Skipping installation steps."
-      when: nginx_installed.stdout == nginx_version
-      tags: postinstall
-
-    # Delete previous Nginx package, before installing the latest one
-    - name: Delete previous Nginx package, before installing the latest one
-      yum: name=nginx state=absent
-      tags: postinstall
-      when: nginx_installed.stdout != nginx_version
-
-    # Install Nginx package {{ nginx_version }}
-    - name: Install Nginx package {{ nginx_version }} (from s3 source)
-      yum: name={{ nginx_package }} state=latest update_cache=yes
-      tags: postinstall
-      retries: 3
-      delay: 3
-      register: s3_download
-      until: s3_download is success
-      when: nginx_installed.stdout != nginx_version
-
-    # Copy trusted key/cert pair in Nginx location, if these files don't exist already
     - name: Copy trusted key/cert pair in Nginx location
       copy: src=certs/{{ item.src }} dest={{ item.dest }}
       with_items:
-      - { src: "cert.pem", dest: "{{ certs_location }}/cert.pem" }
-      - { src: "key.pem", dest: "{{ certs_location }}/key.pem" }
+        - { src: "cert.pem", dest: "{{ certs_location }}/cert.pem" }
+        - { src: "key.pem", dest: "{{ certs_location }}/key.pem" }
 
-    # Nginx reload
-    - name: Reload nginx
-      systemd: name=nginx state=reloaded enabled=yes daemon_reload=yes
-      tags: always
+    - name: Enable and start oml nginx service
+      systemd:
+        name: container-oml-nginx.service
+        state: started
+        enabled: yes
+        daemon_reload: yes

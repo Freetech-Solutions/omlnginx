@@ -1,0 +1,32 @@
+[Unit]
+Description=Podman container-oml-nginx-server.service
+Documentation=man:podman-generate-systemd(1)
+Wants=network-online.target
+After=network-online.target
+RequiresMountsFor=%t/containers
+
+[Service]
+Environment=PODMAN_SYSTEMD_UNIT=%n
+Restart=on-failure
+TimeoutStopSec=70
+ExecStartPre=/bin/rm -f %t/%n.ctr-id
+ExecStart=/usr/bin/podman run \
+  --cidfile=%t/%n.ctr-id \
+  --cgroups=no-conmon \
+  --sdnotify=conmon \
+  --replace \
+  --detach \
+  --env-file=/etc/container-oml-nginx.env \
+  --name=oml-nginx-server \
+  --volume=/opt/omnileads/nginx_certs:/opt/omnileads/nginx_certs \
+  --network=omnileads \
+  --publish=443:443/tcp \
+  --rm  \
+  docker.io/freetechsolutions/omlnginx:develop
+ExecStop=/usr/bin/podman stop --ignore --cidfile=%t/%n.ctr-id
+ExecStopPost=/usr/bin/podman rm -f --ignore --cidfile=%t/%n.ctr-id
+Type=notify
+NotifyAccess=all
+
+[Install]
+WantedBy=default.target
