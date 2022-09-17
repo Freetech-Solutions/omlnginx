@@ -10,9 +10,6 @@ cp -a source/conf/conf.d/ominicontacto.conf /etc/nginx/conf.d
 cp -a source/conf/mime.types source/conf/nginx.conf source/conf/uwsgi_params /etc/nginx
 echo "Running set_environment.sh script"
 INFRA=onpremise ENV=prodenv ./source/set_environment.sh
-if [ ! -d /opt/omnileads/nginx_certs ]; then
-  mkdir -p /opt/omnileads/nginx_certs
-fi
 
 echo "Packing the rpm"
 fpm -s dir -t rpm -n nginx -v ${PACKAGE_VERSION} -d openssl11-libs -d gd -d gperftools-libs -d libXpm -d libxslt \
@@ -21,7 +18,6 @@ fpm -s dir -t rpm -n nginx -v ${PACKAGE_VERSION} -d openssl11-libs -d gd -d gper
   --after-remove build/rpm/scripts/after_remove.sh \
   -f /etc/nginx/ \
   /etc/logrotate.d/nginx \
-  /opt/omnileads/nginx_certs \
   /var/lib/nginx \
   /var/log/nginx \
   /usr/bin/nginx-upgrade \
