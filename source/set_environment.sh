@@ -133,14 +133,14 @@ location /consumers {
 }
 
 location ~ ^/(channels) {
-  proxy_pass  http://unix:/opt/omnileads/run/oml_daphne.socket;
-  keepalive_timeout 600s;
-  send_timeout      600s;
+  alias /opt/omnileads/static/ominicontacto/JS/socket.io.js;
+  proxy_pass http://${DJANGO_HOSTNAME}:8099;
   proxy_set_header X-Real-IP \$remote_addr;
+  proxy_set_header Host \$host;
   proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
   proxy_set_header X-Forwarded-Port \$server_port;
   proxy_set_header X-Forwarded-Proto \$scheme;
-  proxy_set_header Referer 	     \$http_referer;
+  proxy_set_header Referer  \$http_referer;
   proxy_read_timeout 600s;
   proxy_connect_timeout 600s;
   proxy_send_timeout 600s;
