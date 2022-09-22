@@ -2,6 +2,7 @@
 PACKAGE_VERSION=$(cat ../../.package_version)
 
 if [ "$PACKAGE_VERSION"  ]; then
+  docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
   docker build -f Dockerfile -t freetechsolutions/omlnginx:$PACKAGE_VERSION ../..
   docker push freetechsolutions/omlnginx:$PACKAGE_VERSION
 else
