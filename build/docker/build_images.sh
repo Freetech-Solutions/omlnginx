@@ -1,7 +1,7 @@
 #!/bin/bash
-PACKAGE_VERSION=$1
+PACKAGE_VERSION=$(cat ../../.package_version)
 
-if [ "$1"  ]; then
+if [ "$PACKAGE_VERSION"  ]; then
   docker build -f Dockerfile -t freetechsolutions/omlnginx:$PACKAGE_VERSION ../..
   docker push freetechsolutions/omlnginx:$PACKAGE_VERSION
 else
