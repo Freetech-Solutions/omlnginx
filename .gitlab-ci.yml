@@ -1,22 +1,29 @@
 stages:
   - build
+  - deploy
 
-build-docker:
-  stage: build
+container-image:
   services:
-    - name: docker:dind
-      entrypoint: ["env", "-u", "DOCKER_HOST"]
-      command: ["dockerd-entrypoint.sh"]
-  variables:
-    DOCKER_HOST: tcp://docker:2375/
-    DOCKER_DRIVER: overlay2
-    DOCKER_TLS_CERTDIR: ""
-    INFRA: docker
-  image: gitlab/dind
+    - docker:20.10.15-dind-alpine3.15
+  image: docker:20.10.15-alpine3.15
+  stage: build
+  before_script:
+    - apk add --no-cache docker-cli-buildx
   script:
-    - cd build/docker && bash build_images.sh
-  only:
-    - web
-    - merge_requests
-    - /.*release.*$/
-    - /.*master.*$/
+    - >-
+      docker buildx build
+      --file=build/Dockerfile
+      --tag=run
+      --target=run
+      .
+    - |-
+      if [ -n "${DOCKER_USER}" ] && [ -n "${DOCKER_PASSWORD}" ]; then
+        echo "${DOCKER_PASSWORD}" | docker login --username "${DOCKER_USER}" --password-stdin
+        docker tag run freetechsolutions/nginx:latest
+        docker tag run freetechsolutions/nginx:$CI_COMMIT_SHORT_SHA
+        docker push docker.io/freetechsolutions/nginx:latest
+        docker push docker.io/freetechsolutions/nginx:$CI_COMMIT_SHORT_SHA
+      fi
+  rules:
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "oml-dev-2.0"
+    - if: $CI_PIPELINE_SOURCE == "web"
