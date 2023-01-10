@@ -89,5 +89,11 @@ location /static/ {
   autoindex on;
   allow all;
 }
+
+location /grabaciones/ {
+  alias /opt/omnileads/asterisk/var/spool/asterisk/monitor/;
+  autoindex on;
+  allow all;
+}
 EOF
 fi
