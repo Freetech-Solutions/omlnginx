@@ -66,6 +66,12 @@ location /consumers {
   proxy_read_timeout 7d;
 }
 
+location /grabaciones {
+  alias /opt/omnileads/asterisk/var/spool/asterisk/monitor/;
+  autoindex on;
+  allow all;
+}
+
 location ~*  \.(mp3|wav|gsm|mp4|pdf)$ {
   proxy_set_header X-Real-IP \$remote_addr;
   proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -79,6 +85,7 @@ location ~*  \.(mp3|wav|gsm|mp4|pdf)$ {
   chunked_transfer_encoding off;
   proxy_pass ${S3_ENDPOINT};
 }
+
 EOF
 
 echo "***[oml-nginx] Adding configuration of desired environment"
@@ -90,10 +97,5 @@ location /static/ {
   allow all;
 }
 
-location /grabaciones/ {
-  alias /opt/omnileads/asterisk/var/spool/asterisk/monitor/;
-  autoindex on;
-  allow all;
-}
 EOF
 fi
