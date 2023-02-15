@@ -72,6 +72,10 @@ location /grabaciones {
   allow all;
 }
 
+EOF
+
+if [ ${CALLREC_DEVICE} != "s3-aws" ]; then
+  cat >> /etc/nginx/conf.d/environment/oml_env.conf <<EOF
 location ~*  \.(mp3|wav|gsm|mp4|pdf)$ {
   proxy_set_header X-Real-IP \$remote_addr;
   proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -87,6 +91,8 @@ location ~*  \.(mp3|wav|gsm|mp4|pdf)$ {
 }
 
 EOF
+fi
+
 
 echo "***[oml-nginx] Adding configuration of desired environment"
 if [ ${ENV} == "prodenv" ]; then
