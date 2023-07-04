@@ -2,28 +2,20 @@
 
 This repository has the code of NGINX component, configuration used for OMniLeads
 
-## Docker image
+## Build
 
-Nginx Version: 1.23.2
-Base Image: nginx:1.23.2-alpine
-
-### Build
+To build an image:
 
 ```
-docker buildx build --file=build/Dockerfile --tag=run --target=run
-docker tag run freetechsolutions/nginx:$TAG
-```
-Where $TAG is the docker tag you want for image.
-
-### Run container
-
-```
-  docker run -it freetechsolutions/nginx:latest bash
+docker buildx build --file=Dockerfile --tag=$TAG --target=run .
 ```
 
-If you need to add environment variables and link folders to container, check docker run documentation: https://docs.docker.com/engine/reference/commandline/run/
+Where $TAG is the docker tag you want for image. You can check the version.txt file for the tag.
 
-**Environment variables needed:**
-```
-  ENV //two values accepted: develop or production
-```
+## Deploy
+
+[OMniLeads Deploy Tool](https://gitlab.com/omnileads/omldeploytool)
+
+## License
+
+GPLV3
