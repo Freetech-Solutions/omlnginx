@@ -1,16 +1,13 @@
 # Release Notes
-[230215.01]
+2023-11-25
 
 ## Added
 
-* Object Storage Bucket proxy_pass
+* oml-414 [BUILD] In the build stage, it's possible to discern between registry containers based on the branch type.
 
 ## Changed
 
-* Container runable
-
 ## Fixed
-
 
 ## Removed
 
