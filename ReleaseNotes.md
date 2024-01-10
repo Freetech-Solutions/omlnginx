@@ -3,7 +3,7 @@
 
 ## Added
 
-* oml-414 [BUILD] In the build stage, it's possible to discern between registry containers based on the branch type.
+* oml-455 [BUILD] The port numbers of each service to which Nginx redirects requests can be passed as environment variables.
 
 ## Changed
 
