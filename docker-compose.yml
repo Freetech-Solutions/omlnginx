@@ -1,0 +1,18 @@
+services:
+  api:
+    build:
+      target: builder
+      context: interface
+    container_name: omnidialer-api
+    volumes:
+      - .:/opt/omnidialer
+    ports:
+      - '1440:1440'
+    networks:
+      - network1
+    stop_signal: SIGINT
+
+networks:
+  network1:
+    name: devenv_omnileads
+    external: true
