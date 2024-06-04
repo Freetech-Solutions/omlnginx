@@ -5,7 +5,7 @@ services:
       context: interface
     container_name: omnidialer-api
     volumes:
-      - .:/opt/omnidialer
+      - ./interface:/app
     ports:
       - '1440:1440'
     networks:
