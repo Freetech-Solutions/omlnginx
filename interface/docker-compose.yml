@@ -2,10 +2,10 @@ services:
   api:
     build:
       target: builder
-      context: interface
+      context: src
     container_name: omnidialer-api
     volumes:
-      - ./interface:/app
+      - ./src:/app
     ports:
       - '1440:1440'
     networks:
