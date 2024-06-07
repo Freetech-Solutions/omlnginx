@@ -1,8 +1,18 @@
 from flask import Flask
+
+import gearman.client
+
+
 app = Flask(__name__)
+
+
+app.config.from_object('settings.default')
+
 
 @app.route('/')
 def hello():
+    gm_client = gearman.GearmanClient(app.config['GEARMAN_JOB_SERVERS'])
+    gm_client.submit_job("task_name", "arbitrary binary data")
     return "Hello World!"
 
 
