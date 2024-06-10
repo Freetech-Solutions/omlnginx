@@ -9,13 +9,6 @@ app = Flask(__name__)
 app.config.from_object('settings.default')
 
 
-@app.route('/')
-def hello():
-    gm_client = gearman.GearmanClient(app.config['GEARMAN_JOB_SERVERS'])
-    job_request = gm_client.submit_job('reverse', 'arbitrary binary data')
-    return job_request.result
-
-
 @app.route('/create-campaign')
 def create_campaign():
     gm_client = gearman.GearmanClient(app.config['GEARMAN_JOB_SERVERS'])
