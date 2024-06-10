@@ -25,22 +25,30 @@ def create_campaign():
 
 @app.route('/stop-campaign')
 def stop_campaign():
-    return 'Stopping campaign ...'
+    gm_client = gearman.GearmanClient(app.config['GEARMAN_JOB_SERVERS'])
+    job_request = gm_client.submit_job('stop-campaign', 'campaign-id')
+    return job_request.result
 
 
 @app.route('/pause-campaign')
 def pause_campaign():
-    return 'Pausing campaign ...'
+    gm_client = gearman.GearmanClient(app.config['GEARMAN_JOB_SERVERS'])
+    job_request = gm_client.submit_job('pause-campaign', 'campaign-id')
+    return job_request.result
 
 
 @app.route('/resume-campaign')
 def resume_campaign():
-    return 'Resuming campaign ...'
+    gm_client = gearman.GearmanClient(app.config['GEARMAN_JOB_SERVERS'])
+    job_request = gm_client.submit_job('resume-campaign', 'campaign-id')
+    return job_request.result
 
 
 @app.route('/delete-campaign')
 def delete_campaign():
-    return 'Removing campaign ...'
+    gm_client = gearman.GearmanClient(app.config['GEARMAN_JOB_SERVERS'])
+    job_request = gm_client.submit_job('delete-campaign', 'campaign-id')
+    return job_request.result
 
 
 if __name__ == '__main__':
