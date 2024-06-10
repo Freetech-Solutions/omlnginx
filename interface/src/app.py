@@ -15,6 +15,12 @@ def create_campaign():
     job_request = gm_client.submit_job('create-campaign', 'campaign-id')
     return job_request.result
 
+@app.route('/start-campaign')
+def start_campaign():
+    gm_client = gearman.GearmanClient(app.config['GEARMAN_JOB_SERVERS'])
+    job_request = gm_client.submit_job('start-campaign', 'campaign-id')
+    return job_request.result
+
 
 @app.route('/stop-campaign')
 def stop_campaign():
