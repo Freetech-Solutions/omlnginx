@@ -12,8 +12,8 @@ app.config.from_object('settings.default')
 @app.route('/')
 def hello():
     gm_client = gearman.GearmanClient(app.config['GEARMAN_JOB_SERVERS'])
-    gm_client.submit_job('reverse', 'arbitrary binary data')
-    return 'Hello World!'
+    job_request = gm_client.submit_job('reverse', 'arbitrary binary data')
+    return job_request.result
 
 
 @app.route('/create-campaign')
