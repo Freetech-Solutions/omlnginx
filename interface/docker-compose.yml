@@ -20,6 +20,16 @@ services:
     networks:
       - network1
 
+  worker:
+    container_name: handle_campaign_worker
+    build:
+      target: builder
+      context: src
+    volumes:
+      - ../workers/handle-campaign/src:/app
+    networks:
+      - network1
+
 networks:
   network1:
     name: devenv_omnileads
