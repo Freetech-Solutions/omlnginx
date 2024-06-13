@@ -12,6 +12,14 @@ services:
       - network1
     stop_signal: SIGINT
 
+  job_server:
+    image: artefactual/gearmand:1.1.19.1-alpine
+    container_name: gearman_job_server_1
+    ports:
+      - '4730:4730'
+    networks:
+      - network1
+
 networks:
   network1:
     name: devenv_omnileads
