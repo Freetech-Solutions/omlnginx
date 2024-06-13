@@ -2,10 +2,10 @@ services:
   api:
     build:
       target: builder
-      context: src
+      context: ./interface/src
     container_name: omnidialer-api
     volumes:
-      - ./src:/app
+      - ./interface/src:/app
     ports:
       - '1440:1440'
     networks:
@@ -24,9 +24,9 @@ services:
     container_name: handle_campaign_worker
     build:
       target: builder
-      context: src
+      context: ./workers/handle-campaign/src
     volumes:
-      - ../workers/handle-campaign/src:/app
+      - ./workers/handle-campaign/src:/app
     networks:
       - network1
 
