@@ -18,4 +18,4 @@ docker run --rm -itd --network=devenv_omnileads --name=handle_campaign_2 handle_
 
 Troubleshooting:
 
-- artefactual/gearmand:1.1.19.1-alpine does not run in Mac M1, but you can build the image from their repository manually and use it directly (https://github.com/artefactual-labs/docker-gearmand)
+- If artefactual/gearmand:1.1.19.1-alpine does not run in Mac M1, but you can build the image from their repository manually and use it directly (https://github.com/artefactual-labs/docker-gearmand)
