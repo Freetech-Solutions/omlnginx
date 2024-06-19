@@ -2,7 +2,10 @@
 
 from flask import Flask
 
-from dialer.voip import VoipDialer
+from dialer.multichannel import MultiChannelDialer
+
+
+from settings.default import GEARMAN_JOB_SERVERS
 
 
 app = Flask(__name__)
@@ -15,7 +18,7 @@ app.config.from_object('settings.default')
 
 @app.route('/create-campaign/<id_campaign>')
 def create_campaign(id_campaign):
-    return VoipDialer.create_campaign(id_campaign)
+    return MultiChannelDialer.create_campaign(id_campaign)
 
 
 @app.route('/start-campaign')
