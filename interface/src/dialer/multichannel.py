@@ -33,4 +33,21 @@ class MultiChannelDialer(Dialer):
 
     @classmethod
     def attempt_contact(cls, contact, id_campaign):
+        contact_type_order = cls.get_contact_type_order(id_campaign)
+        channel = cls.get_channel_to_contact(contact_type_order, contact)
+        return cls.attempt_contact_channel(contact, channel)
+
+
+    @classmethod
+    def get_contact_type_order(cls, id_campaign):
+        pass
+
+
+    @classmethod
+    def get_channel_to_contact(cls, contact_type_order, contact):
+        pass
+
+
+    @classmethod
+    def attempt_contact_channel(cls, contact, channel):
         pass
