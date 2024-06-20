@@ -30,7 +30,27 @@ services:
     networks:
       - network1
 
+  redis:
+    container_name: omnidialer-redis
+    dns: 8.8.8.8
+    environment:
+      - TZ=${TZ}
+      - BIND_IP=0.0.0.0
+    networks:
+      - network1
+    ports:
+      - 16380:6380
+    image: redis:7.2.5-alpine
+    privileged: true
+    restart: on-failure
+    stop_grace_period: 1m30s
+    volumes:
+      - redis_omnidialer:/data
+
 networks:
   network1:
     name: devenv_omnileads
     external: true
+
+volumes:
+  redis_omnidialer:
