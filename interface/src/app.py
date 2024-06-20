@@ -46,6 +46,5 @@ def delete_campaign():
     return MultiChannelDialer.delete_campaign(id_campaign)
 
 
-
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=1440, debug=True)
