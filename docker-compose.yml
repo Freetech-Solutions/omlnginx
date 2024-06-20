@@ -43,13 +43,16 @@ services:
     networks:
       - network1
     ports:
-      - 16380:6380
+      - '6380:6380'
+    expose:
+      - '6380'
     image: redis:7.2.5-alpine
     privileged: true
     restart: on-failure
     stop_grace_period: 1m30s
     volumes:
       - redis_omnidialer:/data
+    command: redis-server --port 6380
 
 networks:
   network1:
