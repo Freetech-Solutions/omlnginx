@@ -36,6 +36,11 @@ class MultiChannelDialer(Dialer):
         job_request = cls.GM_CLIENT.submit_job('edit-campaign', id_campaign)
         return job_request.result
 
+    @classmethod
+    def start_campaign(cls, id_campaign):
+        job_request = cls.GM_CLIENT.submit_job('start-campaign', id_campaign)
+        return job_request.result
+
 
     @classmethod
     def attempt_contact(cls, contact, id_campaign):

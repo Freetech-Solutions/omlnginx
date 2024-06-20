@@ -24,3 +24,9 @@ class VoipDialer(Dialer):
     def edit_campaign(cls, id_campaign, contact_strategy):
         job_request = cls.GM_CLIENT.submit_job('edit-campaign', id_campaign)
         return job_request.result
+
+
+    @classmethod
+    def start_campaign(cls, id_campaign):
+        job_request = cls.GM_CLIENT.submit_job('start-campaign', id_campaign)
+        return job_request.result
