@@ -38,7 +38,12 @@ class Dialer:
 
 
     @classmethod
-    def create_campaign(cls, id_campaign):
+    def create_campaign(cls, id_campaign, contact_strategy):
+        pass
+
+
+    @classmethod
+    def edit_campaign(cls, id_campaign, contact_strategy):
         pass
 
 

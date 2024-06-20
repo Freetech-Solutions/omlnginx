@@ -15,6 +15,12 @@ class VoipDialer(Dialer):
     gm_client = gearman.GearmanClient(GEARMAN_JOB_SERVERS)
 
     @classmethod
-    def create_campaign(cls, id_campaign):
+    def create_campaign(cls, id_campaign, contact_strategy):
         job_request = cls.gm_client.submit_job('create-campaign', id_campaign)
+        return job_request.result
+
+
+    @classmethod
+    def edit_campaign(cls, id_campaign, contact_strategy):
+        job_request = cls.GM_CLIENT.submit_job('edit-campaign', id_campaign)
         return job_request.result

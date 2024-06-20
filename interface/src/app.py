@@ -18,7 +18,14 @@ app.config.from_object('settings.default')
 
 @app.route('/create-campaign/<id_campaign>', methods = ['POST'])
 def create_campaign(id_campaign):
-    return MultiChannelDialer.create_campaign(id_campaign)
+    strategy = request.get_json().get('contact-strategy', [])
+    return MultiChannelDialer.create_campaign(id_campaign, strategy)
+
+
+@app.route('/edit-campaign/<id_campaign>', methods = ['POST'])
+def edit_campaign(id_campaign):
+    strategy = request.get_json().get('contact-strategy', [])
+    return MultiChannelDialer.edit_campaign(id_campaign, strategy)
 
 
 @app.route('/start-campaign/<id_campaign>', methods = ['POST'])
