@@ -2,7 +2,7 @@
 
 from flask import Flask, request
 
-from dialer.multichannel import MultiChannelDialer
+from dialer.multichannel import GearmanDialer
 
 
 from settings.default import GEARMAN_JOB_SERVERS
@@ -14,7 +14,7 @@ app = Flask(__name__)
 app.config.from_object('settings.default')
 
 
-DIALER = MultiChannelDialer
+DIALER = GearmanDialer
 
 # TODO: pass a parameter called 'type' for dispatch to
 # the class linked to that kind of a campaing (voip, email, Whatsapp, Telegram, SMS, etc)

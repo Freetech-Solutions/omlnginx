@@ -10,8 +10,8 @@ from .basic import Dialer
 from settings.default import GEARMAN_JOB_SERVERS
 
 
-class MultiChannelDialer(Dialer):
-    """A dialer design to make multi-channel contacts"""
+class GearmanDialer(Dialer):
+    """A dialer design to make multi-channel contacts using Gearman for horizontal scalability"""
 
 
     GM_CLIENT = gearman.GearmanClient(GEARMAN_JOB_SERVERS)
