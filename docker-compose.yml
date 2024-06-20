@@ -11,6 +11,8 @@ services:
     networks:
       - network1
     stop_signal: SIGINT
+    tty: true
+    stdin_open: true
 
   job_server:
     image: artefactual/gearmand:1.1.19.1-alpine
@@ -29,6 +31,8 @@ services:
       - ./workers/handle-campaign/src:/app
     networks:
       - network1
+    tty: true
+    stdin_open: true
 
   redis:
     container_name: omnidialer-redis
