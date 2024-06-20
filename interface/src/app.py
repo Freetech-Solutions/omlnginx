@@ -13,6 +13,7 @@ app = Flask(__name__)
 
 app.config.from_object('settings.default')
 
+
 DIALER = MultiChannelDialer
 
 # TODO: pass a parameter called 'type' for dispatch to
