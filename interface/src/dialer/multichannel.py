@@ -4,6 +4,9 @@
 import gearman.client
 
 
+import json
+
+
 from .basic import Dialer
 
 
@@ -18,8 +21,19 @@ class GearmanDialer(Dialer):
 
 
     @classmethod
+    def encode_payload(cls, data):
+         return bytes(json.dumps(data), encoding="UTF8")
+
+    @classmethod
     def create_campaign(cls, id_campaign, contact_strategy):
-        job_request = cls.GM_CLIENT.submit_job('create-campaign', id_campaign)
+        payload = {
+            'id_campaign': id_campaign,
+            'contact_strategy': contact_strategy
+        }
+        payload_bytes = cls.encode_payload(payload)
+        job_request = cls.GM_CLIENT.submit_job(
+            'create-campaign',
+            payload_bytes)
         return job_request.result
 
 

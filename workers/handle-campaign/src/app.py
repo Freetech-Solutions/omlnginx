@@ -1,10 +1,14 @@
 from settings.default import GEARMAN_JOB_SERVERS
 
+from handler.basic import DialerWorker
+
 import gearman
+
+WORKER = DialerWorker
 
 gm_worker = gearman.GearmanWorker(GEARMAN_JOB_SERVERS)
 
-gm_worker.register_task(b'create-campaign', lambda gearman_worker, gearman_job: b'Campaign created!')
+gm_worker.register_task(b'create-campaign', lambda gearman_worker, gearman_job: DialerWorker.create_campaign(gearman_job))
 gm_worker.register_task(b'start-campaign', lambda gearman_worker, gearman_job: b'Campaign started!')
 gm_worker.register_task(b'edit-campaign', lambda gearman_worker, gearman_job: b'Campaign modified!')
 gm_worker.register_task(b'stop-campaign', lambda gearman_worker, gearman_job: b'Campaign stopped!')
