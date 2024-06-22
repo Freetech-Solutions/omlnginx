@@ -32,18 +32,13 @@ class DummyWorker(DialerWorker):
     @classmethod
     def campaign_is_active(cls, id_campaign):
         if cls.CAMPAIGN_ACTIVE_COUNTER < cls.CAMPAIGN_ACTIVE_MAX_ITERATIONS:
-            cls.CAMPAIGN_ACTIVE_MAX_ITERATIONS += 1
+            cls.CAMPAIGN_ACTIVE_COUNTER += 1
             return True
         return False
 
 
     @classmethod
     def attempt_contact(cls, contact):
-        pass
-
-
-    @classmethod
-    def campaign_is_active(cls, id_campaign):
         pass
 
 
