@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from time import sleep
 
 from .basic import DialerWorker
 
@@ -54,4 +55,5 @@ class DummyWorker(DialerWorker):
 
     @classmethod
     def attempt_contact(cls, contact, id_campaign):
+        sleep(1)                # just for distinguish the background job
         print('Calling contact {0} in campaign {1}'.format(contact, id_campaign))

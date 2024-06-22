@@ -44,5 +44,5 @@ class GearmanDialer(Dialer):
 
     @classmethod
     def start_campaign(cls, id_campaign):
-        job_request = cls.GM_CLIENT.submit_job('start-campaign', id_campaign)
-        return job_request.result
+        job_request = cls.GM_CLIENT.submit_job('start-campaign', id_campaign, background=True)
+        return b'Campaign started!'
