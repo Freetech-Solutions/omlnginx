@@ -32,27 +32,27 @@ def edit_campaign(id_campaign):
 
 
 @app.route('/start-campaign/<id_campaign>', methods = ['POST'])
-def start_campaign():
+def start_campaign(id_campaign):
     return DIALER.start_campaign(id_campaign)
 
 
 @app.route('/stop-campaign/<id_campaign>', methods = ['POST'])
-def stop_campaign():
+def stop_campaign(id_campaign):
     return DIALER.stop_campaign(id_campaign)
 
 
 @app.route('/pause-campaign/<id_campaign>', methods = ['POST'])
-def pause_campaign():
+def pause_campaign(id_campaign):
     return DIALER.pause_campaign(id_campaign)
 
 
 @app.route('/resume-campaign/<id_campaign>', methods = ['POST'])
-def resume_campaign():
+def resume_campaign(id_campaign):
     return DIALER.resume_campaign(id_campaign)
 
 
 @app.route('/delete-campaign/<id_campaign>', methods = ['POST'])
-def delete_campaign():
+def delete_campaign(id_campaign):
     return DIALER.delete_campaign(id_campaign)
 
 

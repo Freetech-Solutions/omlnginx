@@ -15,38 +15,36 @@ class DialerWorker:
 
     @classmethod
     def create_campaign(cls, job):
-        data = cls.decode_payload(job.data)
-        response = 'Campaign {id_campaign} with strategy {contact_strategy} created!!!'.format(**data)
-        return bytes(response, encoding="UTF8")
-
-
-    @classmethod
-    def edit_campaign(cls, id_campaign, contact_strategy):
         pass
 
 
     @classmethod
-    def start_campaign(cls, id_campaign):
+    def edit_campaign(cls, job):
         pass
 
 
     @classmethod
-    def stop_campaign(cls, id_campaign):
+    def start_campaign(cls, job):
         pass
 
 
     @classmethod
-    def pause_campaign(cls, id_campaign):
+    def stop_campaign(cls, job):
         pass
 
 
     @classmethod
-    def resume_campaign(cls, id_campaign):
+    def pause_campaign(cls, job):
         pass
 
 
     @classmethod
-    def delete_campaign(cls, id_campaign):
+    def resume_campaign(cls, job):
+        pass
+
+
+    @classmethod
+    def delete_campaign(cls, job):
         pass
 
 
