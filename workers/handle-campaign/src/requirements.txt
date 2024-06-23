@@ -1,2 +1,3 @@
 gearman3
 redis
+requests

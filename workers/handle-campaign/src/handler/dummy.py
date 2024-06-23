@@ -15,13 +15,17 @@ import sys
 import os
 
 
-ASTERISK_USER = os.getenv('ARI_USER', 'default_user')
-ASTERISK_PASS = os.getenv('ARI_PASS', 'default_pass')
-ASTERISK_HOST = os.getenv('ARI_HOST', 'asterisk')
-ASTERISK_PORT = os.getenv('ARI_PORT', '7088')
-ASTERISK_APP = os.getenv('ASTERISK_APP', 'call_manager')
-ARI_BASE_URL = f'http://{ASTERISK_HOST}:{ASTERISK_PORT}/ari'
+ASTERISK_USER = os.getenv('ASTERISK_USER', 'default_user')
 
+ASTERISK_PASS = os.getenv('ASTERISK_PASS', 'default_pass')
+
+ASTERISK_HOST = os.getenv('ASTERISK_HOST', 'asterisk')
+
+ASTERISK_PORT = os.getenv('ASTERISK_PORT', '7088')
+
+ASTERISK_APP = os.getenv('ASTERISK_APP', 'call_manager')
+
+ARI_BASE_URL = f'http://{ASTERISK_HOST}:{ASTERISK_PORT}/ari'
 
 
 class DummyWorker(DialerWorker):
@@ -53,6 +57,7 @@ class DummyWorker(DialerWorker):
         if cls.CAMPAIGN_ACTIVE_COUNTER < cls.CAMPAIGN_ACTIVE_MAX_ITERATIONS:
             cls.CAMPAIGN_ACTIVE_COUNTER += 1
             return True
+        cls.CAMPAIGN_ACTIVE_COUNTER = 0
         return False
 
 
@@ -73,7 +78,7 @@ class DummyWorker(DialerWorker):
 
     @classmethod
     def attempt_contact(cls, contact, id_campaign):
-        sleep(1)                # just for distinguish the background job
+        print('Calling contact {0} in campaign {1}'.format(contact, id_campaign))
 
         phone_number = contact
         id_customer = 7777777
@@ -83,20 +88,20 @@ class DummyWorker(DialerWorker):
 
 
         call_data = {
-            'endpoint': f'PJSIP/{tel_number}@TroncalSIP0',
+            'endpoint': f'PJSIP/{phone_number}@TroncalSIP0',
             'callerId': '01177660010',
             'timout': 15,
             'app': ASTERISK_APP,
-            'appArgs': f'id_camp: {id_campaign}, id_customer: {id_customer}, tel_customer: {tel_number}, queue_timeout: {queue_timeout}, channel_type: {channel_type}'
+            'appArgs': f'id_camp: {id_campaign}, id_customer: {id_customer}, tel_customer: {phone_number}, queue_timeout: {queue_timeout}, channel_type: {channel_type}'
         }
-
-        # Realiza la solicitud para crear un nuevo canal (originate)
-        response = requests.post(
-            f'{ari_base_url}/channels',
-            auth=(ASTERISK_USER, ASTERISK_PASS),
-            headers={'Content-Type': 'application/json'},
-            data=json.dumps(call_data)
-        )
-
-
-        print('Calling contact {0} in campaign {1}'.format(contact, id_campaign))
+        try:
+            response = requests.post(
+                f'{ARI_BASE_URL}/channels',
+                auth=(ASTERISK_USER, ASTERISK_PASS),
+                headers={'Content-Type': 'application/json'},
+                data=json.dumps(call_data)
+            )
+        except Exception as e:
+            print(e)
+        else:
+            print(response)
