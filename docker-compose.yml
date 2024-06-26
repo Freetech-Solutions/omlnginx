@@ -13,6 +13,9 @@ services:
     stop_signal: SIGINT
     tty: true
     stdin_open: true
+    depends_on:
+      - job_server
+      - redis
 
   job_server:
     image: artefactual/gearmand:1.1.19.1-alpine
@@ -40,6 +43,9 @@ services:
       - ASTERISK_PASS=${ASTERISK_PASS}
       - ASTERISK_APP=${ASTERISK_APP}
       - TZ=${TZ}
+    depends_on:
+      - job_server
+      - redis
 
   redis:
     container_name: omnidialer-redis
