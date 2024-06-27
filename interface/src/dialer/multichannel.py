@@ -24,6 +24,14 @@ class GearmanDialer(Dialer):
     def encode_payload(cls, data):
          return bytes(json.dumps(data), encoding="UTF8")
 
+
+    @classmethod
+    def decode_payload(cls, data, plain_str=True):
+        data_str = json.dumps(data)
+        if plain_str:
+            return data_str
+        return bytes(data_str, encoding="UTF8")
+
     @classmethod
     def create_campaign(cls, id_campaign, contact_strategy):
         payload = {
@@ -34,15 +42,16 @@ class GearmanDialer(Dialer):
         job_request = cls.GM_CLIENT.submit_job(
             'create-campaign',
             payload_bytes)
-        return job_request.result
+        return cls.decode_payload(job_request.result)
 
 
     @classmethod
     def edit_campaign(cls, id_campaign, contact_strategy):
         job_request = cls.GM_CLIENT.submit_job('edit-campaign', id_campaign)
-        return job_request.result
+        return cls.decode_payload(job_request.result)
 
     @classmethod
     def start_campaign(cls, id_campaign):
         job_request = cls.GM_CLIENT.submit_job('start-campaign', id_campaign, background=True)
-        return b'Campaign started!'
+
+        return json.dumps({'msg': 'Campaign process started'})
