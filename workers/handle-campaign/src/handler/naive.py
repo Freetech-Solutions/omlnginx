@@ -1,18 +1,16 @@
 # -*- coding: utf-8 -*-
 
-from time import sleep
-
 from .basic import DialerWorker
 
 from random import randrange
 
 import requests
-
 import json
-
 import sys
-
 import os
+import redis
+
+from settings.default import REDIS_DIALER_PORT, REDIS_DIALER_SERVER
 
 
 ASTERISK_USER = os.getenv('ASTERISK_USER', 'default_user')
@@ -32,10 +30,24 @@ class NaiveWorker(DialerWorker):
     """A worker flow with a simple strategy, call contacts according to the available agents, 1 call for for each agent"""
 
 
+    REDIS_DIALER_CONNECTION = redis.Redis(host=REDIS_DIALER_SERVER, port=REDIS_DIALER_PORT, decode_responses=True)
+
+
     @classmethod
     def create_campaign(cls, job):
         data = cls.decode_payload(job.data)
-        response = 'Campaign {id_campaign} with strategy {contact_strategy} created!!!'.format(**data)
+
+        id_campaign = data['id_campaign']
+        contact_strategy = data['contact_strategy']
+
+        try:
+            with cls.REDIS_DIALER_CONNECTION.pipeline() as pipe:
+                pipe.hset(f'DIALER:CAMPAIGN:{id_campaign}', 'strategy', json.dumps(contact_strategy))
+                pipe.execute()
+        except Exception as e:
+            print(e)
+
+        response = f'Campaign {id_campaign} with strategy {contact_strategy} created!!!'
         response = json.dumps({'msg': response})
         return bytes(response, encoding='UTF8')
 

@@ -1,10 +1,10 @@
 from settings.default import GEARMAN_JOB_SERVERS
 
-from handler.dummy import DummyWorker
+from handler.naive import NaiveWorker
 
 import gearman
 
-WORKER = DummyWorker
+WORKER = NaiveWorker
 
 gm_worker = gearman.GearmanWorker(GEARMAN_JOB_SERVERS)
 
