@@ -67,6 +67,25 @@ services:
       - redis_omnidialer:/data
     command: redis-server --port 6380
 
+  redisinsight:
+    container_name: omnidialer-redisinsight
+    dns: 8.8.8.8
+    environment:
+      - TZ=${TZ}
+      - BIND_IP=0.0.0.0
+    networks:
+      - network1
+    ports:
+      - '5540:5540'
+    expose:
+      - '5540'
+    image: redis/redisinsight:latest
+    privileged: true
+    restart: on-failure
+    stop_grace_period: 1m30s
+    volumes:
+      - redis_redisinsight:/data
+
 networks:
   network1:
     name: devenv_omnileads
@@ -74,3 +93,4 @@ networks:
 
 volumes:
   redis_omnidialer:
+  redis_redisinsight:
