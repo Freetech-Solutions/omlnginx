@@ -42,6 +42,7 @@ class DummyWorker(DialerWorker):
     def create_campaign(cls, job):
         data = cls.decode_payload(job.data)
         response = 'Campaign {id_campaign} with strategy {contact_strategy} created!!!'.format(**data)
+        response = json.dumps({'msg': response})
         return bytes(response, encoding='UTF8')
 
 

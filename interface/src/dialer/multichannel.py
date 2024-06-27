@@ -26,11 +26,9 @@ class GearmanDialer(Dialer):
 
 
     @classmethod
-    def decode_payload(cls, data, plain_str=True):
-        data_str = json.dumps(data)
-        if plain_str:
-            return data_str
-        return bytes(data_str, encoding="UTF8")
+    def decode_payload(cls, data):
+        return data.decode(encoding="utf8")
+
 
     @classmethod
     def create_campaign(cls, id_campaign, contact_strategy):
@@ -53,5 +51,4 @@ class GearmanDialer(Dialer):
     @classmethod
     def start_campaign(cls, id_campaign):
         job_request = cls.GM_CLIENT.submit_job('start-campaign', id_campaign, background=True)
-
         return json.dumps({'msg': 'Campaign process started'})
