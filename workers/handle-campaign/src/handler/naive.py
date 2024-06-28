@@ -109,11 +109,6 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
-    def attempt_contact(cls, contact):
-        pass
-
-
-    @classmethod
     def allowed_parallel_contact_attempts(cls, id_campaign):
         return randrange(5)
 
