@@ -120,7 +120,7 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def take_contacts(cls, contacts_attempts_number, id_campaign):
-        pass
+        return cls.REDIS_DIALER_CONNECTION.lrange('DIALER:CAMPAIGN:1:CONTACTS', 0, contacts_attempts_number)
 
 
     @classmethod
