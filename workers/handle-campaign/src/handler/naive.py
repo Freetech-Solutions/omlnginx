@@ -72,7 +72,8 @@ class NaiveWorker(DialerWorker):
                 for contact_id, contact_phone, contact_data in records:
                     pipe.hset(f'DIALER:CAMPAIGN:{id_campaign}:CONTACT:{contact_id}', 'phone', contact_phone)
                     pipe.hset(f'DIALER:CAMPAIGN:{id_campaign}:CONTACT:{contact_id}', 'data', contact_data)
-            print(cursor.fetchall())
+                    pipe.lpush(f'DIALER:CAMPAIGN:{id_campaign}:CONTACTS', contact_id)
+
 
     @classmethod
     def create_campaign(cls, job):
