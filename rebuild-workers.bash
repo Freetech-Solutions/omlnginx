@@ -3,6 +3,7 @@
 docker-compose build worker
 
 docker-compose stop worker
-docker-compose rm worker
+
+docker rm handle_campaign_worker
 
 docker-compose up -d
