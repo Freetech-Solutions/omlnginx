@@ -59,11 +59,19 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def set_contacts(cls, pipe, id_campaign):
+        size = 1000
         with cls.POSTGRES_OML_CONNECTION.cursor() as cursor:
-            sql = f"""SELECT co.id, ca.id FROM ominicontacto_app_contacto AS co
+            sql = f"""SELECT co.id, co.telefono, co.datos FROM ominicontacto_app_contacto AS co
             INNER JOIN ominicontacto_app_contacto AS db ON db.id = co.bd_contacto_id
             INNER JOIN ominicontacto_app_campana AS ca ON db.id = ca.bd_contacto_id AND ca.id = {id_campaign};"""
             cursor.execute(sql)
+            while True:
+                records = cursor.fetchmany(size=size)
+                if not records:
+                    break
+                for contact_id, contact_phone, contact_data in records:
+                    pipe.hset(f'DIALER:CAMPAIGN:{id_campaign}:CONTACT:{contact_id}', 'phone', contact_phone)
+                    pipe.hset(f'DIALER:CAMPAIGN:{id_campaign}:CONTACT:{contact_id}', 'data', contact_data)
             print(cursor.fetchall())
 
     @classmethod
