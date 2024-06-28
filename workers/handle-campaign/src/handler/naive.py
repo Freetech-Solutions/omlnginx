@@ -53,6 +53,20 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
+    def set_contact_strategy(cls, pipe, id_campaign, contact_strategy):
+        pipe.hset(f'DIALER:CAMPAIGN:{id_campaign}', 'strategy', json.dumps(contact_strategy))
+
+
+    @classmethod
+    def set_contacts(cls, pipe, id_campaign):
+        with cls.POSTGRES_OML_CONNECTION.cursor() as cursor:
+            sql = f"""SELECT co.id, ca.id FROM ominicontacto_app_contacto AS co
+            INNER JOIN ominicontacto_app_contacto AS db ON db.id = co.bd_contacto_id
+            INNER JOIN ominicontacto_app_campana AS ca ON db.id = ca.bd_contacto_id AND ca.id = {id_campaign};"""
+            cursor.execute(sql)
+            print(cursor.fetchall())
+
+    @classmethod
     def create_campaign(cls, job):
         data = cls.decode_payload(job.data)
 
@@ -61,7 +75,8 @@ class NaiveWorker(DialerWorker):
 
         try:
             with cls.REDIS_DIALER_CONNECTION.pipeline() as pipe:
-                pipe.hset(f'DIALER:CAMPAIGN:{id_campaign}', 'strategy', json.dumps(contact_strategy))
+                cls.set_contact_strategy(pipe, id_campaign, contact_strategy)
+                cls.set_contacts(pipe, id_campaign)
                 pipe.execute()
         except Exception as e:
             print(e)
