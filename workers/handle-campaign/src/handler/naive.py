@@ -25,12 +25,17 @@ ASTERISK_APP = os.getenv('ASTERISK_APP', 'call_manager')
 
 ARI_BASE_URL = f'http://{ASTERISK_HOST}:{ASTERISK_PORT}/ari'
 
+REDIS_OML_SERVER = os.getenv('REDIS_OML_SERVER', 'oml-redis')
+
+REDIS_OML_PORT = os.getenv('REDIS_OML_PORT', '6379')
+
 
 class NaiveWorker(DialerWorker):
     """A worker flow with a simple strategy, call contacts according to the available agents, 1 call for for each agent"""
 
 
     REDIS_DIALER_CONNECTION = redis.Redis(host=REDIS_DIALER_SERVER, port=REDIS_DIALER_PORT, decode_responses=True)
+    REDIS_OML_CONNECTION = redis.Redis(host=REDIS_OML_SERVER, port=REDIS_OML_PORT, decode_responses=True)
 
 
     @classmethod

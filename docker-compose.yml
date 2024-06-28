@@ -42,6 +42,8 @@ services:
       - ASTERISK_USER=${ASTERISK_USER}
       - ASTERISK_PASS=${ASTERISK_PASS}
       - ASTERISK_APP=${ASTERISK_APP}
+      - REDIS_OML_SERVER=${REDIS_OML_SERVER}
+      - REDIS_OML_PORT=${REDIS_OML_PORT}
       - TZ=${TZ}
     depends_on:
       - job_server
