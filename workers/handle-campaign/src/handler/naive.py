@@ -58,10 +58,22 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
+    def set_campaign_options(cls, pipe, id_campaign):
+       with cls.POSTGRES_OML_CONNECTION.cursor() as cursor:
+           sql = f"""select * from queue_table where campana_id = 1;"""
+           cursor.execute(sql)
+           column_names = [desc[0] for desc in cursor.description]
+           queue = cursor.fetchone()
+           for col_name, col_value in zip(column_names, queue):
+               pipe.hset(f'DIALER:CAMPAIGN:{id_campaign}', col_name, str(col_value))
+
+
+    @classmethod
     def set_contacts(cls, pipe, id_campaign):
         size = 1000
         with cls.POSTGRES_OML_CONNECTION.cursor() as cursor:
-            sql = f"""SELECT co.id, co.telefono, co.datos FROM ominicontacto_app_contacto AS co
+            sql = f"""SELECT co.id, co.telefono, co.datos, ca.nombre, ca.fecha_inicio, ca.fecha_fin, ca.control_de_duplicados
+            FROM ominicontacto_app_contacto AS co
             INNER JOIN ominicontacto_app_contacto AS db ON db.id = co.bd_contacto_id
             INNER JOIN ominicontacto_app_campana AS ca ON db.id = ca.bd_contacto_id AND ca.id = {id_campaign};"""
             cursor.execute(sql)
@@ -69,9 +81,13 @@ class NaiveWorker(DialerWorker):
                 records = cursor.fetchmany(size=size)
                 if not records:
                     break
-                for contact_id, contact_phone, contact_data in records:
+                for contact_id, contact_phone, contact_data, camp_name, camp_start, camp_end, camp_dupl_control in records:
                     pipe.hset(f'DIALER:CAMPAIGN:{id_campaign}:CONTACT:{contact_id}', 'phone', contact_phone)
                     pipe.hset(f'DIALER:CAMPAIGN:{id_campaign}:CONTACT:{contact_id}', 'data', contact_data)
+                    pipe.hset(f'DIALER:CAMPAIGN:{id_campaign}', 'name', camp_name)
+                    pipe.hset(f'DIALER:CAMPAIGN:{id_campaign}', 'start_date', camp_start.strftime("%Y-%m-%d"))
+                    pipe.hset(f'DIALER:CAMPAIGN:{id_campaign}', 'end_date', camp_end.strftime("%Y-%m-%d"))
+                    pipe.hset(f'DIALER:CAMPAIGN:{id_campaign}', 'allow_duplicates', camp_dupl_control)
                     pipe.lpush(f'DIALER:CAMPAIGN:{id_campaign}:CONTACTS', contact_id)
 
 
@@ -86,6 +102,7 @@ class NaiveWorker(DialerWorker):
             with cls.REDIS_DIALER_CONNECTION.pipeline() as pipe:
                 cls.set_contact_strategy(pipe, id_campaign, contact_strategy)
                 cls.set_contacts(pipe, id_campaign)
+                cls.set_campaign_options(pipe, id_campaign)
                 pipe.execute()
         except Exception as e:
             print(e)
