@@ -60,12 +60,22 @@ class NaiveWorker(DialerWorker):
     @classmethod
     def set_campaign_options(cls, pipe, id_campaign):
        with cls.POSTGRES_OML_CONNECTION.cursor() as cursor:
-           sql = f"""select * from queue_table where campana_id = 1;"""
+           sql = f"""select * from queue_table where campana_id = {id_campaign};"""
            cursor.execute(sql)
            column_names = [desc[0] for desc in cursor.description]
            queue = cursor.fetchone()
            for col_name, col_value in zip(column_names, queue):
                pipe.hset(f'DIALER:CAMPAIGN:{id_campaign}', col_name, str(col_value))
+
+
+    @classmethod
+    def set_incidence_rules(cls, pipe, id_campaign):
+        with cls.POSTGRES_OML_CONNECTION.cursor() as cursor:
+           sql = f"""select * from ominicontacto_app_reglasincidencia where campana_id = {id_campaign};"""
+           cursor.execute(sql)
+           for incidence_rule in cursor.fetchall():
+               pipe.lpush(f'DIALER:CAMPAIGN:{id_campaign}:incidence_rules', json.dumps(incidence_rule))
+
 
 
     @classmethod
@@ -103,6 +113,8 @@ class NaiveWorker(DialerWorker):
                 cls.set_contact_strategy(pipe, id_campaign, contact_strategy)
                 cls.set_contacts(pipe, id_campaign)
                 cls.set_campaign_options(pipe, id_campaign)
+                cls.set_incidence_rules(pipe, id_campaign)
+                # cls.set_opening_hours(pipe, id_campaign)
                 pipe.execute()
         except Exception as e:
             print(e)
