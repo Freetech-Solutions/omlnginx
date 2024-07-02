@@ -57,11 +57,6 @@ class DialerWorker:
 
 
     @classmethod
-    def attempt_contact(cls, contact):
-        pass
-
-
-    @classmethod
     def campaign_is_active(cls, id_campaign):
         pass
 
