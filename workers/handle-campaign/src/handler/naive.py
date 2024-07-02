@@ -135,7 +135,7 @@ class NaiveWorker(DialerWorker):
     @classmethod
     def start_campaign(cls, job):
         id_campaign = int(job.data)
-        cls.REDIS_DIALER_CONNECTION.hset(f'OML:CAMPAIGN:{if_campaign}', 'status', 'active')
+        cls.REDIS_DIALER_CONNECTION.hset(f'OML:CAMPAIGN:{id_campaign}', 'status', 'active')
         cls.process_campaign(id_campaign)
         return b'Campaign started!'
 
@@ -152,11 +152,16 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def take_contacts(cls, contacts_attempts_number, id_campaign):
-        return cls.REDIS_DIALER_CONNECTION.lrange('DIALER:CAMPAIGN:1:CONTACTS', 0, contacts_attempts_number)
+        return cls.REDIS_DIALER_CONNECTION.lrange(f'DIALER:CAMPAIGN:{id_campaign}:CONTACTS', 0, contacts_attempts_number)
 
 
     @classmethod
     def attempt_contact(cls, contact, id_campaign):
+        cls.attempt_contact_asterisk(contact, id_campaign)
+
+
+    @classmethod
+    def attempt_contact_asterisk(cls, contact, id_campaign):
         print('Calling contact {0} in campaign {1}'.format(contact, id_campaign))
 
         phone_number = contact
