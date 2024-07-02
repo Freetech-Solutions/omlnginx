@@ -77,6 +77,14 @@ class NaiveWorker(DialerWorker):
                pipe.lpush(f'DIALER:CAMPAIGN:{id_campaign}:incidence_rules', json.dumps(incidence_rule))
 
 
+    @classmethod
+    def set_opening_hours(cls, pipe, id_campaign):
+        with cls.POSTGRES_OML_CONNECTION.cursor() as cursor:
+           sql = f"""select * from ominicontacto_app_actuacionvigente where campana_id = {id_campaign};"""
+           cursor.execute(sql)
+           opening_hours = cursor.fetchone()
+           pipe.lpush(f'DIALER:CAMPAIGN:{id_campaign}:opening_hours', str(opening_hours))
+
 
     @classmethod
     def set_contacts(cls, pipe, id_campaign):
@@ -114,7 +122,7 @@ class NaiveWorker(DialerWorker):
                 cls.set_contacts(pipe, id_campaign)
                 cls.set_campaign_options(pipe, id_campaign)
                 cls.set_incidence_rules(pipe, id_campaign)
-                # cls.set_opening_hours(pipe, id_campaign)
+                cls.set_opening_hours(pipe, id_campaign)
                 pipe.execute()
         except Exception as e:
             print(e)
