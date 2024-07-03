@@ -44,3 +44,28 @@ class MultiChannelWorker(DialerWorker):
             cls.attempt_contact_custom(contact, id_campaign)
         else:
             raise Exception('Unkown strategy')
+
+
+    @classmethod
+    def attempt_contact_asterisk(cls, contact, id_campaign):
+        pass
+
+
+    @classmethod
+    def attempt_contact_email(cls, contact, id_campaign):
+        pass
+
+
+    @classmethod
+    def attempt_contact_sms(cls, contact, id_campaign):
+        pass
+
+
+    @classmethod
+    def attempt_contact_whatsapp(cls, contact, id_campaign):
+        pass
+
+
+    @classmethod
+    def attempt_contact_custom(cls, contact, id_campaign):
+        pass
