@@ -22,7 +22,7 @@ class MultiChannelWorker(DialerWorker):
     @classmethod
     def attempt_contact(cls, contact, id_campaign):
         campaign_strategy = cls.get_campaign_strategy(id_campaign)
-        contact_current_status = cls.get_contact_status(id_campaign)
+        contact_current_status = cls.get_contact_status(contact, id_campaign)
 
         index_strategy = campaign_strategy.index(contact_current_status)
 
