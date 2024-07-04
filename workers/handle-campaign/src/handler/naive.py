@@ -195,7 +195,10 @@ class NaiveWorker(DialerWorker):
     def pause_campaign(cls, job):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
-        cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMPAIGN:{id_campaign}', 'status', 'paused')
+        try:
+            cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMPAIGN:{id_campaign}', 'status', 'paused')
+        except Exception as e:
+            print(e)
         response = f'Campaign {id_campaign} was paused!'
         response = json.dumps({'msg': response})
         return bytes(response, encoding='UTF8')
