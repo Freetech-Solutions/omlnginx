@@ -135,14 +135,14 @@ class NaiveWorker(DialerWorker):
     @classmethod
     def start_campaign(cls, job):
         id_campaign = int(job.data)
-        cls.REDIS_DIALER_CONNECTION.hset(f'OML:CAMPAIGN:{id_campaign}', 'status', 'active')
+        cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMPAIGN:{id_campaign}', 'status', 'active')
         cls.process_campaign(id_campaign)
         return b'Campaign started!'
 
 
     @classmethod
     def campaign_is_active(cls, id_campaign):
-        return cls.REDIS_DIALER_CONNECTION.hget(f'OML:CAMPAIGN:{id_campaign}', 'status') == 'active'
+        return cls.REDIS_DIALER_CONNECTION.hget(f'DIALER:CAMPAIGN:{id_campaign}', 'status') == 'active'
 
 
     @classmethod
@@ -189,3 +189,13 @@ class NaiveWorker(DialerWorker):
             print(e)
         else:
             print(response)
+
+
+    @classmethod
+    def pause_campaign(cls, job):
+        data = cls.decode_payload(job.data)
+        id_campaign = data['id_campaign']
+        cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMPAIGN:{id_campaign}', 'status', 'paused')
+        response = f'Campaign {id_campaign} was paused!'
+        response = json.dumps({'msg': response})
+        return bytes(response, encoding='UTF8')
