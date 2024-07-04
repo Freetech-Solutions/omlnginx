@@ -45,11 +45,25 @@ class NaiveWorker(DialerWorker):
     """A worker flow with a simple strategy, call contacts according to the available agents, 1 call for for each agent"""
 
 
-    REDIS_DIALER_CONNECTION = redis.Redis(host=REDIS_DIALER_SERVER, port=REDIS_DIALER_PORT, decode_responses=True)
+    POSTGRES_OML_CONNECTION = None
 
-    REDIS_OML_CONNECTION = redis.Redis(host=REDIS_OML_SERVER, port=REDIS_OML_PORT, decode_responses=True)
 
-    POSTGRES_OML_CONNECTION = psycopg.connect(f'postgresql://{POSTGRES_OML_USER}:{POSTGRES_OML_PASSWORD}@{POSTGRES_OML_SERVER}:{POSTGRES_OML_PORT}/{POSTGRES_OML_DB}')
+    @classmethod
+    def connect_postgres_oml(cls):
+        if cls.POSTGRES_OML_CONNECTION is None:
+            cls.POSTGRES_OML_CONNECTION = psycopg.connect(f'postgresql://{POSTGRES_OML_USER}:{POSTGRES_OML_PASSWORD}@{POSTGRES_OML_SERVER}:{POSTGRES_OML_PORT}/{POSTGRES_OML_DB}')
+
+
+    @classmethod
+    def connect_redis_dialer(cls):
+        if cls.REDIS_DIALER_CONNECTION is None:
+            REDIS_DIALER_CONNECTION = redis.Redis(host=REDIS_DIALER_SERVER, port=REDIS_DIALER_PORT, decode_responses=True)
+
+
+    @classmethod
+    def connect_redis_oml(cls):
+        if cls.REDIS_OML_CONNECTION is None:
+            REDIS_OML_CONNECTION = redis.Redis(host=REDIS_OML_SERVER, port=REDIS_OML_PORT, decode_responses=True)
 
 
     @classmethod
@@ -112,10 +126,10 @@ class NaiveWorker(DialerWorker):
     @classmethod
     def create_campaign(cls, job):
         data = cls.decode_payload(job.data)
-
         id_campaign = data['id_campaign']
         contact_strategy = data['contact_strategy']
-
+        cls.connect_postgres_oml()
+        cls.connect_redis_oml()
         try:
             with cls.REDIS_DIALER_CONNECTION.pipeline() as pipe:
                 cls.set_contact_strategy(pipe, id_campaign, contact_strategy)
@@ -135,6 +149,7 @@ class NaiveWorker(DialerWorker):
     @classmethod
     def start_campaign(cls, job):
         id_campaign = int(job.data)
+        cls.connect_redis_dialer()
         cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMPAIGN:{id_campaign}', 'status', 'active')
         cls.process_campaign(id_campaign)
         return b'Campaign started!'
@@ -193,6 +208,7 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def pause_campaign(cls, job):
+        cls.connect_redis_dialer()
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
         try:
