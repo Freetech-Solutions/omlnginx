@@ -91,6 +91,34 @@ services:
     volumes:
       - redis_redisinsight:/data
 
+
+  websocket_ari:
+    container_name: omnidialer_websocket_ari
+    build:
+      target: builder
+      context: ./websocket_ari/src
+    volumes:
+      - ./websocket_ari/src:/app
+    networks:
+      - network1
+    tty: true
+    stdin_open: true
+    environment:
+      - ASTERISK_HOST=${ASTERISK_HOST}
+      - ASTERISK_PORT=${ASTERISK_PORT}
+      - ASTERISK_USER=${ASTERISK_USER}
+      - ASTERISK_PASS=${ASTERISK_PASS}
+      - ASTERISK_APP=${ASTERISK_APP}
+      - REDIS_OML_SERVER=${REDIS_OML_SERVER}
+      - REDIS_OML_PORT=${REDIS_OML_PORT}
+      - POSTGRES_OML_PASSWORD=${POSTGRES_OML_PASSWORD}
+      - POSTGRES_OML_SERVER=${POSTGRES_OML_SERVER}
+      - POSTGRES_OML_PORT=${POSTGRES_OML_PORT}
+      - TZ=${TZ}
+    depends_on:
+      - job_server
+      - redis
+
 networks:
   network1:
     name: devenv_omnileads
