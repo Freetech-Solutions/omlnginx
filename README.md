@@ -13,7 +13,7 @@ changing the ports and container name to add Gearman job servers, you will need 
 
 You can also add more workers by doing:
 
-docker run --rm -itd --network=devenv_omnileads --name=handle_campaign_2 handle_campaign_worker
+docker run --rm -itd --network=devenv_omnileads --name=handle_campaign_2 omnidialer_worker
 
 
 Troubleshooting:

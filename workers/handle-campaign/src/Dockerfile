@@ -7,9 +7,10 @@ RUN apk add gcc musl-dev
 
 RUN pip3 install --upgrade pip
 
-COPY requirements.txt /app
+ADD . /app
+
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip3 install -r requirements.txt
 
 ENTRYPOINT ["python3"]
-CMD ["app.py"]
+CMD ["/app/app.py"]

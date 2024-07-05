@@ -30,8 +30,6 @@ services:
     build:
       target: builder
       context: ./workers/handle-campaign/src
-    volumes:
-      - ./workers/handle-campaign/src:/app
     networks:
       - network1
     tty: true
