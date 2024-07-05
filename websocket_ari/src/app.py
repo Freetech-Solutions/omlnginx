@@ -65,7 +65,7 @@ class CallManager:
             message (str): The received message.
         """
         event_dict = json.loads(message)
-        event_type = event_to_dict.get('type', 'default')
+        event_type = event_dict.get('type', 'default')
 
         # Logging for debugging
         # logging.info("Received event: %s", pprint.pformat(event_dict))
