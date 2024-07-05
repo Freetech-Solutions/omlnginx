@@ -131,6 +131,7 @@ class NaiveWorker(DialerWorker):
         contact_strategy = data['contact_strategy']
         cls.connect_postgres_oml()
         cls.connect_redis_oml()
+        cls.connect_redis_dialer()
         try:
             with cls.REDIS_DIALER_CONNECTION.pipeline() as pipe:
                 cls.set_contact_strategy(pipe, id_campaign, contact_strategy)
