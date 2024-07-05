@@ -18,7 +18,7 @@ ASTERISK_USER = os.getenv('ASTERISK_USER', 'default_user')
 
 ASTERISK_PASS = os.getenv('ASTERISK_PASS', 'default_pass')
 
-ASTERISK_HOST = os.getenv('ASTERISK_HOST', 'asterisk')
+ASTERISK_HOST = os.getenv('ASTERISK_HOST', 'oml-asterisk')
 
 ASTERISK_PORT = os.getenv('ASTERISK_PORT', '7088')
 
