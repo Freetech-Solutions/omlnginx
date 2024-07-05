@@ -1,0 +1,2 @@
+POST http://localhost:1440/resume-campaign/1
+Content-Type: application/json

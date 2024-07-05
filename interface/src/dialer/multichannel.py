@@ -53,8 +53,12 @@ class GearmanDialer(Dialer):
         job_request = cls.GM_CLIENT.submit_job('start-campaign', id_campaign, background=True)
         return json.dumps({'msg': 'Campaign process started'})
 
-
     @classmethod
     def pause_campaign(cls, id_campaign):
         job_request = cls.GM_CLIENT.submit_job('pause-campaign', id_campaign, background=True)
         return json.dumps({'msg': 'Campaign process paused'})
+
+    @classmethod
+    def resume_campaign(cls, id_campaign):
+        job_request = cls.GM_CLIENT.submit_job('resume-campaign', id_campaign, background=True)
+        return json.dumps({'msg': 'Campaign process resumed'})

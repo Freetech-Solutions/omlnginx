@@ -158,7 +158,7 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def campaign_is_active(cls, id_campaign):
-        return cls.REDIS_DIALER_CONNECTION.hget(f'DIALER:CAMP:{id_campaign}', 'status') == 'active'
+        return cls.REDIS_DIALER_CONNECTION.hget(f'DIALER:CAMP:{id_campaign}', 'status') in ['active', 'resumed']
 
 
     @classmethod
@@ -216,5 +216,18 @@ class NaiveWorker(DialerWorker):
         except Exception as e:
             print(e)
         response = f'Campaign {id_campaign} was paused!'
+        response = json.dumps({'msg': response})
+        return bytes(response, encoding='UTF8')
+
+    @classmethod
+    def resume_campaign(cls, job):
+        cls.connect_redis_dialer()
+        id_campaign = cls.decode_payload(job.data)
+        try:
+            cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMP:{id_campaign}', 'status', 'resumed')
+        except Exception as e:
+            print(e)
+        cls.process_campaign(id_campaign)
+        response = f'Campaign {id_campaign} was resumed!'
         response = json.dumps({'msg': response})
         return bytes(response, encoding='UTF8')
