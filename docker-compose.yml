@@ -26,7 +26,9 @@ services:
       - network1
 
   worker:
-    container_name: handle_campaign_worker
+    deploy:
+      mode: replicated
+      replicas: 2
     build:
       target: builder
       context: ./workers/handle-campaign/src
