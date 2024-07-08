@@ -12,7 +12,7 @@ import websocket
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 
-ASTERISK_APP = os.getenv('ASTERISK_APP', 'call_manager')
+ASTERISK_APP = os.getenv('ASTERISK_APP', 'call_manager_dialer')
 
 
 class CallManager:
@@ -68,7 +68,7 @@ class CallManager:
         event_type = event_dict.get('type', 'default')
 
         # Logging for debugging
-        # logging.info("Received event: %s", pprint.pformat(event_dict))
+        logging.debug("Received event: %s", pprint.pformat(event_dict))
 
 
     def on_error(self, ws, error):
