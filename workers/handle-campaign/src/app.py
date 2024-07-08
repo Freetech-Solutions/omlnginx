@@ -18,5 +18,6 @@ gm_worker.register_task(b'delete-campaign', lambda gearman_worker, gearman_job: 
 gm_worker.register_task(b'process-campaign', lambda gearman_worker, gearman_job: b'Campaign is being processed ...')
 gm_worker.register_task(b'call-contact', lambda gearman_worker, gearman_job: b'Contact is being called ... ')
 gm_worker.register_task(b'syncronize-campaign', lambda gearman_worker, gearman_job: b'Campaign is being synchronized ...')
+gm_worker.register_task(b'process-ari-event', lambda gearman_worker, gearman_job: WORKER.process_ari_event(gearman_job))
 
 gm_worker.work()

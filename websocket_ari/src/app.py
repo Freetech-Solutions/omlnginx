@@ -8,7 +8,11 @@ import sys
 import traceback
 import websocket
 
+import gearman.client
+
 from pprint import pformat
+
+from settings.default import GEARMAN_JOB_SERVERS
 
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
@@ -22,6 +26,9 @@ class CallManager:
     CallManager manages the interaction with ARI (Asterisk REST Interface)
     and handles various call events through WebSocket.
     """
+
+    GM_CLIENT = gearman.GearmanClient(GEARMAN_JOB_SERVERS)
+
 
     def __init__(self):
         """
@@ -70,7 +77,8 @@ class CallManager:
         event_type = event_dict.get('type', 'default')
 
         # Logging for debugging
-        logging.info("Received event: %s", pformat(event_dict))
+        logging.info('Received event: %s', pformat(event_dict))
+        self.GM_CLIENT.submit_job('process-ari-event', message)
 
 
     def on_error(self, ws, error):

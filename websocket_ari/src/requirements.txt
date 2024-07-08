@@ -1,1 +1,2 @@
 websocket-client==1.4.2
+gearman3

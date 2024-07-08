@@ -178,6 +178,13 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
+    def process_ari_event(cls, job):
+        ari_event_data = cls.decode_payload(job.data)
+        print(ari_event_data)
+        return b"ARI data received"
+
+
+    @classmethod
     def attempt_contact_asterisk(cls, contact, id_campaign):
         print('Calling contact {0} in campaign {1}'.format(contact, id_campaign))
 
