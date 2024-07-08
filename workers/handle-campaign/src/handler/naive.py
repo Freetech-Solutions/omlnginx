@@ -178,7 +178,7 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
-    def process_ari_event(cls, job):
+    def process_event(cls, job):
         ari_event_data = cls.decode_payload(job.data)
         print(ari_event_data)
         return b"ARI data received"

@@ -78,7 +78,7 @@ class CallManager:
 
         # Logging for debugging
         logging.info('Received event: %s', pformat(event_dict))
-        self.GM_CLIENT.submit_job('process-ari-event', message)
+        self.GM_CLIENT.submit_job('process-event', message)
 
 
     def on_error(self, ws, error):

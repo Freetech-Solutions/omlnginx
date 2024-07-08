@@ -77,5 +77,5 @@ class DialerWorker:
 
 
     @classmethod
-    def process_ari_event(cls, job):
+    def process_event(cls, job):
         pass
