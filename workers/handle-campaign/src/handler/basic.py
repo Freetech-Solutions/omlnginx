@@ -74,8 +74,3 @@ class DialerWorker:
     @classmethod
     def attempt_contact(cls, contact, id_campaign):
         pass
-
-
-    @classmethod
-    def process_event(cls, job):
-        pass

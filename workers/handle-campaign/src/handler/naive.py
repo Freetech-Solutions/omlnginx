@@ -10,8 +10,9 @@ import sys
 import os
 import redis
 import psycopg
+import gearman.client
 
-from settings.default import REDIS_DIALER_PORT, REDIS_DIALER_SERVER
+from settings.default import REDIS_DIALER_PORT, REDIS_DIALER_SERVER, GEARMAN_JOB_SERVERS
 
 
 ASTERISK_USER = os.getenv('ASTERISK_USER', 'default_user')
@@ -48,6 +49,7 @@ class NaiveWorker(DialerWorker):
     POSTGRES_OML_CONNECTION = None
     REDIS_DIALER_CONNECTION = None
     REDIS_OML_CONNECTION = None
+    GM_CLIENT = gearman.GearmanClient(GEARMAN_JOB_SERVERS)
 
     @classmethod
     def connect_postgres_oml(cls):
@@ -174,14 +176,18 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def attempt_contact(cls, contact, id_campaign):
-        cls.attempt_contact_asterisk(contact, id_campaign)
+        try:
+            message = json.dumps({'contact': contact, 'id_campaign': id_campaign})
+            cls.GM_CLIENT.submit_job('process-contact', message)
+        except Exception as e:
+            print(e)
 
 
     @classmethod
-    def process_event(cls, job):
-        ari_event_data = cls.decode_payload(job.data)
-        print(ari_event_data)
-        return b"ARI data received"
+    def process_contact(cls, job):
+        data = cls.decode_payload(job.data)
+        cls.attempt_contact_asterisk(data['contact'], data['id_campaign'])
+        return b'Contact was called'
 
 
     @classmethod
@@ -239,3 +245,10 @@ class NaiveWorker(DialerWorker):
         response = f'Campaign {id_campaign} was resumed!'
         response = json.dumps({'msg': response})
         return bytes(response, encoding='UTF8')
+
+
+    @classmethod
+    def process_event(cls, job):
+        ari_event_data = cls.decode_payload(job.data)
+        print(ari_event_data)
+        return b"ARI data received"
