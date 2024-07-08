@@ -192,14 +192,14 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def attempt_contact_asterisk(cls, contact, id_campaign):
-        print('Calling contact {0} in campaign {1}'.format(contact, id_campaign))
-
-        phone_number = contact
-        id_customer = 7777777
+        cls.connect_redis_dialer()
+        phone_number = cls.REDIS_DIALER_CONNECTION.hget(f'DIALER:CAMP:{id_campaign}:CONTACT:{contact}', 'phone')
+        id_customer = contact
         queue_timeout = 0
         dial_timeout = 0
         channel_type = 'pstn_dialout'
 
+        print(f'Calling contact {contact} with phone {phone_number} in campaign {id_campaign}')
 
         call_data = {
             'endpoint': f'PJSIP/{phone_number}@TroncalSIP0',
