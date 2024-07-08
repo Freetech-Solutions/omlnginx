@@ -8,6 +8,8 @@ import sys
 import traceback
 import websocket
 
+from pprint import pformat
+
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
@@ -68,7 +70,7 @@ class CallManager:
         event_type = event_dict.get('type', 'default')
 
         # Logging for debugging
-        logging.debug("Received event: %s", pprint.pformat(event_dict))
+        logging.info("Received event: %s", pformat(event_dict))
 
 
     def on_error(self, ws, error):
