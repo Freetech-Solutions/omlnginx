@@ -173,8 +173,7 @@ class NaiveWorker(DialerWorker):
     def get_number_available_agents(cls):
         cls.connect_redis_oml()
         agents_available = 0
-        keys = cls.REDIS_OML_CONNECTION.scan(match='OML:AGENT:*', count=1000)[1]
-        for key in keys:
+        for key in cls.REDIS_OML_CONNECTION.scan_iter(match='OML:AGENT:*', count=1000):
             status = cls.REDIS_OML_CONNECTION.hget(key, 'STATUS')
             if status == 'ready':
                 agents_available += 1
