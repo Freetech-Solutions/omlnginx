@@ -206,6 +206,7 @@ class NaiveWorker(DialerWorker):
             cls.GM_CLIENT.submit_job('process-contact', message)
         except Exception as e:
             print(e)
+            raise e
 
 
     @classmethod
