@@ -165,24 +165,38 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
+    def get_number_active_campaigns(cls):
+        return 1
+
+
+    @classmethod
+    def get_number_available_agents(cls):
+        cls.connect_redis_oml()
+        agents_available = 0
+        keys = cls.REDIS_OML_CONNECTION.scan(match='OML:AGENT:*', count=1000)[1]
+        for key in keys:
+            status = cls.REDIS_OML_CONNECTION.hget(key, 'STATUS')
+            if status == 'ready':
+                agents_available += 1
+        return agents_available
+
+
+    @classmethod
     def allowed_parallel_contact_attempts(cls, id_campaign):
         try:
-            cls.connect_redis_oml()
-            agents_available = 0
-            keys = cls.REDIS_OML_CONNECTION.scan(match='OML:AGENT:*', count=1000)[1]
-            for key in keys:
-                status = cls.REDIS_OML_CONNECTION.hget(key, 'STATUS')
-                if status == 'ready':
-                    agents_available += 1
-            return agents_available
+            available_agents = cls.get_number_available_agents()
+            active_campaigns = cls.get_number_active_campaigns()
+            if active_campaigns > 0:
+                return int(available_agents / active_campaigns)
+            return 0
         except Exception as e:
             print(e)
-
+            raise e
 
     @classmethod
     def take_contacts(cls, contacts_attempts_number, id_campaign):
         if contacts_attempts_number > 0:
-            return cls.REDIS_DIALER_CONNECTION.lrange(f'DIALER:CAMP:{id_campaign}:CONTACTS', 0, contacts_attempts_number)
+            return cls.REDIS_DIALER_CONNECTION.lrange(f'DIALER:CAMP:{id_campaign}:CONTACTS', 0, contacts_attempts_number - 1)
         return []
 
 
