@@ -11,9 +11,11 @@ $ docker run --rm -itd -p 4731:4731 --network=devenv_omnileads --name=gearman_jo
 
 changing the ports and container name to add Gearman job servers, you will need to add it to the settings as well
 
-You can also add more workers by doing:
+You can also add more workers in the same host by doing:
 
 docker run --rm -itd --network=devenv_omnileads --name=omnidialer-worker-n omnidialer_worker
+
+... and in a different host by modifying the settings
 
 
 Partially implemented endpoints:
@@ -36,4 +38,4 @@ Troubleshooting:
 
 - If artefactual/gearmand:1.1.19.1-alpine does not run in Mac M1, but you can build the image from their repository manually and use it directly (https://github.com/artefactual-labs/docker-gearmand)
 
-- If you on another machine (but in the same network of OML development environment) you need to modify the settings ASTERISK_HOST, REDIS_OML_SERVER and POSTGRES_OML_SERVER to point to the IP of OML's host. You will need to create by hand the network ''devenv_omnileads'
+- If you are on another machine (but in the same network of OML development environment) you need to modify the settings ASTERISK_HOST, REDIS_OML_SERVER and POSTGRES_OML_SERVER to point to the IP of OML's host. You will need to create by hand the network ''devenv_omnileads'.
