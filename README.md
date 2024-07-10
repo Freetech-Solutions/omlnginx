@@ -15,8 +15,9 @@ You can also add more workers in the same host by doing:
 
 docker run --rm -itd --network=devenv_omnileads --name=omnidialer-worker-n omnidialer_worker
 
-... and in a different host by modifying the settings
+... and in a different host by modifying the .env setting GEARMAN_JOB_SERVERS pointing to the IP address where Omnidialer is running and you can add more Gearman job servers, if available, by adding more pair <host>:<ip> and using the separator | . After that you can spawn the worker by executing:
 
+docker-compose -f docker-compose-single-worker.yml up -d
 
 Partially implemented endpoints:
 
