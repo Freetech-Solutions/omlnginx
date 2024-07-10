@@ -1,0 +1,48 @@
+services:
+  worker:
+    build:
+      target: builder
+      context: ./workers/handle-campaign/src
+    networks:
+      - network1
+    tty: true
+    stdin_open: true
+    environment:
+      - ASTERISK_HOST=${ASTERISK_HOST}
+      - ASTERISK_PORT=${ASTERISK_PORT}
+      - ASTERISK_USER=${ASTERISK_USER}
+      - ASTERISK_PASS=${ASTERISK_PASS}
+      - ASTERISK_APP=${ASTERISK_APP}
+      - REDIS_OML_SERVER=${REDIS_OML_SERVER}
+      - REDIS_OML_PORT=${REDIS_OML_PORT}
+      - POSTGRES_OML_PASSWORD=${POSTGRES_OML_PASSWORD}
+      - POSTGRES_OML_SERVER=${POSTGRES_OML_SERVER}
+      - POSTGRES_OML_PORT=${POSTGRES_OML_PORT}
+      - TZ=${TZ}
+
+  redisinsight:
+    container_name: omnidialer-redisinsight
+    dns: 8.8.8.8
+    environment:
+      - TZ=${TZ}
+      - BIND_IP=0.0.0.0
+    networks:
+      - network1
+    ports:
+      - '5540:5540'
+    expose:
+      - '5540'
+    image: redis/redisinsight:latest
+    privileged: true
+    restart: on-failure
+    stop_grace_period: 1m30s
+    volumes:
+      - redis_redisinsight:/data
+
+networks:
+  network1:
+    name: devenv_omnileads
+    external: true
+
+volumes:
+  redis_redisinsight:
