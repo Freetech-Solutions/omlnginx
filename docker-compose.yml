@@ -1,7 +1,6 @@
 services:
   api:
     build:
-      target: builder
       context: ./interface/src
     container_name: omnidialer-api
     volumes:
