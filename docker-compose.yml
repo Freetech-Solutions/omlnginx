@@ -16,6 +16,8 @@ services:
     depends_on:
       - job_server
       - redis
+    environment:
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
 
   job_server:
     image: artefactual/gearmand:1.1.19.1-alpine
@@ -48,6 +50,7 @@ services:
       - POSTGRES_OML_SERVER=${POSTGRES_OML_SERVER}
       - POSTGRES_OML_PORT=${POSTGRES_OML_PORT}
       - TZ=${TZ}
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
     depends_on:
       - job_server
       - redis

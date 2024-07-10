@@ -19,6 +19,7 @@ services:
       - POSTGRES_OML_SERVER=${POSTGRES_OML_SERVER}
       - POSTGRES_OML_PORT=${POSTGRES_OML_PORT}
       - TZ=${TZ}
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
 
   redisinsight:
     container_name: omnidialer-redisinsight
