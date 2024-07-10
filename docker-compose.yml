@@ -1,7 +1,6 @@
 services:
   api:
     build:
-      target: builder
       context: ./interface/src
     container_name: omnidialer-api
     volumes:
@@ -97,7 +96,6 @@ services:
   websocket_ari:
     container_name: omnidialer_websocket_ari
     build:
-      target: builder
       context: ./websocket_ari/src
     volumes:
       - ./websocket_ari/src:/app
