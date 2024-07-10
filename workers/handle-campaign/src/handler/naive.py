@@ -166,7 +166,17 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def get_number_active_campaigns(cls):
-        return 1
+        cls.connect_redis_dialer()
+        active_campaigns = 0
+        # TODO: find an exact pattern for DIALER:CAMP:<id_campaign>
+        for key in cls.REDIS_DIALER_CONNECTION.scan_iter(match='DIALER:CAMP:*', count=1000):
+            try:
+                status = cls.REDIS_DIALER_CONNECTION.hget(key, 'status')
+            except Exception:
+                status = 'not-related'
+            if status in ['active', 'resumed']:
+                active_campaigns += 1
+        return active_campaigns
 
 
     @classmethod
