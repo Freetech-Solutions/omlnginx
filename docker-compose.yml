@@ -1,6 +1,7 @@
 services:
   api:
     build:
+      target: builder
       context: ./interface/src
     container_name: omnidialer-api
     volumes:
@@ -31,7 +32,6 @@ services:
       mode: replicated
       replicas: 3
     build:
-      target: builder
       context: ./workers/handle-campaign/src
     networks:
       - network1
@@ -117,6 +117,7 @@ services:
       - POSTGRES_OML_SERVER=${POSTGRES_OML_SERVER}
       - POSTGRES_OML_PORT=${POSTGRES_OML_PORT}
       - TZ=${TZ}
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
     depends_on:
       - job_server
       - redis
