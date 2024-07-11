@@ -19,6 +19,8 @@ docker run --rm -itd --network=devenv_omnileads --name=omnidialer-worker-n omnid
 
 docker-compose -f docker-compose-single-worker.yml up -d
 
+It is also possible to customize the jobs that will be accepted inside the worker instances by modifying the .env setting GEARMAN_JOBS
+
 Partially implemented endpoints:
 
 create-campaign
