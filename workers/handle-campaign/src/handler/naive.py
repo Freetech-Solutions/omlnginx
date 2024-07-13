@@ -14,6 +14,13 @@ import gearman.client
 
 from settings.default import REDIS_DIALER_PORT, REDIS_DIALER_SERVER, GEARMAN_JOB_SERVERS
 
+import logging
+
+LOGLEVEL = os.environ.get('PYTHON_LOGLEVEL', 'INFO').upper()
+
+logger = logging.getLogger(__name__)
+
+logging.basicConfig(level=LOGLEVEL, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 ASTERISK_USER = os.getenv('ASTERISK_USER', 'default_user')
 
@@ -127,7 +134,8 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
-    def create_campaign(cls, job):
+    def create_campaign(cls, worker, job):
+        logger.debug('creating the campaign')
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
         contact_strategy = data['contact_strategy']
@@ -151,7 +159,7 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
-    def start_campaign(cls, job):
+    def start_campaign(cls, worker, job):
         id_campaign = int(job.data)
         cls.connect_redis_dialer()
         cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMP:{id_campaign}', 'status', 'active')
@@ -220,7 +228,7 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
-    def process_contact(cls, job):
+    def process_contact(cls, worker, job):
         data = cls.decode_payload(job.data)
         cls.attempt_contact_asterisk(data['contact'], data['id_campaign'])
         return b'Contact was called'
@@ -258,7 +266,8 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
-    def pause_campaign(cls, job):
+    def pause_campaign(cls, worker, job):
+        logger.debug('pausing the campaign')
         cls.connect_redis_dialer()
         id_campaign = cls.decode_payload(job.data)
         try:
@@ -270,7 +279,8 @@ class NaiveWorker(DialerWorker):
         return bytes(response, encoding='UTF8')
 
     @classmethod
-    def resume_campaign(cls, job):
+    def resume_campaign(cls, worker, job):
+        logger.debug('resuming the campaign')
         cls.connect_redis_dialer()
         id_campaign = cls.decode_payload(job.data)
         try:
@@ -284,7 +294,7 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
-    def process_event(cls, job):
+    def process_event(cls, worker, job):
         ari_event_data = cls.decode_payload(job.data)
         print(ari_event_data)
         return b"ARI data received"

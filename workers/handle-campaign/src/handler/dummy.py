@@ -39,7 +39,7 @@ class DummyWorker(DialerWorker):
 
 
     @classmethod
-    def create_campaign(cls, job):
+    def create_campaign(cls, worker, job):
         data = cls.decode_payload(job.data)
         response = 'Campaign {id_campaign} with strategy {contact_strategy} created!!!'.format(**data)
         response = json.dumps({'msg': response})
@@ -47,7 +47,7 @@ class DummyWorker(DialerWorker):
 
 
     @classmethod
-    def start_campaign(cls, job):
+    def start_campaign(cls, worker, job):
         id_campaign = int(job.data)
         cls.process_campaign(id_campaign)
         return b'Campaign started!'

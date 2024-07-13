@@ -14,37 +14,37 @@ class DialerWorker:
 
 
     @classmethod
-    def create_campaign(cls, job):
+    def create_campaign(cls, worker, job):
         pass
 
 
     @classmethod
-    def edit_campaign(cls, job):
+    def edit_campaign(cls, worker, job):
         pass
 
 
     @classmethod
-    def start_campaign(cls, job):
+    def start_campaign(cls, worker, job):
         pass
 
 
     @classmethod
-    def stop_campaign(cls, job):
+    def stop_campaign(cls, worker, job):
         pass
 
 
     @classmethod
-    def pause_campaign(cls, job):
+    def pause_campaign(cls, worker, job):
         pass
 
 
     @classmethod
-    def resume_campaign(cls, job):
+    def resume_campaign(cls, worker, job):
         pass
 
 
     @classmethod
-    def delete_campaign(cls, job):
+    def delete_campaign(cls, worker, job):
         pass
 
 

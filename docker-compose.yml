@@ -50,6 +50,7 @@ services:
       - TZ=${TZ}
       - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
       - GEARMAN_JOBS=${GEARMAN_JOBS}
+      - PYTHON_LOGLEVEL=${PYTHON_LOGLEVEL}
     depends_on:
       - job_server
       - redis
