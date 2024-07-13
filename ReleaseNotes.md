@@ -7,7 +7,7 @@
 
 ## Fixed
 
-* oml-567 [NGINX]: Download PDF reports
+* oml-2444 [NGINX]: Download PDF reports
 
 ## Removed
 
