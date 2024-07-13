@@ -1,13 +1,13 @@
 # Release Notes
-2023-11-25
+2024-07-05
 
 ## Added
-
-* oml-455 [BUILD] The port numbers of each service to which Nginx redirects requests can be passed as environment variables.
 
 ## Changed
 
 ## Fixed
+
+* oml-567 [NGINX]: Download PDF reports
 
 ## Removed
 
