@@ -22,13 +22,13 @@ logger = logging.getLogger(__name__)
 
 logging.basicConfig(level=LOGLEVEL, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-ASTERISK_USER = os.getenv('ASTERISK_USER', 'default_user')
+ASTERISK_USER = os.getenv('ASTERISK_USER', 'omnileadsami')
 
-ASTERISK_PASS = os.getenv('ASTERISK_PASS', 'default_pass')
+ASTERISK_PASS = os.getenv('ASTERISK_PASS', '5_MeO_DMT')
 
-ASTERISK_HOST = os.getenv('ASTERISK_HOST', 'oml-asterisk')
+ASTERISK_HOST = os.getenv('ASTERISK_HOST', 'dialer_acd')
 
-ASTERISK_PORT = os.getenv('ASTERISK_PORT', '7088')
+ASTERISK_PORT = os.getenv('ASTERISK_PORT', '8888')
 
 ASTERISK_APP = os.getenv('ASTERISK_APP', 'call_manager')
 
@@ -47,6 +47,8 @@ POSTGRES_OML_USER = 'omnileads'
 POSTGRES_OML_DB = 'omnileads'
 
 POSTGRES_OML_PASSWORD = os.getenv('POSTGRES_OML_PASSWORD', '5432')
+
+DIALER_ACD_HOST=os.getenv('DIALER_ACD_HOST', 'acd')
 
 
 class NaiveWorker(DialerWorker):
@@ -160,6 +162,7 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def start_campaign(cls, worker, job):
+        logger.debug('starting the campaign')
         id_campaign = int(job.data)
         cls.connect_redis_dialer()
         cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMP:{id_campaign}', 'status', 'active')
@@ -193,7 +196,7 @@ class NaiveWorker(DialerWorker):
         agents_available = 0
         for key in cls.REDIS_OML_CONNECTION.scan_iter(match='OML:AGENT:*', count=1000):
             status = cls.REDIS_OML_CONNECTION.hget(key, 'STATUS')
-            if status == 'ready':
+            if status == 'READY':
                 agents_available += 1
         return agents_available
 
@@ -203,6 +206,8 @@ class NaiveWorker(DialerWorker):
         try:
             available_agents = cls.get_number_available_agents()
             active_campaigns = cls.get_number_active_campaigns()
+            logger.debug("var available_agents={0}".format(available_agents))
+            logger.debug("var active_campaigns={0}".format(active_campaigns))
             if active_campaigns > 0:
                 return int(available_agents / active_campaigns)
             return 0
@@ -212,6 +217,7 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def take_contacts(cls, contacts_attempts_number, id_campaign):
+        logger.debug("var contacts_attempts_number={0}".format(contacts_attempts_number))
         if contacts_attempts_number > 0:
             return cls.REDIS_DIALER_CONNECTION.lrange(f'DIALER:CAMP:{id_campaign}:CONTACTS', 0, contacts_attempts_number - 1)
         return []
@@ -246,7 +252,7 @@ class NaiveWorker(DialerWorker):
         print(f'Calling contact {contact} with phone {phone_number} in campaign {id_campaign}')
 
         call_data = {
-            'endpoint': f'PJSIP/{phone_number}@TroncalSIP0',
+            'endpoint': f'PJSIP/{phone_number}@{DIALER_ACD_HOST}',
             'callerId': '01177660010',
             'timout': 15,
             'app': ASTERISK_APP,

@@ -51,6 +51,7 @@ services:
       - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
       - GEARMAN_JOBS=${GEARMAN_JOBS}
       - PYTHON_LOGLEVEL=${PYTHON_LOGLEVEL}
+      - DIALER_ACD_HOST=${DIALER_ACD_HOST}
     depends_on:
       - job_server
       - redis
@@ -124,7 +125,7 @@ services:
 
 networks:
   network1:
-    name: devenv_omnileads
+    name: omnileads_omnileads
     external: true
 
 volumes:
