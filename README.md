@@ -1,5 +1,9 @@
 The OmniDialer for Omnileads
 
+$ cp env .env
+
+Modify the .env file according to your needs and do:
+
 $ docker-compose up -d
 
 A flask server would be running at 0.0.0.0:1440 with a Gearman job server and 3 Gearman workers.
