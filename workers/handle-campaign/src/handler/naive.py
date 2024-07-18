@@ -255,8 +255,8 @@ class NaiveWorker(DialerWorker):
         cls.connect_redis_dialer()
         phone_number = cls.REDIS_DIALER_CONNECTION.hget(f'DIALER:CAMP:{id_campaign}:CONTACT:{contact}', 'phone')
         id_customer = contact
-        queue_timeout = 30
-        dial_timeout = 2
+        queue_timeout = 20
+        dial_timeout = 30
         channel_type = 'to_omlacd_dialout'
         caller_id = '01177660010'
         variables = {
@@ -313,5 +313,5 @@ class NaiveWorker(DialerWorker):
     @classmethod
     def process_event(cls, worker, job):
         ari_event_data = cls.decode_payload(job.data)
-        print(ari_event_data)
+        logger.debug(ari_event_data)
         return b"ARI data received"

@@ -18,7 +18,7 @@ from settings.default import GEARMAN_JOB_SERVERS
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 
-ASTERISK_APP = os.getenv('ASTERISK_APP', 'call_manager_dialer')
+ASTERISK_APP_DIALER = os.getenv('ASTERISK_APP_DIALER', 'call_manager_dialer')
 
 
 class CallManager:
@@ -53,7 +53,7 @@ class CallManager:
         try:
             ari_client = websocket.WebSocketApp(
                 f"ws://{self.ari_host}:{self.ari_port}/ari/events"
-                f"?api_key={self.ari_user}:{self.ari_password}&app={ASTERISK_APP}",
+                f"?api_key={self.ari_user}:{self.ari_password}&app={ASTERISK_APP_DIALER}",
                 on_message=self.on_message,
                 on_error=self.on_error,
                 on_close=self.on_close
