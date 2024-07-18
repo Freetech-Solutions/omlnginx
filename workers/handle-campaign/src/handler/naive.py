@@ -245,18 +245,25 @@ class NaiveWorker(DialerWorker):
         cls.connect_redis_dialer()
         phone_number = cls.REDIS_DIALER_CONNECTION.hget(f'DIALER:CAMP:{id_campaign}:CONTACT:{contact}', 'phone')
         id_customer = contact
-        queue_timeout = 0
-        dial_timeout = 0
-        channel_type = 'pstn_dialout'
+        queue_timeout = 30
+        dial_timeout = 2
+        channel_type = 'to_omlacd_dialout'
+        variables = {
+            'PJSIP_HEADER(add,OMLCODCLI)': f'{id_customer}',
+            'PJSIP_HEADER(add,OMLCAMPID)': f'{id_campaign}',
+            'PJSIP_HEADER(add,OMLOUTNUM)': f'{phone_number}',
+        }
+        call_type = 2
 
-        print(f'Calling contact {contact} with phone {phone_number} in campaign {id_campaign}')
+        logger.debug(f'Calling contact {contact} with phone {phone_number} in campaign {id_campaign}')
 
         call_data = {
             'endpoint': f'PJSIP/{phone_number}@{DIALER_ACD_HOST}',
             'callerId': '01177660010',
             'timout': 15,
             'app': ASTERISK_APP,
-            'appArgs': f'id_camp: {id_campaign}, id_customer: {id_customer}, tel_customer: {phone_number}, queue_timeout: {queue_timeout}, channel_type: {channel_type}'
+            'appArgs': f'id_camp: {id_campaign}, id_customer: {id_customer}, tel_customer: {phone_number}, queue_timeout: {queue_timeout}, channel_type: {channel_type}, call_type: {call_type}',
+            'variables': variables
         }
         try:
             response = requests.post(
