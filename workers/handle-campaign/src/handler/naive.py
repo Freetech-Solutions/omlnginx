@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 
 from .basic import DialerWorker
+from .ari_manager import ARI
 
-from random import randrange
-
-import requests
 import json
 import sys
 import os
@@ -59,6 +57,15 @@ class NaiveWorker(DialerWorker):
     REDIS_DIALER_CONNECTION = None
     REDIS_OML_CONNECTION = None
     GM_CLIENT = gearman.GearmanClient(GEARMAN_JOB_SERVERS)
+
+    CALLED = False
+
+    ari = ARI(
+        user=ASTERISK_USER,
+        password=ASTERISK_PASS,
+        host=ASTERISK_HOST,
+        port=int(ASTERISK_PORT)
+    )
 
     @classmethod
     def connect_postgres_oml(cls):
@@ -236,46 +243,43 @@ class NaiveWorker(DialerWorker):
     @classmethod
     def process_contact(cls, worker, job):
         data = cls.decode_payload(job.data)
-        cls.attempt_contact_asterisk(data['contact'], data['id_campaign'])
+        if not cls.CALLED:
+            cls.attempt_contact_asterisk(data['contact'], data['id_campaign'])
+            cls.CALLED = True
         return b'Contact was called'
 
 
     @classmethod
     def attempt_contact_asterisk(cls, contact, id_campaign):
+        logger.debug('Trying to call the contact')
         cls.connect_redis_dialer()
         phone_number = cls.REDIS_DIALER_CONNECTION.hget(f'DIALER:CAMP:{id_campaign}:CONTACT:{contact}', 'phone')
         id_customer = contact
         queue_timeout = 30
         dial_timeout = 2
         channel_type = 'to_omlacd_dialout'
+        caller_id = '01177660010'
         variables = {
             'PJSIP_HEADER(add,OMLCODCLI)': f'{id_customer}',
             'PJSIP_HEADER(add,OMLCAMPID)': f'{id_campaign}',
             'PJSIP_HEADER(add,OMLOUTNUM)': f'{phone_number}',
         }
         call_type = 2
+        endpoint = f'PJSIP/{phone_number}@{DIALER_ACD_HOST}'
+        appArgs = f'id_camp: {id_campaign}, id_customer: {id_customer}, tel_customer: {phone_number}, queue_timeout: {queue_timeout}, channel_type: {channel_type}, call_type: {call_type}'
 
         logger.debug(f'Calling contact {contact} with phone {phone_number} in campaign {id_campaign}')
 
-        call_data = {
-            'endpoint': f'PJSIP/{phone_number}@{DIALER_ACD_HOST}',
-            'callerId': '01177660010',
-            'timout': 15,
-            'app': ASTERISK_APP,
-            'appArgs': f'id_camp: {id_campaign}, id_customer: {id_customer}, tel_customer: {phone_number}, queue_timeout: {queue_timeout}, channel_type: {channel_type}, call_type: {call_type}',
-            'variables': variables
-        }
-        try:
-            response = requests.post(
-                f'{ARI_BASE_URL}/channels',
-                auth=(ASTERISK_USER, ASTERISK_PASS),
-                headers={'Content-Type': 'application/json'},
-                data=json.dumps(call_data)
-            )
-        except Exception as e:
-            print(e)
-        else:
-            print(response)
+
+        # Realiza la solicitud para crear un nuevo canal (originate)
+        response = cls.ari.originate_channel(
+            endpoint=endpoint,
+            app=ASTERISK_APP,
+            callerId=caller_id,
+            appArgs=appArgs,
+            variables=variables
+        )
+        logger.debug(response)
 
 
     @classmethod
