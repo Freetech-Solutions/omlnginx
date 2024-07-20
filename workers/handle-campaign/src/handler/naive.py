@@ -58,8 +58,6 @@ class NaiveWorker(DialerWorker):
     REDIS_OML_CONNECTION = None
     GM_CLIENT = gearman.GearmanClient(GEARMAN_JOB_SERVERS)
 
-    CALLED = False
-
     ari = ARI(
         user=ASTERISK_USER,
         password=ASTERISK_PASS,
@@ -243,9 +241,7 @@ class NaiveWorker(DialerWorker):
     @classmethod
     def process_contact(cls, worker, job):
         data = cls.decode_payload(job.data)
-        if not cls.CALLED:
-            cls.attempt_contact_asterisk(data['contact'], data['id_campaign'])
-            cls.CALLED = True
+        cls.attempt_contact_asterisk(data['contact'], data['id_campaign'])
         return b'Contact was called'
 
 
@@ -315,3 +311,17 @@ class NaiveWorker(DialerWorker):
         ari_event_data = cls.decode_payload(job.data)
         logger.debug(ari_event_data)
         return b"ARI data received"
+
+
+class SingleCallWorker(NaiveWorker):
+
+    CALLED = False
+
+
+    @classmethod
+    def process_contact(cls, worker, job):
+        data = cls.decode_payload(job.data)
+        if not cls.CALLED:
+            cls.attempt_contact_asterisk(data['contact'], data['id_campaign'])
+            cls.CALLED = True
+        return b'Contact was called'
