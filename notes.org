@@ -1,0 +1,4 @@
+* Notes about misc stuff useful
+** Subscribe to events
+With the following we can subscribe to events of the dialer of OML dialplan:
+curl -X POST -u omnileadsami:5_MeO_DMT http://localhost:8888/ari/applications/call_manager_dialer/subscription -H 'content-type: application/json' -d '{"eventSource": "endpoint:PJSIP"}'
