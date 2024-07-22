@@ -313,13 +313,22 @@ class NaiveWorker(DialerWorker):
 
 class SingleCallWorker(NaiveWorker):
 
-    CALLED = False
-
+    @classmethod
+    def set_campaign_status(cls, id_campaign, new_status):
+        cls.connect_redis_dialer()
+        cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMP:{id_campaign}', 'status', new_status)
 
     @classmethod
     def process_contact(cls, worker, job):
         data = cls.decode_payload(job.data)
-        if not cls.CALLED:
-            cls.attempt_contact_asterisk(data['contact'], data['id_campaign'])
-            cls.CALLED = True
-        return b'Contact was called'
+        id_campaign = data['id_campaign']
+        cls.connect_redis_dialer()
+        if cls.campaign_is_active(id_campaign):
+            cls.attempt_contact_asterisk(data['contact'], id_campaign)
+            cls.set_campaign_status(id_campaign, 'paused')
+            return b'Contact was called in SingleCallWorker'
+        return b'Contact was not called in SingleCallWorker'
+
+    @classmethod
+    def allowed_parallel_contact_attempts(cls, id_campaign):
+        return 1
