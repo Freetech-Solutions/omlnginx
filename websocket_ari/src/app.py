@@ -46,9 +46,9 @@ class CallManager:
         # subscribes the app 'call_manager_dialer' to the events of the OML dialplan for
         # dialer call
         payload = {'eventSource': 'endpoint:PJSIP'}
-        uri = f'http://{self.host}:{self.port}/ari/applications/{ASTERISK_APP_DIALER}/subscription'
-        logging.info(f'URI: {uri}, Payload: {payload}, Headers: {headers}')
-        response = requests.post(uri, auth=(self.user, self.password), json=payload, headers=headers)
+        uri = f'http://{self.ari_host}:{self.ari_port}/ari/applications/{ASTERISK_APP_DIALER}/subscription'
+        logging.info(f'URI: {uri}, Payload: {payload}')
+        response = requests.post(uri, auth=(self.ari_user, self.ari_password), json=payload)
         logging.debug(response)
 
 
@@ -87,7 +87,9 @@ class CallManager:
 
         # Logging for debugging
         logging.info('Received event: %s', pformat(event_dict))
-        self.GM_CLIENT.submit_job('process-event', message, background=True)
+        self.GM_CLIENT.submit_job(
+            'process-event', bytes(message, encoding='utf8'), background=True
+        )
 
 
     def on_error(self, ws, error):
