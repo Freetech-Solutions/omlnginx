@@ -47,6 +47,7 @@ class CallManager:
     def subscribe_to_events(self):
         # subscribes the app 'call_manager_dialer' to the events of the OML dialplan for
         # dialer calls
+        logging.info('Subscribing to the events ...')
         headers = {
         }
 
@@ -58,8 +59,9 @@ class CallManager:
             f'http://{self.ari_host}:{self.ari_port}/ari/applications/{ASTERISK_APP_DIALER}/subscription',
             headers={},
             json=json_data,
-            auth=('omnileadsami', '5_MeO_DMT'),
+            auth=(self.ari_user, self.ari_password),
         )
+        logging.info(response.json())
 
 
     def client(self):
