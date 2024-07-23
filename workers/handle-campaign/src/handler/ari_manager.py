@@ -7,10 +7,10 @@ import logging
 class ARI:
 
     def __init__(self, user=None, password=None, host=None, port=None):
-        self.host = host if host is not None else os.getenv('ARI_HOST', 'acd')
-        self.port = port if port is not None else os.getenv('ARI_PORT', '7088')
-        self.user = user if user is not None else os.getenv('ARI_USER', 'omnileads')
-        self.password = password if password is not None else os.getenv('ARI_PASS', '5_MeO_DMT')
+        self.host = host if host is not None else os.getenv('ASTERISK_HOST', 'dialer_acd')
+        self.port = port if port is not None else os.getenv('ASTERISK_PORT', '8888')
+        self.user = user if user is not None else os.getenv('ASTERISK_USER', 'omnileadsami')
+        self.password = password if password is not None else os.getenv('ASTERISK_PASS', '5_MeO_DMT')
 
     def post(self, route, payload=None, headers=None):
         uri = f'http://{self.host}:{self.port}/ari/{route}'
@@ -54,7 +54,7 @@ class ARI:
             except ValueError:
                 logging.error(f"Error parsing JSON: {response.text}, Status Code: {response.status_code}")
                 return response
-            
+
     def delete(self, route):
         uri = f'http://{self.host}:{self.port}/ari/{route}'
         return requests.delete(uri, auth=(self.user, self.password))
