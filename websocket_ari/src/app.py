@@ -43,13 +43,23 @@ class CallManager:
         self.ari_user =  os.getenv('ASTERISK_USER', 'omnileads')
         self.ari_password =  os.getenv('ASTERISK_PASS', '5_MeO_DMT')
 
+
+    def subscribe_to_events(self):
         # subscribes the app 'call_manager_dialer' to the events of the OML dialplan for
-        # dialer call
-        payload = {'eventSource': 'endpoint:PJSIP'}
-        uri = f'http://{self.ari_host}:{self.ari_port}/ari/applications/{ASTERISK_APP_DIALER}/subscription'
-        logging.info(f'URI: {uri}, Payload: {payload}')
-        response = requests.post(uri, auth=(self.ari_user, self.ari_password), json=payload)
-        logging.debug(response)
+        # dialer calls
+        headers = {
+        }
+
+        json_data = {
+            'eventSource': 'endpoint:PJSIP',
+        }
+
+        response = requests.post(
+            f'http://{self.ari_host}:{self.ari_port}/ari/applications/{ASTERISK_APP_DIALER}/subscription',
+            headers={},
+            json=json_data,
+            auth=('omnileadsami', '5_MeO_DMT'),
+        )
 
 
     def client(self):
@@ -67,6 +77,7 @@ class CallManager:
                 on_error=self.on_error,
                 on_close=self.on_close
             )
+            self.subscribe_to_events()
             return ari_client
         except Exception as e:
             logging.error("Error setting up ARI client: %s", str(e))
