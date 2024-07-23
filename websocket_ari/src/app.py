@@ -7,6 +7,7 @@ import signal
 import sys
 import traceback
 import websocket
+import requests
 
 import gearman.client
 
@@ -41,6 +42,14 @@ class CallManager:
         self.ari_port =  os.getenv('ASTERISK_PORT', '8888')
         self.ari_user =  os.getenv('ASTERISK_USER', 'omnileads')
         self.ari_password =  os.getenv('ASTERISK_PASS', '5_MeO_DMT')
+
+        # subscribes the app 'call_manager_dialer' to the events of the OML dialplan for
+        # dialer call
+        payload = {'eventSource': 'endpoint:PJSIP'}
+        uri = f'http://{self.host}:{self.port}/ari/applications/{ASTERISK_APP_DIALER}/subscription'
+        logging.info(f'URI: {uri}, Payload: {payload}, Headers: {headers}')
+        response = requests.post(uri, auth=(self.user, self.password), json=payload, headers=headers)
+        logging.debug(response)
 
 
     def client(self):
