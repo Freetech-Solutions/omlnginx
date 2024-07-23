@@ -266,8 +266,6 @@ class NaiveWorker(DialerWorker):
 
         logger.debug(f'Calling contact {contact} with phone {phone_number} in campaign {id_campaign}')
 
-
-        # Realiza la solicitud para crear un nuevo canal (originate)
         response = cls.ari.originate_channel(
             endpoint=endpoint,
             app=ASTERISK_APP,
