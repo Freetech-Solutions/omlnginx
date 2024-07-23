@@ -177,6 +177,7 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def campaign_is_active(cls, id_campaign):
+        cls.connect_redis_dialer()
         return cls.REDIS_DIALER_CONNECTION.hget(f'DIALER:CAMP:{id_campaign}', 'status') in ['active', 'resumed']
 
 
@@ -312,6 +313,8 @@ class NaiveWorker(DialerWorker):
 
 
 class SingleCallWorker(NaiveWorker):
+    """Another naive dialer worker flow that makes only 1 call at a time, and after every call pauses the campaign,
+    It will also remove the contacts one by one after the calls. Assumes the call was always answered."""
 
     @classmethod
     def set_campaign_status(cls, id_campaign, new_status):
@@ -326,9 +329,18 @@ class SingleCallWorker(NaiveWorker):
         if cls.campaign_is_active(id_campaign):
             cls.attempt_contact_asterisk(data['contact'], id_campaign)
             cls.set_campaign_status(id_campaign, 'paused')
+            cls.REDIS_DIALER_CONNECTION.lpop(f'DIALER:CAMP:{id_campaign}:CONTACTS')
             return b'Contact was called in SingleCallWorker'
         return b'Contact was not called in SingleCallWorker'
 
     @classmethod
     def allowed_parallel_contact_attempts(cls, id_campaign):
         return 1
+
+
+    @classmethod
+    def campaign_is_active(cls, id_campaign):
+        cls.connect_redis_dialer()
+        status_active = cls.REDIS_DIALER_CONNECTION.hget(f'DIALER:CAMP:{id_campaign}', 'status') in ['active', 'resumed']
+        pending_contacts = cls.REDIS_DIALER_CONNECTION.llen(f'DIALER:CAMP:{id_campaign}:CONTACTS')
+        return status_active and pending_contacts > 0
