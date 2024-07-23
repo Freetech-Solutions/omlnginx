@@ -38,7 +38,7 @@ class CallManager:
         and sets up ARI for interaction with Asterisk.
         """
 
-        self.ari_host =  os.getenv('ASTERISK_HOST', 'acd')
+        self.ari_host =  os.getenv('ASTERISK_HOST', 'dialer_acd')
         self.ari_port =  os.getenv('ASTERISK_PORT', '8888')
         self.ari_user =  os.getenv('ASTERISK_USER', 'omnileads')
         self.ari_password =  os.getenv('ASTERISK_PASS', '5_MeO_DMT')
