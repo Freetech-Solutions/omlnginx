@@ -103,6 +103,7 @@ class CallManager:
         self.GM_CLIENT.submit_job(
             'process-event', bytes(message, encoding='utf8'), background=True
         )
+        logging.info('Event was sent to Gearman job')
 
 
     def on_error(self, ws, error):
