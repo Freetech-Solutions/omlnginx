@@ -255,7 +255,7 @@ class NaiveWorker(DialerWorker):
         queue_timeout = 20
         dial_timeout = 30
         channel_type = 'to_omlacd_dialout'
-        caller_id = '01177660010'
+        caller_id = f'{id_customer}_{phone_number}'
         variables = {
             'PJSIP_HEADER(add,OMLCODCLI)': f'{id_customer}',
             'PJSIP_HEADER(add,OMLCAMPID)': f'{id_campaign}',
