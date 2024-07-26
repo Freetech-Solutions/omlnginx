@@ -312,13 +312,14 @@ class NaiveWorker(DialerWorker):
         logger.debug("ARI event received")
         logger.debug(ari_event_data)
         if cls.is_answer_event(ari_event_data):
-            contact_id, __ , id_campaign  = cls.get_contact_data(ari_event_data)
+            contact_id, phone_number , id_campaign  = cls.get_contact_data(ari_event_data)
             if cls.was_answered_pstn(ari_event_data):
                 cls.set_contact_status(id_campaign, contact_id, 'answered_pstn')
             elif cls.was_answered_agent(ari_event_data):
                 cls.set_contact_status(id_campaign, contact_id, 'answered_agent')
             cls.REDIS_DIALER_CONNECTION.lrem(f'DIALER:CAMP:{id_campaign}:CONTACTS', 1, contact_id)
-            logger.debug(f'Contact {contact_id} was succesfully called in campaign {id_campaign}')
+            logger.debug(f'Contact {contact_id} was succesfully called to phone {phone_number}'
+                         f' in campaign {id_campaign}')
         return b'Event was processed'
 
 
