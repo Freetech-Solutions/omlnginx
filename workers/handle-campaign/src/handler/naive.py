@@ -255,7 +255,7 @@ class NaiveWorker(DialerWorker):
         queue_timeout = 20
         dial_timeout = 30
         channel_type = 'to_omlacd_dialout'
-        caller_id = f'{id_customer}_{phone_number}'
+        caller_id = f'{id_customer}_{phone_number}_{id_campaign}'
         variables = {
             'PJSIP_HEADER(add,OMLCODCLI)': f'{id_customer}',
             'PJSIP_HEADER(add,OMLCAMPID)': f'{id_campaign}',
@@ -307,9 +307,46 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def process_event(cls, worker, job):
+        cls.connect_redis_dialer()
         ari_event_data = cls.decode_payload(job.data)
+        logger.debug("ARI event received")
         logger.debug(ari_event_data)
-        return b"ARI data received"
+        if cls.is_answer_event(ari_event_data):
+            contact_id, __ , id_campaign  = cls.get_contact_data(ari_event_data)
+            if cls.was_answered_pstn(ari_event_data):
+                cls.set_contact_status(id_campaign, contact_id, 'answered_pstn')
+            elif cls.was_answered_agent(ari_event_data):
+                cls.set_contact_status(id_campaign, contact_id, 'answered_agent')
+            cls.REDIS_DIALER_CONNECTION.lrem(f'DIALER:CAMP:{id_campaign}:CONTACTS', 1, contact_id)
+            logger.debug(f'Contact {contact_id} was succesfully called in campaign {id_campaign}')
+        return b'Event was processed'
+
+
+    @classmethod
+    def is_answer_event(cls, ari_event_data):
+        dialstatus = ari_event_data.get('dialstatus')
+        type_event = ari_event_data.get('type')
+        return type_event == 'Dial' and dialstatus == 'ANSWER'
+
+
+    @classmethod
+    def get_contact_data(cls, ari_event_data):
+        return ari_event_data['peer']['caller']['name'].split('_')
+
+
+    @classmethod
+    def was_answered_pstn(cls, ari_event_data):
+        return ari_event_data['dialstring'].find('camp_') == -1
+
+
+    @classmethod
+    def was_answered_agent(cls, ari_event_data):
+        return ari_event_data['dialstring'].find('camp_') >= 0
+
+
+    @classmethod
+    def set_contact_status(cls, id_campaign, contact_id, status):
+        cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMP:{id_campaign}:CONTACT:{contact_id}', 'status', status)
 
 
 class SingleCallWorker(NaiveWorker):
@@ -329,7 +366,6 @@ class SingleCallWorker(NaiveWorker):
         if cls.campaign_is_active(id_campaign):
             cls.attempt_contact_asterisk(data['contact'], id_campaign)
             cls.set_campaign_status(id_campaign, 'paused')
-            cls.REDIS_DIALER_CONNECTION.lpop(f'DIALER:CAMP:{id_campaign}:CONTACTS')
             return b'Contact was called in SingleCallWorker'
         return b'Contact was not called in SingleCallWorker'
 
