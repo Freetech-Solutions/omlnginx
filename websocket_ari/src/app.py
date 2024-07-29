@@ -94,8 +94,6 @@ class CallManager:
                 on_error=self.on_error,
                 on_close=self.on_close
             )
-            self.subscribe_to_events()
-            self.filter_incoming_events()
             return ari_client
         except Exception as e:
             logging.error("Error setting up ARI client: %s", str(e))
@@ -153,6 +151,9 @@ class CallManager:
             ws (websocket.WebSocketApp): The WebSocket client instance.
         """
         logging.info("WebSocket connection opened")
+        self.subscribe_to_events()
+        self.filter_incoming_events()
+
 
 
 if __name__ == "__main__":
