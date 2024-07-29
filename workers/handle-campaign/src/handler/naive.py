@@ -309,26 +309,31 @@ class NaiveWorker(DialerWorker):
     def process_event(cls, worker, job):
         cls.connect_redis_dialer()
         ari_event_data = cls.decode_payload(job.data)
-        logger.debug("ARI event received")
-        logger.debug(ari_event_data)
+        contact_id, phone_number , id_campaign  = cls.get_contact_data(ari_event_data)
         if cls.is_answer_event(ari_event_data):
-            contact_id, phone_number , id_campaign  = cls.get_contact_data(ari_event_data)
             if cls.was_answered_pstn(ari_event_data):
+                logger.debug('Receiving answer pstn')
                 cls.set_contact_status(id_campaign, contact_id, 'answered_pstn')
             elif cls.was_answered_agent(ari_event_data):
+                logger.debug('Receiving answer agent')
                 cls.set_contact_status(id_campaign, contact_id, 'answered_agent')
-            cls.REDIS_DIALER_CONNECTION.lrem(f'DIALER:CAMP:{id_campaign}:CONTACTS', 1, contact_id)
+            # TODO: the following line should be part of the branch 'elif cls.was_answered_agent(ari_event_data)'
+            # as soon as the component 'oml-dialer_call_manager' can send the campaign_id on the info
             logger.debug(f'Contact {contact_id} was succesfully called to phone {phone_number}'
                          f' in campaign {id_campaign}')
+            cls.REDIS_DIALER_CONNECTION.lrem(f'DIALER:CAMP:{id_campaign}:CONTACTS', 1, contact_id)
         elif cls.is_busy_event(ari_event_data):
+            logger.debug('Receiving busy')
             cls.set_contact_status(id_campaign, contact_id, 'busy')
             cls.REDIS_DIALER_CONNECTION.lrem(f'DIALER:CAMP:{id_campaign}:CONTACTS', 1, contact_id)
             cls.REDIS_DIALER_CONNECTION.lpush(f'DIALER:CAMP:{id_campaign}:CONTACTS_BUSY', contact_id)
         elif cls.is_noanswer_event(ari_event_data):
+            logger.debug('Receiving noanswer')
             cls.set_contact_status(id_campaign, contact_id, 'noanswer')
             cls.REDIS_DIALER_CONNECTION.lrem(f'DIALER:CAMP:{id_campaign}:CONTACTS', 1, contact_id)
             cls.REDIS_DIALER_CONNECTION.lpush(f'DIALER:CAMP:{id_campaign}:CONTACTS_NOANSWER', contact_id)
         elif cls.is_congestion_event(ari_event_data):
+            logger.debug('Receiving congestion')
             cls.set_contact_status(id_campaign, contact_id, 'congestion')
             cls.REDIS_DIALER_CONNECTION.lrem(f'DIALER:CAMP:{id_campaign}:CONTACTS', 1, contact_id)
             cls.REDIS_DIALER_CONNECTION.lpush(f'DIALER:CAMP:{id_campaign}:CONTACTS_CONGESTION', contact_id)
@@ -375,6 +380,7 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def was_answered_agent(cls, ari_event_data):
+        import pdb; pdb.set_trace()
         return ari_event_data['dialstring'].find('camp_') >= 0
 
 
