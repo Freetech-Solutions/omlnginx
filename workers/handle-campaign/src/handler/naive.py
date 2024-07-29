@@ -387,6 +387,25 @@ class NaiveWorker(DialerWorker):
         cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMP:{id_campaign}:CONTACT:{contact_id}', 'status', status)
 
 
+    @classmethod
+    def delete_campaign(cls, worker, job):
+        logger.debug('removing the campaign')
+        id_campaign = int(job.data)
+        cls.connect_redis_dialer()
+        cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMP:{id_campaign}', 'status', 'paused')
+        cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}')
+        cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}:incidence_rules')
+        cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}:opening_hours')
+        cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}:CONTACTS')
+        cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}:CONTACTS')
+        cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}:CONTACTS_ANSWER')
+        cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}:CONTACTS_NOANSWER')
+        cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}:CONTACTS_BUSY')
+        cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}:CONTACTS_CONGESTION')
+        for key in cls.REDIS_DIALER_CONNECTION.scan_iter(match=f'DIALER:CAMP:{id_campaign}:CONTACT:*', count=1000):
+            cls.REDIS_DIALER_CONNECTION.delete(key)
+        return b'Campaign was deleted'
+
 class SingleCallWorker(NaiveWorker):
     """Another naive dialer worker flow that makes only 1 call at a time, and after every call pauses the campaign,
     It will also remove the contacts one by one after the calls. Assumes the call was always answered."""
