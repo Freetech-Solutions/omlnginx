@@ -45,4 +45,4 @@ Troubleshooting:
 
 - If artefactual/gearmand:1.1.19.1-alpine does not run in Mac M1, but you can build the image from their repository manually and use it directly (https://github.com/artefactual-labs/docker-gearmand)
 
-- If you are on another machine (but in the same network of OML development environment) you need to modify the settings ASTERISK_HOST, REDIS_OML_SERVER and POSTGRES_OML_SERVER to point to the IP of OML's host. You will need to create by hand the network 'omnileads_omnileads'.
+- If you are on another machine (but in the same network of OML development environment) you need to modify the settings ASTERISK_HOST, REDIS_OML_SERVER and POSTGRES_OML_SERVER to point to the IP of OML's host. You will need to create by hand the network 'omnileads_omnileads'. Also, you need to modify the 'ari.conf' in the container 'oml-asterisk_dialer' to add your machine IP to the 'allowed_origins' in the [general] configuration section. After that, run 'reload' in the Asterisk console.
