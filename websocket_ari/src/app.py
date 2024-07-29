@@ -95,6 +95,7 @@ class CallManager:
                 on_close=self.on_close
             )
             self.subscribe_to_events()
+            self.filter_incoming_events()
             return ari_client
         except Exception as e:
             logging.error("Error setting up ARI client: %s", str(e))
