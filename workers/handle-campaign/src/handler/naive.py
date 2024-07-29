@@ -311,6 +311,7 @@ class NaiveWorker(DialerWorker):
         ari_event_data = cls.decode_payload(job.data)
         contact_id, phone_number , id_campaign  = cls.get_contact_data(ari_event_data)
         if cls.is_answer_event(ari_event_data):
+            cls.REDIS_DIALER_CONNECTION.lpush(f'DIALER:CAMP:{id_campaign}:CONTACTS_ANSWER', contact_id)
             if cls.was_answered_pstn(ari_event_data):
                 logger.debug('Receiving answer pstn')
                 cls.set_contact_status(id_campaign, contact_id, 'answered_pstn')
