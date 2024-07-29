@@ -64,6 +64,21 @@ class CallManager:
         logging.info(response.json())
 
 
+    def filter_incoming_events(self):
+        logging.info('Filtering events ...')
+        headers = {
+        }
+
+        json_data = {'allowed': [ { 'type': 'Dial' } ] }
+
+        response = requests.put(
+            f'http://{self.ari_host}:{self.ari_port}/ari/applications/{ASTERISK_APP_DIALER}/eventFilter',
+            headers={},
+            json=json_data,
+            auth=(self.ari_user, self.ari_password),
+        )
+        logging.info(response.json())
+
     def client(self):
         """
         Sets up the WebSocket client to connect to ARI and handle events.
