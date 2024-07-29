@@ -123,6 +123,7 @@ services:
     depends_on:
       - job_server
       - redis
+      - worker
 
 networks:
   network1:
