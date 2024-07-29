@@ -320,6 +320,18 @@ class NaiveWorker(DialerWorker):
             cls.REDIS_DIALER_CONNECTION.lrem(f'DIALER:CAMP:{id_campaign}:CONTACTS', 1, contact_id)
             logger.debug(f'Contact {contact_id} was succesfully called to phone {phone_number}'
                          f' in campaign {id_campaign}')
+        elif cls.is_busy_event(ari_event_data):
+            cls.set_contact_status(id_campaign, contact_id, 'busy')
+            cls.REDIS_DIALER_CONNECTION.lrem(f'DIALER:CAMP:{id_campaign}:CONTACTS', 1, contact_id)
+            cls.REDIS_DIALER_CONNECTION.lpush(f'DIALER:CAMP:{id_campaign}:CONTACTS_BUSY', contact_id)
+        elif cls.is_noanswer_event(ari_event_data):
+            cls.set_contact_status(id_campaign, contact_id, 'noanswer')
+            cls.REDIS_DIALER_CONNECTION.lrem(f'DIALER:CAMP:{id_campaign}:CONTACTS', 1, contact_id)
+            cls.REDIS_DIALER_CONNECTION.lpush(f'DIALER:CAMP:{id_campaign}:CONTACTS_NOANSWER', contact_id)
+        elif cls.is_congestion_event(ari_event_data):
+            cls.set_contact_status(id_campaign, contact_id, 'congestion')
+            cls.REDIS_DIALER_CONNECTION.lrem(f'DIALER:CAMP:{id_campaign}:CONTACTS', 1, contact_id)
+            cls.REDIS_DIALER_CONNECTION.lpush(f'DIALER:CAMP:{id_campaign}:CONTACTS_CONGESTION', contact_id)
         return b'Event was processed'
 
 
@@ -328,6 +340,27 @@ class NaiveWorker(DialerWorker):
         dialstatus = ari_event_data.get('dialstatus')
         type_event = ari_event_data.get('type')
         return type_event == 'Dial' and dialstatus == 'ANSWER'
+
+
+    @classmethod
+    def is_busy_event(cls, ari_event_data):
+        dialstatus = ari_event_data.get('dialstatus')
+        type_event = ari_event_data.get('type')
+        return type_event == 'Dial' and dialstatus == 'BUSY'
+
+
+    @classmethod
+    def is_noanswer_event(cls, ari_event_data):
+        dialstatus = ari_event_data.get('dialstatus')
+        type_event = ari_event_data.get('type')
+        return type_event == 'Dial' and dialstatus == 'NOANSWER'
+
+
+    @classmethod
+    def is_congestion_event(cls, ari_event_data):
+        dialstatus = ari_event_data.get('dialstatus')
+        type_event = ari_event_data.get('type')
+        return type_event == 'Dial' and dialstatus == 'CONGESTION'
 
 
     @classmethod
