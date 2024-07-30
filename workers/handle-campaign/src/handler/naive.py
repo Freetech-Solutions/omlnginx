@@ -10,6 +10,8 @@ import redis
 import psycopg
 import gearman.client
 
+from time import sleep
+
 from settings.default import REDIS_DIALER_PORT, REDIS_DIALER_SERVER, GEARMAN_JOB_SERVERS
 
 import logging
@@ -64,6 +66,16 @@ class NaiveWorker(DialerWorker):
         host=ASTERISK_HOST,
         port=int(ASTERISK_PORT)
     )
+
+
+    @classmethod
+    def process_campaign(cls, id_campaign):
+        while cls.campaign_is_active(id_campaign):
+            contacts_attempts_number = cls.allowed_parallel_contact_attempts(id_campaign)
+            for contact in cls.take_contacts(contacts_attempts_number, id_campaign):
+                sleep(7)
+                cls.attempt_contact(contact, id_campaign)
+
 
     @classmethod
     def connect_postgres_oml(cls):
