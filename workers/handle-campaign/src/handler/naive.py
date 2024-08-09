@@ -46,7 +46,15 @@ POSTGRES_OML_USER = 'omnileads'
 
 POSTGRES_OML_DB = 'omnileads'
 
-POSTGRES_OML_PASSWORD = os.getenv('POSTGRES_OML_PASSWORD', '5432')
+POSTGRES_DIALER_SERVER = os.getenv('POSTGRES_DIALER_SERVER', 'dialer-postgres')
+
+POSTGRES_DIALER_PORT = os.getenv('POSTGRES_DIALER_PORT', '5432')
+
+POSTGRES_DIALER_USER = 'omnidialer'
+
+POSTGRES_DIALER_DB = 'omnidialer'
+
+POSTGRES_DIALER_PASSWORD = os.getenv('POSTGRES_OML_PASSWORD')
 
 DIALER_ACD_HOST=os.getenv('DIALER_ACD_HOST', 'acd')
 
@@ -56,7 +64,7 @@ class NaiveWorker(DialerWorker):
 
 
     POSTGRES_OML_CONNECTION = None
-    REDIS_DIALER_CONNECTION = None
+    POSTGRES_DIALER_CONNECTION = None
     REDIS_OML_CONNECTION = None
     GM_CLIENT = gearman.GearmanClient(GEARMAN_JOB_SERVERS)
 
@@ -84,9 +92,9 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
-    def connect_redis_dialer(cls):
-        if cls.REDIS_DIALER_CONNECTION is None:
-            cls.REDIS_DIALER_CONNECTION = redis.Redis(host=REDIS_DIALER_SERVER, port=REDIS_DIALER_PORT, decode_responses=True)
+    def connect_postgres_dialer(cls):
+        if cls.POSTGRES_DIALER_CONNECTION is None:
+            cls.POSTGRES_OML_CONNECTION = psycopg.connect(f'postgresql://{POSTGRES_DIALER_USER}:{POSTGRES_DIALER_PASSWORD}@{POSTGRES_DIALER_SERVER}:{POSTGRES_DIALER_PORT}/{POSTGRES_DIALER_DB}')
 
 
     @classmethod
@@ -160,7 +168,7 @@ class NaiveWorker(DialerWorker):
         contact_strategy = data['contact_strategy']
         cls.connect_postgres_oml()
         cls.connect_redis_oml()
-        cls.connect_redis_dialer()
+        cls.connect_postgres_dialer()
         try:
             with cls.REDIS_DIALER_CONNECTION.pipeline() as pipe:
                 cls.set_contact_strategy(pipe, id_campaign, contact_strategy)
@@ -181,7 +189,7 @@ class NaiveWorker(DialerWorker):
     def start_campaign(cls, worker, job):
         logger.debug('starting the campaign')
         id_campaign = int(job.data)
-        cls.connect_redis_dialer()
+        cls.connect_postgres_dialer()
         cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMP:{id_campaign}', 'status', 'active')
         cls.process_campaign(id_campaign)
         return b'Campaign started!'
@@ -189,13 +197,13 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def campaign_is_active(cls, id_campaign):
-        cls.connect_redis_dialer()
+        cls.connect_postgres_dialer()
         return cls.REDIS_DIALER_CONNECTION.hget(f'DIALER:CAMP:{id_campaign}', 'status') in ['active', 'resumed']
 
 
     @classmethod
     def get_number_active_campaigns(cls):
-        cls.connect_redis_dialer()
+        cls.connect_postgres_dialer()
         active_campaigns = 0
         # TODO: find an exact pattern for DIALER:CAMP:<id_campaign>
         for key in cls.REDIS_DIALER_CONNECTION.scan_iter(match='DIALER:CAMP:*', count=1000):
@@ -261,7 +269,7 @@ class NaiveWorker(DialerWorker):
     @classmethod
     def attempt_contact_asterisk(cls, contact, id_campaign):
         logger.debug('Trying to call the contact')
-        cls.connect_redis_dialer()
+        cls.connect_postgres_dialer()
         phone_number = cls.REDIS_DIALER_CONNECTION.hget(f'DIALER:CAMP:{id_campaign}:CONTACT:{contact}', 'phone')
         id_customer = contact
         queue_timeout = 20
@@ -292,7 +300,7 @@ class NaiveWorker(DialerWorker):
     @classmethod
     def pause_campaign(cls, worker, job):
         logger.debug('pausing the campaign')
-        cls.connect_redis_dialer()
+        cls.connect_postgres_dialer()
         id_campaign = cls.decode_payload(job.data)
         try:
             cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMP:{id_campaign}', 'status', 'paused')
@@ -305,7 +313,7 @@ class NaiveWorker(DialerWorker):
     @classmethod
     def resume_campaign(cls, worker, job):
         logger.debug('resuming the campaign')
-        cls.connect_redis_dialer()
+        cls.connect_postgres_dialer()
         id_campaign = cls.decode_payload(job.data)
         try:
             cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMP:{id_campaign}', 'status', 'resumed')
@@ -319,7 +327,7 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def process_event(cls, worker, job):
-        cls.connect_redis_dialer()
+        cls.connect_postgres_dialer()
         ari_event_data = cls.decode_payload(job.data)
         id_campaign, contact_id, phone_number = cls.get_contact_data(ari_event_data)
         if cls.is_answer_event(ari_event_data):
@@ -403,7 +411,7 @@ class NaiveWorker(DialerWorker):
     def delete_campaign(cls, worker, job):
         logger.debug('removing the campaign')
         id_campaign = int(job.data)
-        cls.connect_redis_dialer()
+        cls.connect_postgres_dialer()
         cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMP:{id_campaign}', 'status', 'paused')
         cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}')
         cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}:incidence_rules')
@@ -424,14 +432,14 @@ class SingleCallWorker(NaiveWorker):
 
     @classmethod
     def set_campaign_status(cls, id_campaign, new_status):
-        cls.connect_redis_dialer()
+        cls.connect_postgres_dialer()
         cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMP:{id_campaign}', 'status', new_status)
 
     @classmethod
     def process_contact(cls, worker, job):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
-        cls.connect_redis_dialer()
+        cls.connect_postgres_dialer()
         if cls.campaign_is_active(id_campaign):
             cls.attempt_contact_asterisk(data['contact'], id_campaign)
             cls.set_campaign_status(id_campaign, 'paused')
@@ -445,7 +453,7 @@ class SingleCallWorker(NaiveWorker):
 
     @classmethod
     def campaign_is_active(cls, id_campaign):
-        cls.connect_redis_dialer()
+        cls.connect_postgres_dialer()
         status_active = cls.REDIS_DIALER_CONNECTION.hget(f'DIALER:CAMP:{id_campaign}', 'status') in ['active', 'resumed']
         pending_contacts = cls.REDIS_DIALER_CONNECTION.llen(f'DIALER:CAMP:{id_campaign}:CONTACTS')
         return status_active and pending_contacts > 0
