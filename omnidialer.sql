@@ -117,19 +117,30 @@ CREATE TABLE public.campaign (
     announce_position boolean NOT NULL,
     wait_announce_frequency bigint,
     audio_previo_conexion_llamada_id integer,
-    CONSTRAINT campaign_dial_timeout_check CHECK ((dial_timeout >= 0)),
-    CONSTRAINT campaign_wait_check CHECK ((wait >= 0)),
     CONSTRAINT campaign_control_de_duplicados_check CHECK ((control_de_duplicados >= 0)),
+    CONSTRAINT campaign_dial_timeout_check CHECK ((dial_timeout >= 0)),
     CONSTRAINT campaign_estado_check CHECK ((estado >= 0)),
     CONSTRAINT campaign_objetivo_check CHECK ((objetivo >= 0)),
     CONSTRAINT campaign_prioridad_check CHECK ((prioridad >= 0)),
     CONSTRAINT campaign_tiempo_desconexion_check CHECK ((tiempo_desconexion >= 0)),
     CONSTRAINT campaign_tipo_interaccion_check CHECK ((tipo_interaccion >= 0)),
-    CONSTRAINT campaign_type_check CHECK ((type >= 0))
+    CONSTRAINT campaign_type_check CHECK ((type >= 0)),
+    CONSTRAINT campaign_wait_check CHECK ((wait >= 0))
 );
 
 
 ALTER TABLE public.campaign OWNER TO omnidialer;
+
+--
+-- Name: campaign_historic; Type: TABLE; Schema: public; Owner: omnidialer
+--
+
+CREATE TABLE public.campaign_historic (
+)
+INHERITS (public.campaign);
+
+
+ALTER TABLE public.campaign_historic OWNER TO omnidialer;
 
 --
 -- Name: campaign_id_seq; Type: SEQUENCE; Schema: public; Owner: omnidialer
@@ -170,6 +181,17 @@ CREATE TABLE public.contact (
 ALTER TABLE public.contact OWNER TO omnidialer;
 
 --
+-- Name: contact_historic; Type: TABLE; Schema: public; Owner: omnidialer
+--
+
+CREATE TABLE public.contact_historic (
+)
+INHERITS (public.contact);
+
+
+ALTER TABLE public.contact_historic OWNER TO omnidialer;
+
+--
 -- Name: contact_id_seq; Type: SEQUENCE; Schema: public; Owner: omnidialer
 --
 
@@ -192,6 +214,45 @@ ALTER SEQUENCE public.contact_id_seq OWNED BY public.contact.id;
 
 
 --
+-- Name: contact_in_campaign; Type: TABLE; Schema: public; Owner: omnidialer
+--
+
+CREATE TABLE public.contact_in_campaign (
+    id_campaign integer NOT NULL,
+    id_contact integer NOT NULL,
+    id integer NOT NULL,
+    status integer NOT NULL
+);
+
+
+ALTER TABLE public.contact_in_campaign OWNER TO omnidialer;
+
+--
+-- Name: COLUMN contact_in_campaign.id_campaign; Type: COMMENT; Schema: public; Owner: omnidialer
+--
+
+COMMENT ON COLUMN public.contact_in_campaign.id_campaign IS 'foreign key to campaign table';
+
+
+--
+-- Name: COLUMN contact_in_campaign.id_contact; Type: COMMENT; Schema: public; Owner: omnidialer
+--
+
+COMMENT ON COLUMN public.contact_in_campaign.id_contact IS 'link to contact table';
+
+
+--
+-- Name: contact_in_campaign_historic; Type: TABLE; Schema: public; Owner: omnidialer
+--
+
+CREATE TABLE public.contact_in_campaign_historic (
+)
+INHERITS (public.contact_in_campaign);
+
+
+ALTER TABLE public.contact_in_campaign_historic OWNER TO omnidialer;
+
+--
 -- Name: incidence_rules; Type: TABLE; Schema: public; Owner: omnidialer
 --
 
@@ -209,6 +270,17 @@ CREATE TABLE public.incidence_rules (
 
 
 ALTER TABLE public.incidence_rules OWNER TO omnidialer;
+
+--
+-- Name: incidence_rules_historic; Type: TABLE; Schema: public; Owner: omnidialer
+--
+
+CREATE TABLE public.incidence_rules_historic (
+)
+INHERITS (public.incidence_rules);
+
+
+ALTER TABLE public.incidence_rules_historic OWNER TO omnidialer;
 
 --
 -- Name: incidence_rules_id_seq; Type: SEQUENCE; Schema: public; Owner: omnidialer
@@ -240,6 +312,13 @@ ALTER TABLE ONLY public.campaign ALTER COLUMN id SET DEFAULT nextval('public.cam
 
 
 --
+-- Name: campaign_historic id; Type: DEFAULT; Schema: public; Owner: omnidialer
+--
+
+ALTER TABLE ONLY public.campaign_historic ALTER COLUMN id SET DEFAULT nextval('public.campaign_id_seq'::regclass);
+
+
+--
 -- Name: contact id; Type: DEFAULT; Schema: public; Owner: omnidialer
 --
 
@@ -247,10 +326,24 @@ ALTER TABLE ONLY public.contact ALTER COLUMN id SET DEFAULT nextval('public.cont
 
 
 --
+-- Name: contact_historic id; Type: DEFAULT; Schema: public; Owner: omnidialer
+--
+
+ALTER TABLE ONLY public.contact_historic ALTER COLUMN id SET DEFAULT nextval('public.contact_id_seq'::regclass);
+
+
+--
 -- Name: incidence_rules id; Type: DEFAULT; Schema: public; Owner: omnidialer
 --
 
 ALTER TABLE ONLY public.incidence_rules ALTER COLUMN id SET DEFAULT nextval('public.incidence_rules_id_seq'::regclass);
+
+
+--
+-- Name: incidence_rules_historic id; Type: DEFAULT; Schema: public; Owner: omnidialer
+--
+
+ALTER TABLE ONLY public.incidence_rules_historic ALTER COLUMN id SET DEFAULT nextval('public.incidence_rules_id_seq'::regclass);
 
 
 --
@@ -284,6 +377,15 @@ ALTER TABLE ONLY public.contact
 ALTER TABLE ONLY public.incidence_rules
     ADD CONSTRAINT incidence_rules_pkey PRIMARY KEY (id);
 
+
+--
+-- Name: contact_in_campaign primary_key_contact_in_campaign; Type: CONSTRAINT; Schema: public; Owner: omnidialer
+--
+
+ALTER TABLE ONLY public.contact_in_campaign
+    ADD CONSTRAINT primary_key_contact_in_campaign PRIMARY KEY (id);
+
+
 --
 -- Name: campaign_bd_contacto_id_3b5858cd; Type: INDEX; Schema: public; Owner: omnidialer
 --
@@ -311,11 +413,19 @@ CREATE INDEX campaign_outr_id_2cd2dd43 ON public.campaign USING btree (outr_id);
 
 CREATE INDEX campaign_reported_by_id_cb70293d ON public.campaign USING btree (reported_by_id);
 
+
 --
 -- Name: contact_bd_contacto_id_e36d02df; Type: INDEX; Schema: public; Owner: omnidialer
 --
 
 CREATE INDEX contact_bd_contacto_id_e36d02df ON public.contact USING btree (bd_contacto_id);
+
+
+--
+-- Name: fki_foreign_key_contact; Type: INDEX; Schema: public; Owner: omnidialer
+--
+
+CREATE INDEX fki_foreign_key_contact ON public.contact_in_campaign USING btree (id_contact);
 
 
 --
@@ -326,12 +436,30 @@ CREATE INDEX incidence_rules_campana_id_707899e9 ON public.incidence_rules USING
 
 
 --
+-- Name: contact_in_campaign foreign_key_campaign; Type: FK CONSTRAINT; Schema: public; Owner: omnidialer
+--
+
+ALTER TABLE ONLY public.contact_in_campaign
+    ADD CONSTRAINT foreign_key_campaign FOREIGN KEY (id_campaign) REFERENCES public.campaign(id) NOT VALID;
+
+
+--
+-- Name: contact_in_campaign foreign_key_contact; Type: FK CONSTRAINT; Schema: public; Owner: omnidialer
+--
+
+ALTER TABLE ONLY public.contact_in_campaign
+    ADD CONSTRAINT foreign_key_contact FOREIGN KEY (id_contact) REFERENCES public.contact(id) NOT VALID;
+
+
+--
 -- Name: incidence_rules re_campaign_id_707899e9_fk_ominicont; Type: FK CONSTRAINT; Schema: public; Owner: omnidialer
 --
 
 ALTER TABLE ONLY public.incidence_rules
     ADD CONSTRAINT re_campaign_id_707899e9_fk_ominicont FOREIGN KEY (campana_id) REFERENCES public.campaign(id) DEFERRABLE INITIALLY DEFERRED;
 
+
 --
 -- PostgreSQL database dump complete
 --
+
