@@ -27,6 +27,7 @@ SET default_table_access_method = heap;
 CREATE TABLE public.campaign (
     id integer NOT NULL,
     estado integer NOT NULL,
+    call_strategy integer[] NOT NULL,
     nombre character varying(128) NOT NULL,
     fecha_inicio date,
     fecha_fin date,
@@ -504,4 +505,3 @@ ALTER TABLE ONLY public.incidence_rules
 --
 -- PostgreSQL database dump complete
 --
-
