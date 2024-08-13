@@ -184,7 +184,11 @@ class NaiveWorker(DialerWorker):
             logger.debug('From ominicontacto_app_actuacionvigente')
             cursor.execute(f'SELECT * FROM ominicontacto_app_actuacionvigente WHERE campana_id = {id_campaign};')
             column_names += [desc[0] for desc in cursor.description]
-            campaign_id_data += cursor.fetchone() or ()
+            campaign_id_data += cursor.fetchone()
+            logger.debug('Setting dialer specific options')
+            column_names += ['contact_strategy', 'dialer_status']
+            CREATED = 1
+            campaign_id_data += (contact_strategy, CREATED)
             for col_name, col_value in zip(column_names, campaign_id_data):
                 print(col_name, col_value)
         response = f'Campaign {id_campaign} with strategy {contact_strategy} created!!!'
