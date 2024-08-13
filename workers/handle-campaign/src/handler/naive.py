@@ -42,6 +42,8 @@ POSTGRES_OML_SERVER = os.getenv('POSTGRES_OML_SERVER', 'oml-postgres')
 
 POSTGRES_OML_PORT = os.getenv('POSTGRES_OML_PORT', '5432')
 
+POSTGRES_OML_PASSWORD = os.getenv('POSTGRES_OML_PASSWORD')
+
 POSTGRES_OML_USER = 'omnileads'
 
 POSTGRES_OML_DB = 'omnileads'
@@ -54,7 +56,7 @@ POSTGRES_DIALER_USER = 'omnidialer'
 
 POSTGRES_DIALER_DB = 'omnidialer'
 
-POSTGRES_DIALER_PASSWORD = os.getenv('POSTGRES_OML_PASSWORD')
+POSTGRES_DIALER_PASSWORD = os.getenv('POSTGRES_DIALER_PASSWORD')
 
 DIALER_ACD_HOST=os.getenv('DIALER_ACD_HOST', 'acd')
 
@@ -63,8 +65,8 @@ class NaiveWorker(DialerWorker):
     """A worker flow with a simple strategy, call contacts according to the available agents, 1 call for for each agent"""
 
 
-    POSTGRES_OML_CONNECTION = None
-    POSTGRES_DIALER_CONNECTION = None
+    POSTGRES_OML_CONNECTION_STR = f'postgresql://{POSTGRES_OML_USER}:{POSTGRES_OML_PASSWORD}@{POSTGRES_OML_SERVER}:{POSTGRES_OML_PORT}/{POSTGRES_OML_DB}'
+    POSTGRES_DIALER_CONNECTION = f'postgresql://{POSTGRES_DIALER_USER}:{POSTGRES_DIALER_PASSWORD}@{POSTGRES_DIALER_SERVER}:{POSTGRES_DIALER_PORT}/{POSTGRES_DIALER_DB}'
     REDIS_OML_CONNECTION = None
     GM_CLIENT = gearman.GearmanClient(GEARMAN_JOB_SERVERS)
 
@@ -166,20 +168,13 @@ class NaiveWorker(DialerWorker):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
         contact_strategy = data['contact_strategy']
-        cls.connect_postgres_oml()
-        cls.connect_redis_oml()
-        cls.connect_postgres_dialer()
-        try:
-            with cls.REDIS_DIALER_CONNECTION.pipeline() as pipe:
-                cls.set_contact_strategy(pipe, id_campaign, contact_strategy)
-                cls.set_contacts(pipe, id_campaign)
-                cls.set_campaign_options(pipe, id_campaign)
-                cls.set_incidence_rules(pipe, id_campaign)
-                cls.set_opening_hours(pipe, id_campaign)
-                pipe.execute()
-        except Exception as e:
-            print(e)
-
+        with psycopg.connect(cls.POSTGRES_OML_CONNECTION_STR) as conn:
+            cursor = conn.cursor()
+            cursor.execute(f'SELECT * FROM ominicontacto_app_campana WHERE id = {id_campaign}')
+            column_names = [desc[0] for desc in cursor.description]
+            campaign_id_data = cursor.fetchone()
+            for col_name, col_value in zip(column_names, campaign_id_data):
+                print(col_name, col_value)
         response = f'Campaign {id_campaign} with strategy {contact_strategy} created!!!'
         response = json.dumps({'msg': response})
         return bytes(response, encoding='UTF8')
