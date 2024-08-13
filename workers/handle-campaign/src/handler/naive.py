@@ -169,10 +169,22 @@ class NaiveWorker(DialerWorker):
         id_campaign = data['id_campaign']
         contact_strategy = data['contact_strategy']
         with psycopg.connect(cls.POSTGRES_OML_CONNECTION_STR) as conn:
+            logger.debug(f'Retrieving data from OML campaign with id={id_campaign}')
+            logger.debug('From ominicontacto_app_campana')
             cursor = conn.cursor()
-            cursor.execute(f'SELECT * FROM ominicontacto_app_campana WHERE id = {id_campaign}')
+            cursor.execute(f'SELECT id,estado,nombre,fecha_inicio,fecha_fin,control_de_duplicados,prioridad '
+                           f'FROM ominicontacto_app_campana WHERE id = {id_campaign};')
             column_names = [desc[0] for desc in cursor.description]
             campaign_id_data = cursor.fetchone()
+            logger.debug('From queue_table')
+            cursor.execute(f'SELECT strategy,wait,initial_predictive_model,initial_boost_factor '
+                           f' FROM queue_table WHERE campana_id = {id_campaign};')
+            column_names += [desc[0] for desc in cursor.description]
+            campaign_id_data += cursor.fetchone()
+            logger.debug('From ominicontacto_app_actuacionvigente')
+            cursor.execute(f'SELECT * FROM ominicontacto_app_actuacionvigente WHERE campana_id = {id_campaign};')
+            column_names += [desc[0] for desc in cursor.description]
+            campaign_id_data += cursor.fetchone() or ()
             for col_name, col_value in zip(column_names, campaign_id_data):
                 print(col_name, col_value)
         response = f'Campaign {id_campaign} with strategy {contact_strategy} created!!!'
