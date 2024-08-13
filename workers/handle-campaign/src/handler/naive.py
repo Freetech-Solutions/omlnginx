@@ -182,7 +182,8 @@ class NaiveWorker(DialerWorker):
             column_names += [desc[0] for desc in cursor.description]
             campaign_id_data += cursor.fetchone()
             logger.debug('From ominicontacto_app_actuacionvigente')
-            cursor.execute(f'SELECT * FROM ominicontacto_app_actuacionvigente WHERE campana_id = {id_campaign};')
+            cursor.execute(f'SELECT domingo,lunes,martes,miercoles,jueves,viernes,sabado,hora_desde,hora_hasta'
+                           f' FROM ominicontacto_app_actuacionvigente WHERE campana_id = {id_campaign};')
             column_names += [desc[0] for desc in cursor.description]
             campaign_id_data += cursor.fetchone()
             logger.debug('Setting dialer specific options')
