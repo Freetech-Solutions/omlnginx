@@ -272,10 +272,10 @@ class NaiveWorker(DialerWorker):
         logger.debug('pausing the campaign')
         cls.connect_postgres_dialer()
         id_campaign = cls.decode_payload(job.data)
-        try:
-            cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMP:{id_campaign}', 'status', 'paused')
-        except Exception as e:
-            print(e)
+        PAUSED = 2
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+            cursor = conn.cursor()
+            cursor.execute('UPDATE campaign SET dialer_status = %s where id = %;', PAUSED, id_campaign)
         response = f'Campaign {id_campaign} was paused!'
         response = json.dumps({'msg': response})
         return bytes(response, encoding='UTF8')
@@ -283,12 +283,11 @@ class NaiveWorker(DialerWorker):
     @classmethod
     def resume_campaign(cls, worker, job):
         logger.debug('resuming the campaign')
-        cls.connect_postgres_dialer()
         id_campaign = cls.decode_payload(job.data)
-        try:
-            cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMP:{id_campaign}', 'status', 'resumed')
-        except Exception as e:
-            print(e)
+        RESUMED = 3
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+            cursor = conn.cursor()
+            cursor.execute('UPDATE campaign SET dialer_status = %s where id = %;', RESUMED, id_campaign)
         cls.process_campaign(id_campaign)
         response = f'Campaign {id_campaign} was resumed!'
         response = json.dumps({'msg': response})
