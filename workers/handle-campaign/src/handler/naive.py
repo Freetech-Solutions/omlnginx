@@ -66,7 +66,7 @@ class NaiveWorker(DialerWorker):
 
 
     POSTGRES_OML_CONNECTION_STR = f'postgresql://{POSTGRES_OML_USER}:{POSTGRES_OML_PASSWORD}@{POSTGRES_OML_SERVER}:{POSTGRES_OML_PORT}/{POSTGRES_OML_DB}'
-    POSTGRES_DIALER_CONNECTION = f'postgresql://{POSTGRES_DIALER_USER}:{POSTGRES_DIALER_PASSWORD}@{POSTGRES_DIALER_SERVER}:{POSTGRES_DIALER_PORT}/{POSTGRES_DIALER_DB}'
+    POSTGRES_DIALER_CONNECTION_STR = f'postgresql://{POSTGRES_DIALER_USER}:{POSTGRES_DIALER_PASSWORD}@{POSTGRES_DIALER_SERVER}:{POSTGRES_DIALER_PORT}/{POSTGRES_DIALER_DB}'
     REDIS_OML_CONNECTION = None
     GM_CLIENT = gearman.GearmanClient(GEARMAN_JOB_SERVERS)
 
@@ -190,8 +190,9 @@ class NaiveWorker(DialerWorker):
             column_names += ['contact_strategy', 'dialer_status']
             CREATED = 1
             campaign_id_data += (contact_strategy, CREATED)
-            for col_name, col_value in zip(column_names, campaign_id_data):
-                print(col_name, col_value)
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO campaign (id, oml_status, name, start_date, end_date, duplicates_control, priority, strategy, wait, initial_predictive_model, initial_boost_factor, sunday, monday, tuesday, wednesday, thursday, friday, saturday, hour_start, hour_ends, contact_strategy, dialer_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);", campaign_id_data)
         response = f'Campaign {id_campaign} with strategy {contact_strategy} created!!!'
         response = json.dumps({'msg': response})
         return bytes(response, encoding='UTF8')
