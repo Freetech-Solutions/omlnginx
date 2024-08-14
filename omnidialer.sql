@@ -168,14 +168,14 @@ ALTER TABLE public.contact_in_campaign_historic OWNER TO omnidialer;
 
 CREATE TABLE public.incidence_rules (
     id integer NOT NULL,
-    estado integer NOT NULL,
-    estado_personalizado character varying(128),
-    intento_max integer NOT NULL,
-    reintentar_tarde integer NOT NULL,
-    en_modo integer NOT NULL,
+    status integer NOT NULL,
+    status_custom character varying(128),
+    max_attempt integer NOT NULL,
+    retry_later integer NOT NULL,
+    in_mode integer NOT NULL,
     campaign_id integer NOT NULL,
-    CONSTRAINT incidence_rules_en_modo_check CHECK ((en_modo >= 0)),
-    CONSTRAINT incidence_rules_estado_check CHECK ((estado >= 0))
+    CONSTRAINT incidence_rules_in_mode_check CHECK ((in_mode >= 0)),
+    CONSTRAINT incidence_rules_status_check CHECK ((status >= 0))
 );
 
 
