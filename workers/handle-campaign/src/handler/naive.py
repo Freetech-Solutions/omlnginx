@@ -77,7 +77,6 @@ class NaiveWorker(DialerWorker):
         port=int(ASTERISK_PORT)
     )
 
-
     @classmethod
     def process_campaign(cls, id_campaign):
         while cls.campaign_is_active(id_campaign):
@@ -86,57 +85,10 @@ class NaiveWorker(DialerWorker):
                 sleep(7)
                 cls.attempt_contact(contact, id_campaign)
 
-
-    @classmethod
-    def connect_postgres_oml(cls):
-        if cls.POSTGRES_OML_CONNECTION is None:
-            cls.POSTGRES_OML_CONNECTION = psycopg.connect(f'postgresql://{POSTGRES_OML_USER}:{POSTGRES_OML_PASSWORD}@{POSTGRES_OML_SERVER}:{POSTGRES_OML_PORT}/{POSTGRES_OML_DB}')
-
-
-    @classmethod
-    def connect_postgres_dialer(cls):
-        if cls.POSTGRES_DIALER_CONNECTION is None:
-            cls.POSTGRES_OML_CONNECTION = psycopg.connect(f'postgresql://{POSTGRES_DIALER_USER}:{POSTGRES_DIALER_PASSWORD}@{POSTGRES_DIALER_SERVER}:{POSTGRES_DIALER_PORT}/{POSTGRES_DIALER_DB}')
-
-
     @classmethod
     def connect_redis_oml(cls):
         if cls.REDIS_OML_CONNECTION is None:
             cls.REDIS_OML_CONNECTION = redis.Redis(host=REDIS_OML_SERVER, port=REDIS_OML_PORT, decode_responses=True)
-
-
-    @classmethod
-    def set_contact_strategy(cls, pipe, id_campaign, contact_strategy):
-        pipe.hset(f'DIALER:CAMP:{id_campaign}', 'strategy', json.dumps(contact_strategy))
-
-
-    @classmethod
-    def set_campaign_options(cls, pipe, id_campaign):
-       with cls.POSTGRES_OML_CONNECTION.cursor() as cursor:
-           sql = f"""select * from queue_table where campana_id = {id_campaign};"""
-           cursor.execute(sql)
-           column_names = [desc[0] for desc in cursor.description]
-           queue = cursor.fetchone()
-           for col_name, col_value in zip(column_names, queue):
-               pipe.hset(f'DIALER:CAMP:{id_campaign}', col_name, str(col_value))
-
-
-    @classmethod
-    def set_incidence_rules(cls, pipe, id_campaign):
-        with cls.POSTGRES_OML_CONNECTION.cursor() as cursor:
-           sql = f"""select * from ominicontacto_app_reglasincidencia where campana_id = {id_campaign};"""
-           cursor.execute(sql)
-           for incidence_rule in cursor.fetchall():
-               pipe.lpush(f'DIALER:CAMP:{id_campaign}:incidence_rules', json.dumps(incidence_rule))
-
-
-    @classmethod
-    def set_opening_hours(cls, pipe, id_campaign):
-        with cls.POSTGRES_OML_CONNECTION.cursor() as cursor:
-           sql = f"""select * from ominicontacto_app_actuacionvigente where campana_id = {id_campaign};"""
-           cursor.execute(sql)
-           opening_hours = cursor.fetchone()
-           pipe.lpush(f'DIALER:CAMP:{id_campaign}:opening_hours', str(opening_hours))
 
 
     @classmethod
@@ -174,26 +126,31 @@ class NaiveWorker(DialerWorker):
             cursor = conn.cursor()
             cursor.execute(f'SELECT id,estado,nombre,fecha_inicio,fecha_fin,control_de_duplicados,prioridad '
                            f'FROM ominicontacto_app_campana WHERE id = {id_campaign};')
-            column_names = [desc[0] for desc in cursor.description]
             campaign_id_data = cursor.fetchone()
             logger.debug('From queue_table')
             cursor.execute(f'SELECT strategy,wait,initial_predictive_model,initial_boost_factor '
                            f' FROM queue_table WHERE campana_id = {id_campaign};')
-            column_names += [desc[0] for desc in cursor.description]
             campaign_id_data += cursor.fetchone()
             logger.debug('From ominicontacto_app_actuacionvigente')
             cursor.execute(f'SELECT domingo,lunes,martes,miercoles,jueves,viernes,sabado,hora_desde,hora_hasta'
                            f' FROM ominicontacto_app_actuacionvigente WHERE campana_id = {id_campaign};')
-            column_names += [desc[0] for desc in cursor.description]
             campaign_id_data += cursor.fetchone()
             logger.debug('Setting dialer specific options')
-            column_names += ['contact_strategy', 'dialer_status']
             CREATED = 1
             campaign_id_data += (contact_strategy, CREATED)
+            logger.debug('From incidence rules')
+            cursor.execute(f'SELECT * FROM ominicontacto_app_reglasincidencia WHERE campana_id = {id_campaign};')
+            incidence_rules_data = cursor.fetchall()
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+            logger.debug('Inserting the campaign data into omnidialer')
             cursor = conn.cursor()
             cursor.execute("INSERT INTO campaign (id, oml_status, name, start_date, end_date, duplicates_control, priority, strategy, wait, initial_predictive_model, initial_boost_factor, sunday, monday, tuesday, wednesday, thursday, friday, saturday, hour_start, hour_ends, contact_strategy, dialer_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);", campaign_id_data)
+            logger.debug('Inserting the incidence_rules into omnidialer')
+            for incidence_rule in incidence_rules_data:
+                cursor.execute("INSERT INTO incidence_rules (id, status, status_custom, max_attempt, retry_later, in_mode, campaign_id) VALUES (%s, %s, %s, %s, %s, %s, %s);", incidence_rule)
+
         response = f'Campaign {id_campaign} with strategy {contact_strategy} created!!!'
+
         response = json.dumps({'msg': response})
         return bytes(response, encoding='UTF8')
 
