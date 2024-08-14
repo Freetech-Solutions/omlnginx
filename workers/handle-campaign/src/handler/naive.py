@@ -159,8 +159,10 @@ class NaiveWorker(DialerWorker):
     def start_campaign(cls, worker, job):
         logger.debug('starting the campaign')
         id_campaign = int(job.data)
-        cls.connect_postgres_dialer()
-        cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMP:{id_campaign}', 'status', 'active')
+        ACTIVE = 1
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+            cursor = conn.cursor()
+            cursor.execute('UPDATE campaign SET dialer_status = %s where id = %;', ACTIVE, id_campaign)
         cls.process_campaign(id_campaign)
         return b'Campaign started!'
 
@@ -270,7 +272,6 @@ class NaiveWorker(DialerWorker):
     @classmethod
     def pause_campaign(cls, worker, job):
         logger.debug('pausing the campaign')
-        cls.connect_postgres_dialer()
         id_campaign = cls.decode_payload(job.data)
         PAUSED = 2
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
