@@ -46,7 +46,7 @@ CREATE TABLE public.campaign (
     hour_start time without time zone NOT NULL,
     hour_ends time without time zone NOT NULL,
     contact_strategy integer[],
-    dialer_status integer NOT NULL,
+    dialer_status integer NOT NULL
 );
 
 
