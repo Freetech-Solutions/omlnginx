@@ -122,34 +122,47 @@ class NaiveWorker(DialerWorker):
         contact_strategy = data['contact_strategy']
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             with conn_dialer.transaction() as dialer_tx_outer:
-                cursor_dialer = conn.cursor()
+                cursor_dialer = conn_dialer.cursor()
                 with psycopg.connect(cls.POSTGRES_OML_CONNECTION_STR) as conn_oml:
                     logger.debug(f'Retrieving data from OML campaign with id={id_campaign}')
                     logger.debug('From ominicontacto_app_campana')
                     cursor_oml = conn_oml.cursor()
                     cursor_oml.execute(f'SELECT id,estado,nombre,fecha_inicio,fecha_fin,control_de_duplicados,prioridad '
                                    f'FROM ominicontacto_app_campana WHERE id = {id_campaign};')
-                    campaign_id_data = cursor.fetchone()
+                    campaign_id_data = cursor_oml.fetchone()
                     logger.debug('From queue_table')
                     cursor_oml.execute(f'SELECT strategy,wait,initial_predictive_model,initial_boost_factor '
                                    f' FROM queue_table WHERE campana_id = {id_campaign};')
-                    campaign_id_data += cursor.fetchone()
+                    campaign_id_data += cursor_oml.fetchone()
                     logger.debug('From ominicontacto_app_actuacionvigente')
                     cursor_oml.execute(f'SELECT domingo,lunes,martes,miercoles,jueves,viernes,sabado,hora_desde,hora_hasta'
                                    f' FROM ominicontacto_app_actuacionvigente WHERE campana_id = {id_campaign};')
-                    campaign_id_data += cursor.fetchone()
+                    campaign_id_data += cursor_oml.fetchone()
                     logger.debug('Setting dialer specific options')
                     CREATED = 1
                     campaign_id_data += (contact_strategy, CREATED)
                     logger.debug('From incidence rules')
                     cursor_oml.execute(f'SELECT * FROM ominicontacto_app_reglasincidencia WHERE campana_id = {id_campaign};')
-                    incidence_rules_data = cursor.fetchall()
+                    incidence_rules_data = cursor_oml.fetchall()
                     logger.debug('Inserting the campaign data into omnidialer')
                     cursor_dialer.execute("INSERT INTO campaign (id, oml_status, name, start_date, end_date, duplicates_control, priority, strategy, wait, initial_predictive_model, initial_boost_factor, sunday, monday, tuesday, wednesday, thursday, friday, saturday, hour_start, hour_ends, contact_strategy, dialer_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);", campaign_id_data)
                     logger.debug('Inserting the incidence_rules into omnidialer')
                     for incidence_rule in incidence_rules_data:
                         cursor_dialer.execute("INSERT INTO incidence_rules (id, status, status_custom, max_attempt, retry_later, in_mode, campaign_id) VALUES (%s, %s, %s, %s, %s, %s, %s);", incidence_rule)
                     logger.debug('Retrieving the contacts')
+                    sql = f"""SELECT co.id, co.telefono, co.datos, co.es_originario FROM ominicontacto_app_contacto AS co
+                    INNER JOIN ominicontacto_app_contacto AS db ON db.id = co.bd_contacto_id
+                    INNER JOIN ominicontacto_app_campana AS ca ON db.id = ca.bd_contacto_id AND ca.id = {id_campaign};"""
+                    size = 1000
+                    logger.debug('Copying the contacts')
+                    cursor_oml.execute(sql)
+                    while True:
+                        contacts = cursor_oml.fetchmany(size=size)
+                        if not contacts:
+                            break
+                        for contact in contacts:
+                            cursor_dialer.execute('INSERT INTO contact (id, phone, data, is_original) VALUES (%s, %s, %s, %s)'
+                                                  'ON CONFLICT (id) DO NOTHING', contact)
 
         response = f'Campaign {id_campaign} with strategy {contact_strategy} created!!!'
 

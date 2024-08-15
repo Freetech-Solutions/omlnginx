@@ -91,11 +91,9 @@ ALTER SEQUENCE public.campaign_id_seq OWNED BY public.campaign.id;
 
 CREATE TABLE public.contact (
     id integer NOT NULL,
-    telefono character varying(128) NOT NULL,
-    datos text NOT NULL,
-    bd_contacto_id integer,
-    es_originario boolean NOT NULL,
-    id_externo character varying(128)
+    phone character varying(128) NOT NULL,
+    data text NOT NULL,
+    is_original boolean NOT NULL
 );
 
 
@@ -258,14 +256,6 @@ ALTER TABLE ONLY public.campaign_historic
 
 
 --
--- Name: campaign campaign_nombre_key; Type: CONSTRAINT; Schema: public; Owner: omnidialer
---
-
-ALTER TABLE ONLY public.campaign
-    ADD CONSTRAINT campaign_nombre_key UNIQUE (nombre);
-
-
---
 -- Name: campaign campaign_pkey; Type: CONSTRAINT; Schema: public; Owner: omnidialer
 --
 
@@ -303,41 +293,6 @@ ALTER TABLE ONLY public.incidence_rules
 
 ALTER TABLE ONLY public.contact_in_campaign
     ADD CONSTRAINT primary_key_contact_in_campaign PRIMARY KEY (id);
-
-
---
--- Name: campaign_bd_contacto_id_3b5858cd; Type: INDEX; Schema: public; Owner: omnidialer
---
-
-CREATE INDEX campaign_bd_contacto_id_3b5858cd ON public.campaign USING btree (bd_contacto_id);
-
-
---
--- Name: campaign_nombre_da9ee190_like; Type: INDEX; Schema: public; Owner: omnidialer
---
-
-CREATE INDEX campaign_nombre_da9ee190_like ON public.campaign USING btree (nombre varchar_pattern_ops);
-
-
---
--- Name: campaign_outr_id_2cd2dd43; Type: INDEX; Schema: public; Owner: omnidialer
---
-
-CREATE INDEX campaign_outr_id_2cd2dd43 ON public.campaign USING btree (outr_id);
-
-
---
--- Name: campaign_reported_by_id_cb70293d; Type: INDEX; Schema: public; Owner: omnidialer
---
-
-CREATE INDEX campaign_reported_by_id_cb70293d ON public.campaign USING btree (reported_by_id);
-
-
---
--- Name: contact_bd_contacto_id_e36d02df; Type: INDEX; Schema: public; Owner: omnidialer
---
-
-CREATE INDEX contact_bd_contacto_id_e36d02df ON public.contact USING btree (bd_contacto_id);
 
 
 --
