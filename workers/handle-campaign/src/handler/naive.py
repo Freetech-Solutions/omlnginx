@@ -156,13 +156,16 @@ class NaiveWorker(DialerWorker):
                     size = 1000
                     logger.debug('Copying the contacts')
                     cursor_oml.execute(sql)
+                    STATUS_CREATED = 1
                     while True:
                         contacts = cursor_oml.fetchmany(size=size)
                         if not contacts:
                             break
-                        for contact in contacts:
+                        for (id_contact, phone, data, is_original) in contacts:
                             cursor_dialer.execute('INSERT INTO contact (id, phone, data, is_original) VALUES (%s, %s, %s, %s)'
-                                                  'ON CONFLICT (id) DO NOTHING', contact)
+                                                  'ON CONFLICT (id) DO NOTHING;', (id_contact, phone, data, is_original))
+                            cursor_dialer.execute('INSERT INTO contact_in_campaign (id_campaign, id_contact, status) VALUES (%s, %s, %s);',
+                                                  (id_campaign, id_contact, STATUS_CREATED))
 
         response = f'Campaign {id_campaign} with strategy {contact_strategy} created!!!'
 
