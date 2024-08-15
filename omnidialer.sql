@@ -136,6 +136,32 @@ CREATE TABLE public.contact_in_campaign (
 ALTER TABLE public.contact_in_campaign OWNER TO omnidialer;
 
 --
+-- Name: contact_in_campaign_id_seq; Type: SEQUENCE; Schema: public; Owner: omnidialer
+--
+
+CREATE SEQUENCE public.contact_in_campaign_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.contact_in_campaign_id_seq OWNER TO omnidialer;
+
+--
+-- Name: contact_in_campaign_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: omnidialer
+--
+
+ALTER SEQUENCE public.contact_in_campaign_id_seq
+    OWNED BY public.contact_in_campaign.id;
+
+ALTER SEQUENCE public.contact_in_campaign_id_seq
+    OWNER TO omnidialer;
+
+
+--
 -- Name: COLUMN contact_in_campaign.id_campaign; Type: COMMENT; Schema: public; Owner: omnidialer
 --
 
@@ -245,6 +271,14 @@ ALTER TABLE ONLY public.incidence_rules ALTER COLUMN id SET DEFAULT nextval('pub
 --
 
 ALTER TABLE ONLY public.incidence_rules_historic ALTER COLUMN id SET DEFAULT nextval('public.incidence_rules_id_seq'::regclass);
+
+
+--
+-- Name: contact_in_campaign id; Type: DEFAULT; Schema: public; Owner: omnidialer
+--
+
+ALTER TABLE ONLY public.contact_in_campaign ALTER COLUMN id SET DEFAULT nextval('public.contact_in_campaign_id_seq'::regclass);
+
 
 
 --
