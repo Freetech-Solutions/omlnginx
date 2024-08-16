@@ -50,7 +50,7 @@ POSTGRES_OML_DB = 'omnileads'
 
 POSTGRES_DIALER_SERVER = os.getenv('POSTGRES_DIALER_SERVER', 'dialer-postgres')
 
-POSTGRES_DIALER_PORT = os.getenv('POSTGRES_DIALER_PORT', '5432')
+POSTGRES_DIALER_PORT = os.getenv('POSTGRES_DIALER_PORT', '5433')
 
 POSTGRES_DIALER_USER = 'omnidialer'
 
@@ -62,9 +62,15 @@ DIALER_ACD_HOST=os.getenv('DIALER_ACD_HOST', 'acd')
 
 
 # campaign status possible values
-ACTIVE = 1
-PAUSED = 2
-RESUMED = 3
+CREATED = 1
+ACTIVE = 2
+PAUSED = 3
+RESUMED = 4
+
+# contact status
+STATUS_CREATED = 1
+STATUS_SELECTED_CALL = 2
+STATUS_CALL_SUCCESS = 3
 
 
 class NaiveWorker(DialerWorker):
@@ -122,7 +128,6 @@ class NaiveWorker(DialerWorker):
                                    f' FROM ominicontacto_app_actuacionvigente WHERE campana_id = {id_campaign};')
                     campaign_id_data += cursor_oml.fetchone()
                     logger.debug('Setting dialer specific options')
-                    CREATED = 1
                     campaign_id_data += (contact_strategy, CREATED)
                     logger.debug('From incidence rules')
                     cursor_oml.execute(f'SELECT * FROM ominicontacto_app_reglasincidencia WHERE campana_id = {id_campaign};')
@@ -139,7 +144,6 @@ class NaiveWorker(DialerWorker):
                     size = 1000
                     logger.debug('Copying the contacts')
                     cursor_oml.execute(sql)
-                    STATUS_CREATED = 1
                     while True:
                         contacts = cursor_oml.fetchmany(size=size)
                         if not contacts:
@@ -169,7 +173,6 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def campaign_is_active(cls, id_campaign):
-        cls.connect_postgres_dialer()
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute('select dialer_status from campaign where id = %s', id_campaign)
@@ -215,9 +218,19 @@ class NaiveWorker(DialerWorker):
     @classmethod
     def take_contacts(cls, contacts_attempts_number, id_campaign):
         logger.debug("var contacts_attempts_number={0}".format(contacts_attempts_number))
-        if contacts_attempts_number > 0:
-            return cls.REDIS_DIALER_CONNECTION.lrange(f'DIALER:CAMP:{id_campaign}:CONTACTS', 0, contacts_attempts_number - 1)
-        return []
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute(f"""UPDATE contact_in_campaign as cc
+                                      SET status = %s
+                                      FROM contact as co
+                                      WHERE id IN (SELECT id
+                                      FROM contact_in_campaign
+                                      WHERE id_campaign = %s and status <> % and status <> %s
+                                      LIMIT %) AND co.id = cc.id_contact
+                                      RETURNING id, cc.id_contact, cc.id_campaign, co.phone;""",
+                                  STATUS_SELECTED_CALL, id_campaign, STATUS_SELECTED_CALL,
+                                  STATUS_CALL_SUCCESS, contacts_attempts_number)
+            return cursor_dialer.fetchall()
 
 
     @classmethod
