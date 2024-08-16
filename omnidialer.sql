@@ -369,7 +369,7 @@ CREATE INDEX incidence_rules_campaign_id_707899e9 ON public.incidence_rules USIN
 --
 
 ALTER TABLE ONLY public.contact_in_campaign_historic
-    ADD CONSTRAINT contact_in_campaign_fkey_contact FOREIGN KEY (id_contact) REFERENCES public.contact(id) NOT VALID;
+    ADD CONSTRAINT contact_in_campaign_fkey_contact FOREIGN KEY (id_contact) REFERENCES public.contact(id) ON DELETE CASCADE NOT VALID;
 
 
 --
@@ -377,7 +377,7 @@ ALTER TABLE ONLY public.contact_in_campaign_historic
 --
 
 ALTER TABLE ONLY public.contact_in_campaign_historic
-    ADD CONSTRAINT contact_in_campaign_historic_fkey_campaign FOREIGN KEY (id_campaign) REFERENCES public.campaign_historic(id) NOT VALID;
+    ADD CONSTRAINT contact_in_campaign_historic_fkey_campaign FOREIGN KEY (id_campaign) REFERENCES public.campaign_historic(id) ON DELETE CASCADE NOT VALID;
 
 
 --
@@ -385,7 +385,7 @@ ALTER TABLE ONLY public.contact_in_campaign_historic
 --
 
 ALTER TABLE ONLY public.contact_in_campaign
-    ADD CONSTRAINT foreign_key_campaign FOREIGN KEY (id_campaign) REFERENCES public.campaign(id) NOT VALID;
+    ADD CONSTRAINT foreign_key_campaign FOREIGN KEY (id_campaign) REFERENCES public.campaign(id) ON DELETE CASCADE NOT VALID;
 
 
 --
@@ -393,7 +393,7 @@ ALTER TABLE ONLY public.contact_in_campaign
 --
 
 ALTER TABLE ONLY public.contact_in_campaign
-    ADD CONSTRAINT foreign_key_contact FOREIGN KEY (id_contact) REFERENCES public.contact(id) NOT VALID;
+    ADD CONSTRAINT foreign_key_contact FOREIGN KEY (id_contact) REFERENCES public.contact(id) ON DELETE CASCADE NOT VALID;
 
 
 --
@@ -401,7 +401,7 @@ ALTER TABLE ONLY public.contact_in_campaign
 --
 
 ALTER TABLE ONLY public.incidence_rules_historic
-    ADD CONSTRAINT incidence_rules_historic_fkey_campaign_id FOREIGN KEY (campaign_id) REFERENCES public.campaign_historic(id) NOT VALID;
+    ADD CONSTRAINT incidence_rules_historic_fkey_campaign_id FOREIGN KEY (campaign_id) REFERENCES public.campaign_historic(id) ON DELETE CASCADE NOT VALID;
 
 
 --
@@ -409,7 +409,7 @@ ALTER TABLE ONLY public.incidence_rules_historic
 --
 
 ALTER TABLE ONLY public.incidence_rules
-    ADD CONSTRAINT re_campaign_id_707899e9_fk_ominicont FOREIGN KEY (campaign_id) REFERENCES public.campaign(id) DEFERRABLE INITIALLY DEFERRED;
+    ADD CONSTRAINT re_campaign_id_707899e9_fk_ominicont FOREIGN KEY (campaign_id) REFERENCES public.campaign(id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED ;
 
 
 --
