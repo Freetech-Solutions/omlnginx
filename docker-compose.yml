@@ -67,11 +67,14 @@ services:
       - POSTGRES_USER=${POSTGRES_DIALER_USER}
       - POSTGRES_PASSWORD=${POSTGRES_DIALER_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DIALER_DB}
+      - PGPORT=5433
     image: postgres:14.9-bullseye
     networks:
       - network1
+    expose:
+      - "5433"
     ports:
-      - ${POSTGRES_DIALER_PORT}:5432/tcp
+      - ${POSTGRES_DIALER_PORT}:5433
     privileged: true
     restart: on-failure
     stop_grace_period: 1m30s
