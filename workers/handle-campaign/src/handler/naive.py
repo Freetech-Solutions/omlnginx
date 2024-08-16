@@ -61,6 +61,12 @@ POSTGRES_DIALER_PASSWORD = os.getenv('POSTGRES_DIALER_PASSWORD')
 DIALER_ACD_HOST=os.getenv('DIALER_ACD_HOST', 'acd')
 
 
+# campaign status possible values
+ACTIVE = 1
+PAUSED = 2
+RESUMED = 3
+
+
 class NaiveWorker(DialerWorker):
     """A worker flow with a simple strategy, call contacts according to the available agents, 1 call for for each agent"""
 
@@ -177,7 +183,6 @@ class NaiveWorker(DialerWorker):
     def start_campaign(cls, worker, job):
         logger.debug('starting the campaign')
         id_campaign = int(job.data)
-        ACTIVE = 1
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
             cursor = conn.cursor()
             cursor.execute('UPDATE campaign SET dialer_status = %s where id = %;', ACTIVE, id_campaign)
@@ -291,7 +296,6 @@ class NaiveWorker(DialerWorker):
     def pause_campaign(cls, worker, job):
         logger.debug('pausing the campaign')
         id_campaign = cls.decode_payload(job.data)
-        PAUSED = 2
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
             cursor = conn.cursor()
             cursor.execute('UPDATE campaign SET dialer_status = %s where id = %;', PAUSED, id_campaign)
@@ -303,7 +307,6 @@ class NaiveWorker(DialerWorker):
     def resume_campaign(cls, worker, job):
         logger.debug('resuming the campaign')
         id_campaign = cls.decode_payload(job.data)
-        RESUMED = 3
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
             cursor = conn.cursor()
             cursor.execute('UPDATE campaign SET dialer_status = %s where id = %;', RESUMED, id_campaign)
