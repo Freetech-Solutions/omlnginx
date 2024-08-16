@@ -376,21 +376,11 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def delete_campaign(cls, worker, job):
-        logger.debug('removing the campaign')
         id_campaign = int(job.data)
-        cls.connect_postgres_dialer()
-        cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMP:{id_campaign}', 'status', 'paused')
-        cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}')
-        cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}:incidence_rules')
-        cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}:opening_hours')
-        cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}:CONTACTS')
-        cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}:CONTACTS')
-        cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}:CONTACTS_ANSWER')
-        cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}:CONTACTS_NOANSWER')
-        cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}:CONTACTS_BUSY')
-        cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}:CONTACTS_CONGESTION')
-        for key in cls.REDIS_DIALER_CONNECTION.scan_iter(match=f'DIALER:CAMP:{id_campaign}:CONTACT:*', count=1000):
-            cls.REDIS_DIALER_CONNECTION.delete(key)
+        logger.debug(f'Removing campaign with id = {id_campaign}')
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM campaign where id = %s;', id_campaign)
         return b'Campaign was deleted'
 
 class SingleCallWorker(NaiveWorker):
