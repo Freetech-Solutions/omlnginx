@@ -172,23 +172,18 @@ class NaiveWorker(DialerWorker):
         cls.connect_postgres_dialer()
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
-            cursor_dialer.execute('select status from campaign where id = %s', id_campaign)
+            cursor_dialer.execute('select dialer_status from campaign where id = %s', id_campaign)
             status = cursor_dialer.fetchone()
         return status in [ACTIVE, RESUMED]
 
 
     @classmethod
     def get_number_active_campaigns(cls):
-        cls.connect_postgres_dialer()
-        active_campaigns = 0
-        # TODO: find an exact pattern for DIALER:CAMP:<id_campaign>
-        for key in cls.REDIS_DIALER_CONNECTION.scan_iter(match='DIALER:CAMP:*', count=1000):
-            try:
-                status = cls.REDIS_DIALER_CONNECTION.hget(key, 'status')
-            except Exception:
-                status = 'not-related'
-            if status in ['active', 'resumed']:
-                active_campaigns += 1
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT Count(*) FROM campain WHERE id = %s AND (dialer_status = %s OR dialer_status = %s);',
+                           id_campaign, ACTIVE, RESUMED)
+            active_campaigns = cursor.fetchone()
         return active_campaigns
 
 
