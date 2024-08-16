@@ -170,7 +170,11 @@ class NaiveWorker(DialerWorker):
     @classmethod
     def campaign_is_active(cls, id_campaign):
         cls.connect_postgres_dialer()
-        return cls.REDIS_DIALER_CONNECTION.hget(f'DIALER:CAMP:{id_campaign}', 'status') in ['active', 'resumed']
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute('select status from campaign where id = %s', id_campaign)
+            status = cursor_dialer.fetchone()
+        return status in [ACTIVE, RESUMED]
 
 
     @classmethod
