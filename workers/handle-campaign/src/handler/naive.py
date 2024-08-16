@@ -98,29 +98,6 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
-    def set_contacts(cls, pipe, id_campaign):
-        size = 1000
-        with cls.POSTGRES_OML_CONNECTION.cursor() as cursor:
-            sql = f"""SELECT co.id, co.telefono, co.datos, ca.nombre, ca.fecha_inicio, ca.fecha_fin, ca.control_de_duplicados
-            FROM ominicontacto_app_contacto AS co
-            INNER JOIN ominicontacto_app_contacto AS db ON db.id = co.bd_contacto_id
-            INNER JOIN ominicontacto_app_campana AS ca ON db.id = ca.bd_contacto_id AND ca.id = {id_campaign};"""
-            cursor.execute(sql)
-            while True:
-                records = cursor.fetchmany(size=size)
-                if not records:
-                    break
-                for contact_id, contact_phone, contact_data, camp_name, camp_start, camp_end, camp_dupl_control in records:
-                    pipe.hset(f'DIALER:CAMP:{id_campaign}:CONTACT:{contact_id}', 'phone', contact_phone)
-                    pipe.hset(f'DIALER:CAMP:{id_campaign}:CONTACT:{contact_id}', 'data', contact_data)
-                    pipe.hset(f'DIALER:CAMP:{id_campaign}', 'name', camp_name)
-                    pipe.hset(f'DIALER:CAMP:{id_campaign}', 'start_date', camp_start.strftime("%Y-%m-%d"))
-                    pipe.hset(f'DIALER:CAMP:{id_campaign}', 'end_date', camp_end.strftime("%Y-%m-%d"))
-                    pipe.hset(f'DIALER:CAMP:{id_campaign}', 'allow_duplicates', camp_dupl_control)
-                    pipe.lpush(f'DIALER:CAMP:{id_campaign}:CONTACTS', contact_id)
-
-
-    @classmethod
     def create_campaign(cls, worker, job):
         logger.debug('creating the campaign')
         data = cls.decode_payload(job.data)
