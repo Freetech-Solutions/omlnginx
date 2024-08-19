@@ -192,6 +192,7 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
+    # TODO: port to Postgres
     def get_number_available_agents(cls):
         cls.connect_redis_oml()
         agents_available = 0
@@ -215,6 +216,7 @@ class NaiveWorker(DialerWorker):
         except Exception as e:
             print(e)
             raise e
+
 
     @classmethod
     def take_contacts(cls, contacts_attempts_number, id_campaign):
@@ -290,6 +292,7 @@ class NaiveWorker(DialerWorker):
         response = json.dumps({'msg': response})
         return bytes(response, encoding='UTF8')
 
+
     @classmethod
     def resume_campaign(cls, worker, job):
         logger.debug('resuming the campaign')
@@ -303,6 +306,7 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def process_event(cls, worker, job):
+        # TODO: port to Postgres
         cls.connect_postgres_dialer()
         ari_event_data = cls.decode_payload(job.data)
         id_campaign, contact_id, phone_number = cls.get_contact_data(ari_event_data)
@@ -380,6 +384,7 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def set_contact_status(cls, id_campaign, contact_id, status):
+        # TODO: port to Postgres
         cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMP:{id_campaign}:CONTACT:{contact_id}', 'status', status)
 
     @classmethod
@@ -390,6 +395,7 @@ class NaiveWorker(DialerWorker):
             cursor = conn.cursor()
             cursor.execute('DELETE FROM campaign where id = %s;', id_campaign)
         return b'Campaign was deleted'
+
 
     @classmethod
     def set_campaign_status(cls, id_campaign, new_status):
