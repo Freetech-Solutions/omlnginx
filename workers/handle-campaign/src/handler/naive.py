@@ -164,9 +164,7 @@ class NaiveWorker(DialerWorker):
     def start_campaign(cls, worker, job):
         logger.debug('starting the campaign')
         id_campaign = int(job.data)
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
-            cursor = conn.cursor()
-            cursor.execute('UPDATE campaign SET dialer_status = %s where id = %;', ACTIVE, id_campaign)
+        cls.set_campaign_status(id_campaign, ACTIVE)
         cls.process_campaign(id_campaign)
         return b'Campaign started!'
 
@@ -288,9 +286,7 @@ class NaiveWorker(DialerWorker):
     def pause_campaign(cls, worker, job):
         logger.debug('pausing the campaign')
         id_campaign = cls.decode_payload(job.data)
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
-            cursor = conn.cursor()
-            cursor.execute('UPDATE campaign SET dialer_status = %s where id = %;', PAUSED, id_campaign)
+        cls.set_campaign_status(id_campaign, PAUSED)
         response = f'Campaign {id_campaign} was paused!'
         response = json.dumps({'msg': response})
         return bytes(response, encoding='UTF8')
@@ -299,9 +295,7 @@ class NaiveWorker(DialerWorker):
     def resume_campaign(cls, worker, job):
         logger.debug('resuming the campaign')
         id_campaign = cls.decode_payload(job.data)
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
-            cursor = conn.cursor()
-            cursor.execute('UPDATE campaign SET dialer_status = %s where id = %;', RESUMED, id_campaign)
+        cls.set_campaign_status(id_campaign, RESUMED)
         cls.process_campaign(id_campaign)
         response = f'Campaign {id_campaign} was resumed!'
         response = json.dumps({'msg': response})
@@ -389,7 +383,6 @@ class NaiveWorker(DialerWorker):
     def set_contact_status(cls, id_campaign, contact_id, status):
         cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMP:{id_campaign}:CONTACT:{contact_id}', 'status', status)
 
-
     @classmethod
     def delete_campaign(cls, worker, job):
         id_campaign = int(job.data)
@@ -399,15 +392,16 @@ class NaiveWorker(DialerWorker):
             cursor.execute('DELETE FROM campaign where id = %s;', id_campaign)
         return b'Campaign was deleted'
 
-class SingleCallWorker(NaiveWorker):
-    """Another naive dialer worker flow that makes only 1 call at a time, and after every call pauses the campaign,
-    It will also remove the contacts one by one after the calls. Assumes the call was always answered."""
-
     @classmethod
     def set_campaign_status(cls, id_campaign, new_status):
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
             cursor = conn.cursor()
             cursor.execute('UPDATE campaign SET dialer_status = %s WHERE id = %;', new_status, id_campaign)
+
+
+class SingleCallWorker(NaiveWorker):
+    """Another naive dialer worker flow that makes only 1 call at a time, and after every call pauses the campaign,
+    It will also remove the contacts one by one after the calls. Assumes the call was always answered."""
 
     @classmethod
     def process_contact(cls, worker, job):
