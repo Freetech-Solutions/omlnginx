@@ -177,7 +177,10 @@ class NaiveWorker(DialerWorker):
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute('select dialer_status from campaign where id = %s', id_campaign)
             status = cursor_dialer.fetchone()
-        return status in [ACTIVE, RESUMED]
+            cursor_dialer.execute ('select id from contact_in_campaign where id_campaign = %s and status <> %s limit 1;',
+                                   id_campaign, STATUS_CALL_SUCCESS)
+            contacts_not_called_exists = cursor_dialer.fetchone()
+        return (status in [ACTIVE, RESUMED]) and contacts_not_called_exists
 
 
     @classmethod
@@ -419,11 +422,3 @@ class SingleCallWorker(NaiveWorker):
     @classmethod
     def allowed_parallel_contact_attempts(cls, id_campaign):
         return 1
-
-
-    @classmethod
-    def campaign_is_active(cls, id_campaign):
-        cls.connect_postgres_dialer()
-        status_active = cls.REDIS_DIALER_CONNECTION.hget(f'DIALER:CAMP:{id_campaign}', 'status') in ['active', 'resumed']
-        pending_contacts = cls.REDIS_DIALER_CONNECTION.llen(f'DIALER:CAMP:{id_campaign}:CONTACTS')
-        return status_active and pending_contacts > 0
