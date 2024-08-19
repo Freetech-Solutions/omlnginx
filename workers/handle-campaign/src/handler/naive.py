@@ -252,11 +252,10 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
-    def attempt_contact_asterisk(cls, contact, id_campaign):
+    def attempt_contact_asterisk(cls, contact_info, id_campaign):
         logger.debug('Trying to call the contact')
-        cls.connect_postgres_dialer()
-        phone_number = cls.REDIS_DIALER_CONNECTION.hget(f'DIALER:CAMP:{id_campaign}:CONTACT:{contact}', 'phone')
-        id_customer = contact
+        id_customer = contact_info[1]
+        phone_number = contact_info[3]
         queue_timeout = 20
         dial_timeout = 30
         channel_type = 'to_omlacd_dialout'
@@ -270,7 +269,7 @@ class NaiveWorker(DialerWorker):
         endpoint = f'PJSIP/{phone_number}@{DIALER_ACD_HOST}'
         appArgs = f'id_camp: {id_campaign}, id_customer: {id_customer}, tel_customer: {phone_number}, queue_timeout: {queue_timeout}, channel_type: {channel_type}, call_type: {call_type}'
 
-        logger.debug(f'Calling contact {contact} with phone {phone_number} in campaign {id_campaign}')
+        logger.debug(f'Calling contact {id_customer} with phone {phone_number} in campaign {id_campaign}')
 
         response = cls.ari.originate_channel(
             endpoint=endpoint,
