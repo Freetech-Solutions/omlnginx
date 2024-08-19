@@ -87,9 +87,10 @@ class CallManager:
             websocket.WebSocketApp: Configured WebSocket client.
         """
         try:
+            ws_url = (f"ws://{self.ari_host}:{self.ari_port}/ari/events"
+                      f"?api_key={self.ari_user}:{self.ari_password}&app={ASTERISK_APP_DIALER}")
             ari_client = websocket.WebSocketApp(
-                f"ws://{self.ari_host}:{self.ari_port}/ari/events"
-                f"?api_key={self.ari_user}:{self.ari_password}&app={ASTERISK_APP_DIALER}",
+                ws_url,
                 on_message=self.on_message,
                 on_error=self.on_error,
                 on_close=self.on_close
