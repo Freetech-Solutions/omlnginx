@@ -70,7 +70,11 @@ RESUMED = 4
 # contact status
 STATUS_CREATED = 1
 STATUS_SELECTED_CALL = 2
-STATUS_CALL_SUCCESS = 3
+STATUS_ANSWERED_AGENT = 3
+STATUS_ANSWERED_PSTN = 4
+STATUS_BUSY = 5
+STATUS_NOANSWER = 6
+STATUS_CONGESTION = 7
 
 
 class NaiveWorker(DialerWorker):
@@ -176,7 +180,7 @@ class NaiveWorker(DialerWorker):
             cursor_dialer.execute('select dialer_status from campaign where id = %s', (id_campaign,))
             status = cursor_dialer.fetchone()[0]
             cursor_dialer.execute ('select id from contact_in_campaign where id_campaign = %s and status <> %s limit 1;',
-                                   (id_campaign, STATUS_CALL_SUCCESS))
+                                   (id_campaign, STATUS_ANSWERED_AGENT))
             contacts_not_called_exists = cursor_dialer.fetchone()
         return (status in [ACTIVE, RESUMED]) and contacts_not_called_exists
 
@@ -192,7 +196,6 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
-    # TODO: port to Postgres
     def get_number_available_agents(cls):
         cls.connect_redis_oml()
         agents_available = 0
@@ -232,7 +235,7 @@ class NaiveWorker(DialerWorker):
                                      LIMIT %s) AND co.id = cc.id_contact
                                      RETURNING cc.id, cc.id_contact, cc.id_campaign, co.phone;""",
                                   (STATUS_SELECTED_CALL, id_campaign, STATUS_SELECTED_CALL,
-                                   STATUS_CALL_SUCCESS, contacts_attempts_number))
+                                   STATUS_ANSWERED_AGENT, contacts_attempts_number))
             return cursor_dialer.fetchall()
 
 
@@ -306,36 +309,26 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def process_event(cls, worker, job):
-        # TODO: port to Postgres
-        cls.connect_postgres_dialer()
         ari_event_data = cls.decode_payload(job.data)
         id_campaign, contact_id, phone_number = cls.get_contact_data(ari_event_data)
         if cls.is_answer_event(ari_event_data):
-            cls.REDIS_DIALER_CONNECTION.lpush(f'DIALER:CAMP:{id_campaign}:CONTACTS_ANSWER', contact_id)
             if cls.was_answered_pstn(ari_event_data):
                 logger.debug('Receiving answer pstn')
-                cls.set_contact_status(id_campaign, contact_id, 'answered_pstn')
+                cls.set_contact_status(id_campaign, contact_id, STATUS_ANSWERED_PSTN)
             elif cls.was_answered_agent(ari_event_data):
                 logger.debug('Receiving answer agent')
-                cls.set_contact_status(id_campaign, contact_id, 'answered_agent')
+                cls.set_contact_status(id_campaign, contact_id, STATUS_ANSWERED_AGENT)
                 logger.debug(f'Contact {contact_id} was succesfully called to phone {phone_number}'
                              f' in campaign {id_campaign}')
-                cls.REDIS_DIALER_CONNECTION.lrem(f'DIALER:CAMP:{id_campaign}:CONTACTS', 1, contact_id)
         elif cls.is_busy_event(ari_event_data):
             logger.debug('Receiving busy')
-            cls.set_contact_status(id_campaign, contact_id, 'busy')
-            cls.REDIS_DIALER_CONNECTION.lrem(f'DIALER:CAMP:{id_campaign}:CONTACTS', 1, contact_id)
-            cls.REDIS_DIALER_CONNECTION.lpush(f'DIALER:CAMP:{id_campaign}:CONTACTS_BUSY', contact_id)
+            cls.set_contact_status(id_campaign, contact_id, STATUS_BUSY)
         elif cls.is_noanswer_event(ari_event_data):
             logger.debug('Receiving noanswer')
-            cls.set_contact_status(id_campaign, contact_id, 'noanswer')
-            cls.REDIS_DIALER_CONNECTION.lrem(f'DIALER:CAMP:{id_campaign}:CONTACTS', 1, contact_id)
-            cls.REDIS_DIALER_CONNECTION.lpush(f'DIALER:CAMP:{id_campaign}:CONTACTS_NOANSWER', contact_id)
+            cls.set_contact_status(id_campaign, contact_id, STATUS_NOANSWER)
         elif cls.is_congestion_event(ari_event_data):
             logger.debug('Receiving congestion')
-            cls.set_contact_status(id_campaign, contact_id, 'congestion')
-            cls.REDIS_DIALER_CONNECTION.lrem(f'DIALER:CAMP:{id_campaign}:CONTACTS', 1, contact_id)
-            cls.REDIS_DIALER_CONNECTION.lpush(f'DIALER:CAMP:{id_campaign}:CONTACTS_CONGESTION', contact_id)
+            cls.set_contact_status(id_campaign, contact_id, STATUS_CONGESTION)
         return b'Event was processed'
 
 
@@ -384,8 +377,10 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def set_contact_status(cls, id_campaign, contact_id, status):
-        # TODO: port to Postgres
-        cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMP:{id_campaign}:CONTACT:{contact_id}', 'status', status)
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute('UPDATE contact_in_campaign SET status = %s WHERE id_campaign = % AND id_contact = %s;',
+                                  (status, id_campaign, contact_id))
 
     @classmethod
     def delete_campaign(cls, worker, job):
@@ -410,6 +405,7 @@ class SingleCallWorker(NaiveWorker):
 
     @classmethod
     def process_contact(cls, worker, job):
+        logger.debug('Processing contact in SingleCallWorker')
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
         if cls.campaign_is_active(id_campaign):
