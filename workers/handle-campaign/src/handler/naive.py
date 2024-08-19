@@ -58,7 +58,7 @@ POSTGRES_DIALER_DB = 'omnidialer'
 
 POSTGRES_DIALER_PASSWORD = os.getenv('POSTGRES_DIALER_PASSWORD')
 
-DIALER_ACD_HOST=os.getenv('DIALER_ACD_HOST', 'acd')
+DIALER_ACD_HOST=os.getenv('DIALER_ACD_HOST', 'omlacd')
 
 
 # campaign status possible values
@@ -173,10 +173,10 @@ class NaiveWorker(DialerWorker):
     def campaign_is_active(cls, id_campaign):
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
-            cursor_dialer.execute('select dialer_status from campaign where id = %s', id_campaign)
-            status = cursor_dialer.fetchone()
+            cursor_dialer.execute('select dialer_status from campaign where id = %s', (id_campaign,))
+            status = cursor_dialer.fetchone()[0]
             cursor_dialer.execute ('select id from contact_in_campaign where id_campaign = %s and status <> %s limit 1;',
-                                   id_campaign, STATUS_CALL_SUCCESS)
+                                   (id_campaign, STATUS_CALL_SUCCESS))
             contacts_not_called_exists = cursor_dialer.fetchone()
         return (status in [ACTIVE, RESUMED]) and contacts_not_called_exists
 
@@ -221,16 +221,16 @@ class NaiveWorker(DialerWorker):
         logger.debug("var contacts_attempts_number={0}".format(contacts_attempts_number))
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
-            cursor_dialer.execute(f"""UPDATE contact_in_campaign as cc
-                                      SET status = %s
-                                      FROM contact as co
-                                      WHERE id IN (SELECT id
-                                      FROM contact_in_campaign
-                                      WHERE id_campaign = %s and status <> % and status <> %s
-                                      LIMIT %) AND co.id = cc.id_contact
-                                      RETURNING id, cc.id_contact, cc.id_campaign, co.phone;""",
-                                  STATUS_SELECTED_CALL, id_campaign, STATUS_SELECTED_CALL,
-                                  STATUS_CALL_SUCCESS, contacts_attempts_number)
+            cursor_dialer.execute("""UPDATE contact_in_campaign as cc
+                                     SET status = %s
+                                     FROM contact as co
+                                     WHERE cc.id IN (SELECT id
+                                     FROM contact_in_campaign
+                                     WHERE id_campaign = %s and status <> %s and status <> %s
+                                     LIMIT %s) AND co.id = cc.id_contact
+                                     RETURNING cc.id, cc.id_contact, cc.id_campaign, co.phone;""",
+                                  (STATUS_SELECTED_CALL, id_campaign, STATUS_SELECTED_CALL,
+                                   STATUS_CALL_SUCCESS, contacts_attempts_number))
             return cursor_dialer.fetchall()
 
 
@@ -396,7 +396,7 @@ class NaiveWorker(DialerWorker):
     def set_campaign_status(cls, id_campaign, new_status):
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
             cursor = conn.cursor()
-            cursor.execute('UPDATE campaign SET dialer_status = %s WHERE id = %;', new_status, id_campaign)
+            cursor.execute('UPDATE campaign SET dialer_status = %s WHERE id = %s;', (new_status, id_campaign))
 
 
 class SingleCallWorker(NaiveWorker):
