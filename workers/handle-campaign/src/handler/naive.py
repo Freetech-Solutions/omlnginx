@@ -405,17 +405,17 @@ class SingleCallWorker(NaiveWorker):
 
     @classmethod
     def set_campaign_status(cls, id_campaign, new_status):
-        cls.connect_postgres_dialer()
-        cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMP:{id_campaign}', 'status', new_status)
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+            cursor = conn.cursor()
+            cursor.execute('UPDATE campaign SET dialer_status = %s WHERE id = %;', new_status, id_campaign)
 
     @classmethod
     def process_contact(cls, worker, job):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
-        cls.connect_postgres_dialer()
         if cls.campaign_is_active(id_campaign):
             cls.attempt_contact_asterisk(data['contact'], id_campaign)
-            cls.set_campaign_status(id_campaign, 'paused')
+            cls.set_campaign_status(id_campaign, PAUSED)
             return b'Contact was called in SingleCallWorker'
         return b'Contact was not called in SingleCallWorker'
 
