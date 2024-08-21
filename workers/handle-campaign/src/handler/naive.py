@@ -388,7 +388,7 @@ class NaiveWorker(DialerWorker):
         logger.debug(f'Removing campaign with id = {id_campaign}')
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
             cursor = conn.cursor()
-            cursor.execute('DELETE FROM campaign where id = %s;', id_campaign)
+            cursor.execute('DELETE FROM campaign WHERE id = %s;', (id_campaign,))
         return b'Campaign was deleted'
 
 
