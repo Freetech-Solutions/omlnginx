@@ -109,6 +109,7 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def create_campaign(cls, worker, job):
+        # assumes the dialer campaign exists in OML with all the required tables and fields created
         logger.debug('creating the campaign')
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
