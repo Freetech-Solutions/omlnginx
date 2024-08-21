@@ -189,9 +189,9 @@ class NaiveWorker(DialerWorker):
     def get_number_active_campaigns(cls):
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
             cursor = conn.cursor()
-            cursor.execute('SELECT Count(*) FROM campaign WHERE AND (dialer_status = %s OR dialer_status = %s);',
+            cursor.execute('SELECT Count(*) FROM campaign WHERE dialer_status = %s OR dialer_status = %s;',
                            (ACTIVE, RESUMED))
-            active_campaigns = cursor.fetchone()
+            active_campaigns = cursor.fetchone()[0]
         return active_campaigns
 
 
