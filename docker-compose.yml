@@ -14,7 +14,7 @@ services:
     stdin_open: true
     depends_on:
       - job_server
-      - redis
+      - postgresql
     environment:
       - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
 
@@ -47,6 +47,9 @@ services:
       - POSTGRES_OML_PASSWORD=${POSTGRES_OML_PASSWORD}
       - POSTGRES_OML_SERVER=${POSTGRES_OML_SERVER}
       - POSTGRES_OML_PORT=${POSTGRES_OML_PORT}
+      - POSTGRES_DIALER_PASSWORD=${POSTGRES_DIALER_PASSWORD}
+      - POSTGRES_DIALER_SERVER=${POSTGRES_DIALER_SERVER}
+      - POSTGRES_DIALER_PORT=${POSTGRES_DIALER_PORT}
       - TZ=${TZ}
       - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
       - GEARMAN_JOBS=${GEARMAN_JOBS}
@@ -54,46 +57,30 @@ services:
       - DIALER_ACD_HOST=${DIALER_ACD_HOST}
     depends_on:
       - job_server
-      - redis
+      - postgresql
 
-  redis:
-    container_name: omnidialer-redis
+  postgresql:
+    container_name: dialer-postgres
     dns: 8.8.8.8
     environment:
       - TZ=${TZ}
-      - BIND_IP=0.0.0.0
+      - POSTGRES_USER=${POSTGRES_DIALER_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_DIALER_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DIALER_DB}
+      - PGPORT=5433
+    image: postgres:14.9-bullseye
     networks:
       - network1
-    ports:
-      - '6380:6380'
     expose:
-      - '6380'
-    image: redis:7.2.5-alpine
+      - "5433"
+    ports:
+      - ${POSTGRES_DIALER_PORT}:5433
     privileged: true
     restart: on-failure
     stop_grace_period: 1m30s
     volumes:
-      - redis_omnidialer:/data
-    command: redis-server --port 6380
-
-  redisinsight:
-    container_name: omnidialer-redisinsight
-    dns: 8.8.8.8
-    environment:
-      - TZ=${TZ}
-      - BIND_IP=0.0.0.0
-    networks:
-      - network1
-    ports:
-      - '5540:5540'
-    expose:
-      - '5540'
-    image: redis/redisinsight:latest
-    privileged: true
-    restart: on-failure
-    stop_grace_period: 1m30s
-    volumes:
-      - redis_redisinsight:/data
+      - omnidialer-postgresql:/var/lib/postgresql/data
+      - ./omnidialer.sql:/docker-entrypoint-initdb.d/init.sql
 
 
   websocket_ari:
@@ -113,16 +100,11 @@ services:
       - ASTERISK_PASS=${ASTERISK_PASS}
       - ASTERISK_APP=${ASTERISK_APP}
       - ASTERISK_APP_DIALER=${ASTERISK_APP_DIALER}
-      - REDIS_OML_SERVER=${REDIS_OML_SERVER}
-      - REDIS_OML_PORT=${REDIS_OML_PORT}
-      - POSTGRES_OML_PASSWORD=${POSTGRES_OML_PASSWORD}
-      - POSTGRES_OML_SERVER=${POSTGRES_OML_SERVER}
-      - POSTGRES_OML_PORT=${POSTGRES_OML_PORT}
       - TZ=${TZ}
       - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
     depends_on:
       - job_server
-      - redis
+      - postgresql
       - worker
 
 networks:
@@ -131,5 +113,4 @@ networks:
     external: true
 
 volumes:
-  redis_omnidialer:
-  redis_redisinsight:
+  omnidialer-postgresql:

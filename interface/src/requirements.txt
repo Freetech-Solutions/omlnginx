@@ -1,3 +1,2 @@
 flask
 gearman3
-redis

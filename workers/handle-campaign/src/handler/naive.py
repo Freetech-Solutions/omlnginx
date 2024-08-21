@@ -42,21 +42,47 @@ POSTGRES_OML_SERVER = os.getenv('POSTGRES_OML_SERVER', 'oml-postgres')
 
 POSTGRES_OML_PORT = os.getenv('POSTGRES_OML_PORT', '5432')
 
+POSTGRES_OML_PASSWORD = os.getenv('POSTGRES_OML_PASSWORD')
+
 POSTGRES_OML_USER = 'omnileads'
 
 POSTGRES_OML_DB = 'omnileads'
 
-POSTGRES_OML_PASSWORD = os.getenv('POSTGRES_OML_PASSWORD', '5432')
+POSTGRES_DIALER_SERVER = os.getenv('POSTGRES_DIALER_SERVER', 'dialer-postgres')
 
-DIALER_ACD_HOST=os.getenv('DIALER_ACD_HOST', 'acd')
+POSTGRES_DIALER_PORT = os.getenv('POSTGRES_DIALER_PORT', '5433')
+
+POSTGRES_DIALER_USER = 'omnidialer'
+
+POSTGRES_DIALER_DB = 'omnidialer'
+
+POSTGRES_DIALER_PASSWORD = os.getenv('POSTGRES_DIALER_PASSWORD')
+
+DIALER_ACD_HOST=os.getenv('DIALER_ACD_HOST', 'omlacd')
+
+
+# campaign status possible values
+CREATED = 1
+ACTIVE = 2
+PAUSED = 3
+RESUMED = 4
+
+# contact status
+STATUS_CREATED = 1
+STATUS_SELECTED_CALL = 2
+STATUS_ANSWERED_AGENT = 3
+STATUS_ANSWERED_PSTN = 4
+STATUS_BUSY = 5
+STATUS_NOANSWER = 6
+STATUS_CONGESTION = 7
 
 
 class NaiveWorker(DialerWorker):
     """A worker flow with a simple strategy, call contacts according to the available agents, 1 call for for each agent"""
 
 
-    POSTGRES_OML_CONNECTION = None
-    REDIS_DIALER_CONNECTION = None
+    POSTGRES_OML_CONNECTION_STR = f'postgresql://{POSTGRES_OML_USER}:{POSTGRES_OML_PASSWORD}@{POSTGRES_OML_SERVER}:{POSTGRES_OML_PORT}/{POSTGRES_OML_DB}'
+    POSTGRES_DIALER_CONNECTION_STR = f'postgresql://{POSTGRES_DIALER_USER}:{POSTGRES_DIALER_PASSWORD}@{POSTGRES_DIALER_SERVER}:{POSTGRES_DIALER_PORT}/{POSTGRES_DIALER_DB}'
     REDIS_OML_CONNECTION = None
     GM_CLIENT = gearman.GearmanClient(GEARMAN_JOB_SERVERS)
 
@@ -67,7 +93,6 @@ class NaiveWorker(DialerWorker):
         port=int(ASTERISK_PORT)
     )
 
-
     @classmethod
     def process_campaign(cls, id_campaign):
         while cls.campaign_is_active(id_campaign):
@@ -76,80 +101,10 @@ class NaiveWorker(DialerWorker):
                 sleep(7)
                 cls.attempt_contact(contact, id_campaign)
 
-
-    @classmethod
-    def connect_postgres_oml(cls):
-        if cls.POSTGRES_OML_CONNECTION is None:
-            cls.POSTGRES_OML_CONNECTION = psycopg.connect(f'postgresql://{POSTGRES_OML_USER}:{POSTGRES_OML_PASSWORD}@{POSTGRES_OML_SERVER}:{POSTGRES_OML_PORT}/{POSTGRES_OML_DB}')
-
-
-    @classmethod
-    def connect_redis_dialer(cls):
-        if cls.REDIS_DIALER_CONNECTION is None:
-            cls.REDIS_DIALER_CONNECTION = redis.Redis(host=REDIS_DIALER_SERVER, port=REDIS_DIALER_PORT, decode_responses=True)
-
-
     @classmethod
     def connect_redis_oml(cls):
         if cls.REDIS_OML_CONNECTION is None:
             cls.REDIS_OML_CONNECTION = redis.Redis(host=REDIS_OML_SERVER, port=REDIS_OML_PORT, decode_responses=True)
-
-
-    @classmethod
-    def set_contact_strategy(cls, pipe, id_campaign, contact_strategy):
-        pipe.hset(f'DIALER:CAMP:{id_campaign}', 'strategy', json.dumps(contact_strategy))
-
-
-    @classmethod
-    def set_campaign_options(cls, pipe, id_campaign):
-       with cls.POSTGRES_OML_CONNECTION.cursor() as cursor:
-           sql = f"""select * from queue_table where campana_id = {id_campaign};"""
-           cursor.execute(sql)
-           column_names = [desc[0] for desc in cursor.description]
-           queue = cursor.fetchone()
-           for col_name, col_value in zip(column_names, queue):
-               pipe.hset(f'DIALER:CAMP:{id_campaign}', col_name, str(col_value))
-
-
-    @classmethod
-    def set_incidence_rules(cls, pipe, id_campaign):
-        with cls.POSTGRES_OML_CONNECTION.cursor() as cursor:
-           sql = f"""select * from ominicontacto_app_reglasincidencia where campana_id = {id_campaign};"""
-           cursor.execute(sql)
-           for incidence_rule in cursor.fetchall():
-               pipe.lpush(f'DIALER:CAMP:{id_campaign}:incidence_rules', json.dumps(incidence_rule))
-
-
-    @classmethod
-    def set_opening_hours(cls, pipe, id_campaign):
-        with cls.POSTGRES_OML_CONNECTION.cursor() as cursor:
-           sql = f"""select * from ominicontacto_app_actuacionvigente where campana_id = {id_campaign};"""
-           cursor.execute(sql)
-           opening_hours = cursor.fetchone()
-           pipe.lpush(f'DIALER:CAMP:{id_campaign}:opening_hours', str(opening_hours))
-
-
-    @classmethod
-    def set_contacts(cls, pipe, id_campaign):
-        size = 1000
-        with cls.POSTGRES_OML_CONNECTION.cursor() as cursor:
-            sql = f"""SELECT co.id, co.telefono, co.datos, ca.nombre, ca.fecha_inicio, ca.fecha_fin, ca.control_de_duplicados
-            FROM ominicontacto_app_contacto AS co
-            INNER JOIN ominicontacto_app_contacto AS db ON db.id = co.bd_contacto_id
-            INNER JOIN ominicontacto_app_campana AS ca ON db.id = ca.bd_contacto_id AND ca.id = {id_campaign};"""
-            cursor.execute(sql)
-            while True:
-                records = cursor.fetchmany(size=size)
-                if not records:
-                    break
-                for contact_id, contact_phone, contact_data, camp_name, camp_start, camp_end, camp_dupl_control in records:
-                    pipe.hset(f'DIALER:CAMP:{id_campaign}:CONTACT:{contact_id}', 'phone', contact_phone)
-                    pipe.hset(f'DIALER:CAMP:{id_campaign}:CONTACT:{contact_id}', 'data', contact_data)
-                    pipe.hset(f'DIALER:CAMP:{id_campaign}', 'name', camp_name)
-                    pipe.hset(f'DIALER:CAMP:{id_campaign}', 'start_date', camp_start.strftime("%Y-%m-%d"))
-                    pipe.hset(f'DIALER:CAMP:{id_campaign}', 'end_date', camp_end.strftime("%Y-%m-%d"))
-                    pipe.hset(f'DIALER:CAMP:{id_campaign}', 'allow_duplicates', camp_dupl_control)
-                    pipe.lpush(f'DIALER:CAMP:{id_campaign}:CONTACTS', contact_id)
 
 
     @classmethod
@@ -158,21 +113,53 @@ class NaiveWorker(DialerWorker):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
         contact_strategy = data['contact_strategy']
-        cls.connect_postgres_oml()
-        cls.connect_redis_oml()
-        cls.connect_redis_dialer()
-        try:
-            with cls.REDIS_DIALER_CONNECTION.pipeline() as pipe:
-                cls.set_contact_strategy(pipe, id_campaign, contact_strategy)
-                cls.set_contacts(pipe, id_campaign)
-                cls.set_campaign_options(pipe, id_campaign)
-                cls.set_incidence_rules(pipe, id_campaign)
-                cls.set_opening_hours(pipe, id_campaign)
-                pipe.execute()
-        except Exception as e:
-            print(e)
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            with conn_dialer.transaction() as dialer_tx_outer:
+                cursor_dialer = conn_dialer.cursor()
+                with psycopg.connect(cls.POSTGRES_OML_CONNECTION_STR) as conn_oml:
+                    logger.debug(f'Retrieving data from OML campaign with id={id_campaign}')
+                    logger.debug('From ominicontacto_app_campana')
+                    cursor_oml = conn_oml.cursor()
+                    cursor_oml.execute(f'SELECT id,estado,nombre,fecha_inicio,fecha_fin,control_de_duplicados,prioridad '
+                                   f'FROM ominicontacto_app_campana WHERE id = {id_campaign};')
+                    campaign_id_data = cursor_oml.fetchone()
+                    logger.debug('From queue_table')
+                    cursor_oml.execute(f'SELECT strategy,wait,initial_predictive_model,initial_boost_factor '
+                                   f' FROM queue_table WHERE campana_id = {id_campaign};')
+                    campaign_id_data += cursor_oml.fetchone()
+                    logger.debug('From ominicontacto_app_actuacionvigente')
+                    cursor_oml.execute(f'SELECT domingo,lunes,martes,miercoles,jueves,viernes,sabado,hora_desde,hora_hasta'
+                                   f' FROM ominicontacto_app_actuacionvigente WHERE campana_id = {id_campaign};')
+                    campaign_id_data += cursor_oml.fetchone()
+                    logger.debug('Setting dialer specific options')
+                    campaign_id_data += (contact_strategy, CREATED)
+                    logger.debug('From incidence rules')
+                    cursor_oml.execute(f'SELECT * FROM ominicontacto_app_reglasincidencia WHERE campana_id = {id_campaign};')
+                    incidence_rules_data = cursor_oml.fetchall()
+                    logger.debug('Inserting the campaign data into omnidialer')
+                    cursor_dialer.execute("INSERT INTO campaign (id, oml_status, name, start_date, end_date, duplicates_control, priority, strategy, wait, initial_predictive_model, initial_boost_factor, sunday, monday, tuesday, wednesday, thursday, friday, saturday, hour_start, hour_ends, contact_strategy, dialer_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);", campaign_id_data)
+                    logger.debug('Inserting the incidence_rules into omnidialer')
+                    for incidence_rule in incidence_rules_data:
+                        cursor_dialer.execute("INSERT INTO incidence_rules (id, status, status_custom, max_attempt, retry_later, in_mode, campaign_id) VALUES (%s, %s, %s, %s, %s, %s, %s);", incidence_rule)
+                    logger.debug('Retrieving the contacts')
+                    sql = f"""SELECT co.id, co.telefono, co.datos, co.es_originario FROM ominicontacto_app_contacto AS co
+                    INNER JOIN ominicontacto_app_contacto AS db ON db.id = co.bd_contacto_id
+                    INNER JOIN ominicontacto_app_campana AS ca ON db.id = ca.bd_contacto_id AND ca.id = {id_campaign};"""
+                    size = 1000
+                    logger.debug('Copying the contacts')
+                    cursor_oml.execute(sql)
+                    while True:
+                        contacts = cursor_oml.fetchmany(size=size)
+                        if not contacts:
+                            break
+                        for (id_contact, phone, data, is_original) in contacts:
+                            cursor_dialer.execute('INSERT INTO contact (id, phone, data, is_original) VALUES (%s, %s, %s, %s)'
+                                                  'ON CONFLICT (id) DO NOTHING;', (id_contact, phone, data, is_original))
+                            cursor_dialer.execute('INSERT INTO contact_in_campaign (id_campaign, id_contact, status) VALUES (%s, %s, %s);',
+                                                  (id_campaign, id_contact, STATUS_CREATED))
 
         response = f'Campaign {id_campaign} with strategy {contact_strategy} created!!!'
+
         response = json.dumps({'msg': response})
         return bytes(response, encoding='UTF8')
 
@@ -181,30 +168,30 @@ class NaiveWorker(DialerWorker):
     def start_campaign(cls, worker, job):
         logger.debug('starting the campaign')
         id_campaign = int(job.data)
-        cls.connect_redis_dialer()
-        cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMP:{id_campaign}', 'status', 'active')
+        cls.set_campaign_status(id_campaign, ACTIVE)
         cls.process_campaign(id_campaign)
         return b'Campaign started!'
 
 
     @classmethod
     def campaign_is_active(cls, id_campaign):
-        cls.connect_redis_dialer()
-        return cls.REDIS_DIALER_CONNECTION.hget(f'DIALER:CAMP:{id_campaign}', 'status') in ['active', 'resumed']
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute('select dialer_status from campaign where id = %s', (id_campaign,))
+            status = cursor_dialer.fetchone()[0]
+            cursor_dialer.execute ('select id from contact_in_campaign where id_campaign = %s and status <> %s limit 1;',
+                                   (id_campaign, STATUS_ANSWERED_AGENT))
+            contacts_not_called_exists = cursor_dialer.fetchone()
+        return (status in [ACTIVE, RESUMED]) and contacts_not_called_exists
 
 
     @classmethod
     def get_number_active_campaigns(cls):
-        cls.connect_redis_dialer()
-        active_campaigns = 0
-        # TODO: find an exact pattern for DIALER:CAMP:<id_campaign>
-        for key in cls.REDIS_DIALER_CONNECTION.scan_iter(match='DIALER:CAMP:*', count=1000):
-            try:
-                status = cls.REDIS_DIALER_CONNECTION.hget(key, 'status')
-            except Exception:
-                status = 'not-related'
-            if status in ['active', 'resumed']:
-                active_campaigns += 1
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT Count(*) FROM campaign WHERE dialer_status = %s OR dialer_status = %s;',
+                           (ACTIVE, RESUMED))
+            active_campaigns = cursor.fetchone()[0]
         return active_campaigns
 
 
@@ -233,12 +220,23 @@ class NaiveWorker(DialerWorker):
             print(e)
             raise e
 
+
     @classmethod
     def take_contacts(cls, contacts_attempts_number, id_campaign):
         logger.debug("var contacts_attempts_number={0}".format(contacts_attempts_number))
-        if contacts_attempts_number > 0:
-            return cls.REDIS_DIALER_CONNECTION.lrange(f'DIALER:CAMP:{id_campaign}:CONTACTS', 0, contacts_attempts_number - 1)
-        return []
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute("""UPDATE contact_in_campaign as cc
+                                     SET status = %s
+                                     FROM contact as co
+                                     WHERE cc.id IN (SELECT id
+                                     FROM contact_in_campaign
+                                     WHERE id_campaign = %s and status <> %s and status <> %s
+                                     LIMIT %s) AND co.id = cc.id_contact
+                                     RETURNING cc.id, cc.id_contact, cc.id_campaign, co.phone;""",
+                                  (STATUS_SELECTED_CALL, id_campaign, STATUS_SELECTED_CALL,
+                                   STATUS_ANSWERED_AGENT, contacts_attempts_number))
+            return cursor_dialer.fetchall()
 
 
     @classmethod
@@ -259,11 +257,10 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
-    def attempt_contact_asterisk(cls, contact, id_campaign):
+    def attempt_contact_asterisk(cls, contact_info, id_campaign):
         logger.debug('Trying to call the contact')
-        cls.connect_redis_dialer()
-        phone_number = cls.REDIS_DIALER_CONNECTION.hget(f'DIALER:CAMP:{id_campaign}:CONTACT:{contact}', 'phone')
-        id_customer = contact
+        id_customer = contact_info[1]
+        phone_number = contact_info[3]
         queue_timeout = 20
         dial_timeout = 30
         channel_type = 'to_omlacd_dialout'
@@ -277,7 +274,7 @@ class NaiveWorker(DialerWorker):
         endpoint = f'PJSIP/{phone_number}@{DIALER_ACD_HOST}'
         appArgs = f'id_camp: {id_campaign}, id_customer: {id_customer}, tel_customer: {phone_number}, queue_timeout: {queue_timeout}, channel_type: {channel_type}, call_type: {call_type}'
 
-        logger.debug(f'Calling contact {contact} with phone {phone_number} in campaign {id_campaign}')
+        logger.debug(f'Calling contact {id_customer} with phone {phone_number} in campaign {id_campaign}')
 
         response = cls.ari.originate_channel(
             endpoint=endpoint,
@@ -292,25 +289,18 @@ class NaiveWorker(DialerWorker):
     @classmethod
     def pause_campaign(cls, worker, job):
         logger.debug('pausing the campaign')
-        cls.connect_redis_dialer()
         id_campaign = cls.decode_payload(job.data)
-        try:
-            cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMP:{id_campaign}', 'status', 'paused')
-        except Exception as e:
-            print(e)
+        cls.set_campaign_status(id_campaign, PAUSED)
         response = f'Campaign {id_campaign} was paused!'
         response = json.dumps({'msg': response})
         return bytes(response, encoding='UTF8')
 
+
     @classmethod
     def resume_campaign(cls, worker, job):
         logger.debug('resuming the campaign')
-        cls.connect_redis_dialer()
         id_campaign = cls.decode_payload(job.data)
-        try:
-            cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMP:{id_campaign}', 'status', 'resumed')
-        except Exception as e:
-            print(e)
+        cls.set_campaign_status(id_campaign, RESUMED)
         cls.process_campaign(id_campaign)
         response = f'Campaign {id_campaign} was resumed!'
         response = json.dumps({'msg': response})
@@ -319,35 +309,26 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def process_event(cls, worker, job):
-        cls.connect_redis_dialer()
         ari_event_data = cls.decode_payload(job.data)
         id_campaign, contact_id, phone_number = cls.get_contact_data(ari_event_data)
         if cls.is_answer_event(ari_event_data):
-            cls.REDIS_DIALER_CONNECTION.lpush(f'DIALER:CAMP:{id_campaign}:CONTACTS_ANSWER', contact_id)
             if cls.was_answered_pstn(ari_event_data):
                 logger.debug('Receiving answer pstn')
-                cls.set_contact_status(id_campaign, contact_id, 'answered_pstn')
+                cls.set_contact_status(id_campaign, contact_id, STATUS_ANSWERED_PSTN)
             elif cls.was_answered_agent(ari_event_data):
                 logger.debug('Receiving answer agent')
-                cls.set_contact_status(id_campaign, contact_id, 'answered_agent')
+                cls.set_contact_status(id_campaign, contact_id, STATUS_ANSWERED_AGENT)
                 logger.debug(f'Contact {contact_id} was succesfully called to phone {phone_number}'
                              f' in campaign {id_campaign}')
-                cls.REDIS_DIALER_CONNECTION.lrem(f'DIALER:CAMP:{id_campaign}:CONTACTS', 1, contact_id)
         elif cls.is_busy_event(ari_event_data):
             logger.debug('Receiving busy')
-            cls.set_contact_status(id_campaign, contact_id, 'busy')
-            cls.REDIS_DIALER_CONNECTION.lrem(f'DIALER:CAMP:{id_campaign}:CONTACTS', 1, contact_id)
-            cls.REDIS_DIALER_CONNECTION.lpush(f'DIALER:CAMP:{id_campaign}:CONTACTS_BUSY', contact_id)
+            cls.set_contact_status(id_campaign, contact_id, STATUS_BUSY)
         elif cls.is_noanswer_event(ari_event_data):
             logger.debug('Receiving noanswer')
-            cls.set_contact_status(id_campaign, contact_id, 'noanswer')
-            cls.REDIS_DIALER_CONNECTION.lrem(f'DIALER:CAMP:{id_campaign}:CONTACTS', 1, contact_id)
-            cls.REDIS_DIALER_CONNECTION.lpush(f'DIALER:CAMP:{id_campaign}:CONTACTS_NOANSWER', contact_id)
+            cls.set_contact_status(id_campaign, contact_id, STATUS_NOANSWER)
         elif cls.is_congestion_event(ari_event_data):
             logger.debug('Receiving congestion')
-            cls.set_contact_status(id_campaign, contact_id, 'congestion')
-            cls.REDIS_DIALER_CONNECTION.lrem(f'DIALER:CAMP:{id_campaign}:CONTACTS', 1, contact_id)
-            cls.REDIS_DIALER_CONNECTION.lpush(f'DIALER:CAMP:{id_campaign}:CONTACTS_CONGESTION', contact_id)
+            cls.set_contact_status(id_campaign, contact_id, STATUS_CONGESTION)
         return b'Event was processed'
 
 
@@ -396,56 +377,43 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def set_contact_status(cls, id_campaign, contact_id, status):
-        cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMP:{id_campaign}:CONTACT:{contact_id}', 'status', status)
-
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute('UPDATE contact_in_campaign SET status = %s WHERE id_campaign = %s AND id_contact = %s;',
+                                  (status, id_campaign, contact_id))
 
     @classmethod
     def delete_campaign(cls, worker, job):
-        logger.debug('removing the campaign')
         id_campaign = int(job.data)
-        cls.connect_redis_dialer()
-        cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMP:{id_campaign}', 'status', 'paused')
-        cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}')
-        cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}:incidence_rules')
-        cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}:opening_hours')
-        cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}:CONTACTS')
-        cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}:CONTACTS')
-        cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}:CONTACTS_ANSWER')
-        cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}:CONTACTS_NOANSWER')
-        cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}:CONTACTS_BUSY')
-        cls.REDIS_DIALER_CONNECTION.delete(f'DIALER:CAMP:{id_campaign}:CONTACTS_CONGESTION')
-        for key in cls.REDIS_DIALER_CONNECTION.scan_iter(match=f'DIALER:CAMP:{id_campaign}:CONTACT:*', count=1000):
-            cls.REDIS_DIALER_CONNECTION.delete(key)
+        logger.debug(f'Removing campaign with id = {id_campaign}')
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM campaign WHERE id = %s;', (id_campaign,))
         return b'Campaign was deleted'
+
+
+    @classmethod
+    def set_campaign_status(cls, id_campaign, new_status):
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+            cursor = conn.cursor()
+            cursor.execute('UPDATE campaign SET dialer_status = %s WHERE id = %s;', (new_status, id_campaign))
+
 
 class SingleCallWorker(NaiveWorker):
     """Another naive dialer worker flow that makes only 1 call at a time, and after every call pauses the campaign,
     It will also remove the contacts one by one after the calls. Assumes the call was always answered."""
 
     @classmethod
-    def set_campaign_status(cls, id_campaign, new_status):
-        cls.connect_redis_dialer()
-        cls.REDIS_DIALER_CONNECTION.hset(f'DIALER:CAMP:{id_campaign}', 'status', new_status)
-
-    @classmethod
     def process_contact(cls, worker, job):
+        logger.debug('Processing contact in SingleCallWorker')
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
-        cls.connect_redis_dialer()
         if cls.campaign_is_active(id_campaign):
             cls.attempt_contact_asterisk(data['contact'], id_campaign)
-            cls.set_campaign_status(id_campaign, 'paused')
+            cls.set_campaign_status(id_campaign, PAUSED)
             return b'Contact was called in SingleCallWorker'
         return b'Contact was not called in SingleCallWorker'
 
     @classmethod
     def allowed_parallel_contact_attempts(cls, id_campaign):
         return 1
-
-
-    @classmethod
-    def campaign_is_active(cls, id_campaign):
-        cls.connect_redis_dialer()
-        status_active = cls.REDIS_DIALER_CONNECTION.hget(f'DIALER:CAMP:{id_campaign}', 'status') in ['active', 'resumed']
-        pending_contacts = cls.REDIS_DIALER_CONNECTION.llen(f'DIALER:CAMP:{id_campaign}:CONTACTS')
-        return status_active and pending_contacts > 0
