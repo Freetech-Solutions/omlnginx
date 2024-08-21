@@ -379,7 +379,7 @@ class NaiveWorker(DialerWorker):
     def set_contact_status(cls, id_campaign, contact_id, status):
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
-            cursor_dialer.execute('UPDATE contact_in_campaign SET status = %s WHERE id_campaign = % AND id_contact = %s;',
+            cursor_dialer.execute('UPDATE contact_in_campaign SET status = %s WHERE id_campaign = %s AND id_contact = %s;',
                                   (status, id_campaign, contact_id))
 
     @classmethod
