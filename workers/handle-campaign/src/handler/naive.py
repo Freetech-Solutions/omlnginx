@@ -82,7 +82,7 @@ def exception_handler_decorator(method):
         try:
             return method(*args, **kwargs)
         except Exception as e:
-            print(f"An error occurred in {method.__name__}: {e}")
+            logger.error(f"An error occurred in {method.__name__}: {e}")
             raise e
     return wrapper
 
