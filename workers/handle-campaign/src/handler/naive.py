@@ -77,6 +77,16 @@ STATUS_NOANSWER = 6
 STATUS_CONGESTION = 7
 
 
+def exception_handler_decorator(method):
+    def wrapper(*args, **kwargs):
+        try:
+            return method(*args, **kwargs)
+        except Exception as e:
+            print(f"An error occurred in {method.__name__}: {e}")
+            raise e
+    return wrapper
+
+
 class NaiveWorker(DialerWorker):
     """A worker flow with a simple strategy, call contacts according to the available agents, 1 call for for each agent"""
 
@@ -108,6 +118,7 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
+    @exception_handler_decorator
     def create_campaign(cls, worker, job):
         # assumes the dialer campaign exists in OML with all the required tables and fields created
         logger.debug('creating the campaign')
@@ -166,6 +177,7 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
+    @exception_handler_decorator
     def start_campaign(cls, worker, job):
         logger.debug('starting the campaign')
         id_campaign = int(job.data)
@@ -209,17 +221,13 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def allowed_parallel_contact_attempts(cls, id_campaign):
-        try:
-            available_agents = cls.get_number_available_agents()
-            active_campaigns = cls.get_number_active_campaigns()
-            logger.debug("var available_agents={0}".format(available_agents))
-            logger.debug("var active_campaigns={0}".format(active_campaigns))
-            if active_campaigns > 0:
-                return int(available_agents / active_campaigns)
-            return 0
-        except Exception as e:
-            print(e)
-            raise e
+        available_agents = cls.get_number_available_agents()
+        active_campaigns = cls.get_number_active_campaigns()
+        logger.debug("var available_agents={0}".format(available_agents))
+        logger.debug("var active_campaigns={0}".format(active_campaigns))
+        if active_campaigns > 0:
+            return int(available_agents / active_campaigns)
+        return 0
 
 
     @classmethod
@@ -242,15 +250,12 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def attempt_contact(cls, contact, id_campaign):
-        try:
-            message = json.dumps({'contact': contact, 'id_campaign': id_campaign})
-            cls.GM_CLIENT.submit_job('process-contact', message)
-        except Exception as e:
-            print(e)
-            raise e
+        message = json.dumps({'contact': contact, 'id_campaign': id_campaign})
+        cls.GM_CLIENT.submit_job('process-contact', message)
 
 
     @classmethod
+    @exception_handler_decorator
     def process_contact(cls, worker, job):
         data = cls.decode_payload(job.data)
         cls.attempt_contact_asterisk(data['contact'], data['id_campaign'])
@@ -288,6 +293,7 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
+    @exception_handler_decorator
     def pause_campaign(cls, worker, job):
         logger.debug('pausing the campaign')
         id_campaign = cls.decode_payload(job.data)
@@ -298,6 +304,7 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
+    @exception_handler_decorator
     def resume_campaign(cls, worker, job):
         logger.debug('resuming the campaign')
         id_campaign = cls.decode_payload(job.data)
@@ -309,6 +316,7 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
+    @exception_handler_decorator
     def process_event(cls, worker, job):
         ari_event_data = cls.decode_payload(job.data)
         id_campaign, contact_id, phone_number = cls.get_contact_data(ari_event_data)
@@ -384,6 +392,7 @@ class NaiveWorker(DialerWorker):
                                   (status, id_campaign, contact_id))
 
     @classmethod
+    @exception_handler_decorator
     def delete_campaign(cls, worker, job):
         id_campaign = int(job.data)
         logger.debug(f'Removing campaign with id = {id_campaign}')
@@ -405,6 +414,7 @@ class SingleCallWorker(NaiveWorker):
     It will also remove the contacts one by one after the calls. Assumes the call was always answered."""
 
     @classmethod
+    @exception_handler_decorator
     def process_contact(cls, worker, job):
         logger.debug('Processing contact in SingleCallWorker')
         data = cls.decode_payload(job.data)
