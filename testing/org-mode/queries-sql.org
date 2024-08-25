@@ -1,0 +1,7 @@
+#+begin_src sql :engine postgresql :dbhost localhost :dbuser omnidialer :dbpassword dialer456 :database omnidialer :dbport 5433
+update contact_in_campaign set status = 1;
+#+end_src
+
+#+RESULTS:
+| UPDATE 101 |
+|------------|
