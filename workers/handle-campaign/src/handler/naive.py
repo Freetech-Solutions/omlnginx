@@ -108,7 +108,6 @@ class NaiveWorker(DialerWorker):
         while cls.campaign_is_active(id_campaign):
             contacts_attempts_number = cls.allowed_parallel_contact_attempts(id_campaign)
             for contact in cls.take_contacts(contacts_attempts_number, id_campaign):
-                sleep(7)
                 cls.attempt_contact(contact, id_campaign)
 
     @classmethod
@@ -240,11 +239,11 @@ class NaiveWorker(DialerWorker):
                                      FROM contact as co
                                      WHERE cc.id IN (SELECT id
                                      FROM contact_in_campaign
-                                     WHERE id_campaign = %s and status <> %s and status <> %s
+                                     WHERE id_campaign = %s and status <> %s and status <> %s and status <> %s
                                      LIMIT %s) AND co.id = cc.id_contact
                                      RETURNING cc.id, cc.id_contact, cc.id_campaign, co.phone;""",
                                   (STATUS_SELECTED_CALL, id_campaign, STATUS_SELECTED_CALL,
-                                   STATUS_ANSWERED_AGENT, contacts_attempts_number))
+                                   STATUS_ANSWERED_AGENT, STATUS_ANSWERED_PSTN, contacts_attempts_number))
             return cursor_dialer.fetchall()
 
 
