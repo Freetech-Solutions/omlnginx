@@ -66,6 +66,7 @@ CREATED = 1
 ACTIVE = 2
 PAUSED = 3
 RESUMED = 4
+FINALIZED = 5
 
 # contact status
 STATUS_CREATED = 1
@@ -406,6 +407,50 @@ class NaiveWorker(DialerWorker):
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
             cursor = conn.cursor()
             cursor.execute('UPDATE campaign SET dialer_status = %s WHERE id = %s;', (new_status, id_campaign))
+
+
+    @classmethod
+    def finalize_campaign(cls, id_campaign):
+        logger.debug(f'Stopping campaign with id = {id_campaign}')
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+            cls.set_campaign_status(id_campaign, FINALIZED)
+            cursor = conn.cursor()
+            # move all the data of the campaign to the historical tables
+            # 1- copy campaign table
+            logger.debug('Copying campaign table data')
+            cursor.execute('SELECT * FROM campaign WHERE id = %s;', (id_campaign,))
+            campaign_data = cursor.fetchone()
+            sql1 = 'INSERT INTO campaign_historic VALUES'
+            sql2 = ' ({0} %s);'.format('%s, ' * 21)
+            sql = sql1 + sql2
+            cursor.execute(sql, campaign_data)
+            # 2- copy incidence rules
+            logger.debug('Copying incidence rules data')
+            cursor.execute('SELECT * FROM incidence_rules WHERE campaign_id = %s;', (id_campaign,))
+            for incidence_rule in cursor.fetchall():
+                cursor.execute('INSERT INTO incidence_rules_historic VALUES (%s, %s, %s, %s, %s, %s, %s);', incidence_rule)
+            # 3- copy contacts
+            logger.debug('Copying contacts data')
+            size = 1000
+            cursor.execute('SELECT * FROM contact_in_campaign WHERE id_campaign = %s', (id_campaign,))
+            while True:
+                cursor_insert = conn.cursor()
+                contacts = cursor.fetchmany(size=size)
+                if not contacts:
+                    break
+                for contact in contacts:
+                    cursor_insert.execute('INSERT INTO contact_in_campaign_historic VALUES (%s, %s, %s, %s);', contact)
+            # 4- remove original campaign data
+            logger.debug('Removing original campaign data')
+            cursor.execute('DELETE FROM campaign WHERE id = %s', (id_campaign,))
+
+
+    @classmethod
+    @exception_handler_decorator
+    def stop_campaign(cls, worker, job):
+        id_campaign = int(job.data)
+        cls.finalize_campaign(id_campaign)
+        return b'Campaign was finalized'
 
 
 class SingleCallWorker(NaiveWorker):
