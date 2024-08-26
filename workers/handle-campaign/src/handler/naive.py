@@ -442,7 +442,7 @@ class NaiveWorker(DialerWorker):
                     cursor_insert.execute('INSERT INTO contact_in_campaign_historic VALUES (%s, %s, %s, %s);', contact)
             # 4- remove original campaign data
             logger.debug('Removing original campaign data')
-            cursor.execute('DELETE FROM campaign WHERE id = %s', (id_campaign,))
+            cursor.execute('DELETE FROM ONLY campaign WHERE id = %s', (id_campaign,))
 
 
     @classmethod
