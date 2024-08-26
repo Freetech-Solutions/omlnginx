@@ -190,9 +190,9 @@ class NaiveWorker(DialerWorker):
     def campaign_is_active(cls, id_campaign):
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
-            cursor_dialer.execute('select dialer_status from campaign where id = %s', (id_campaign,))
+            cursor_dialer.execute('SELECT dialer_status FROM ONLY campaign WHERE id = %s', (id_campaign,))
             status = cursor_dialer.fetchone()[0]
-            cursor_dialer.execute ('select id from contact_in_campaign where id_campaign = %s and status <> %s limit 1;',
+            cursor_dialer.execute ('SELECT id FROM ONLY contact_in_campaign WHERE id_campaign = %s AND status <> %s limit 1;',
                                    (id_campaign, STATUS_ANSWERED_AGENT))
             contacts_not_called_exists = cursor_dialer.fetchone()
         return (status in [ACTIVE, RESUMED]) and contacts_not_called_exists
@@ -202,7 +202,7 @@ class NaiveWorker(DialerWorker):
     def get_number_active_campaigns(cls):
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
             cursor = conn.cursor()
-            cursor.execute('SELECT Count(*) FROM campaign WHERE dialer_status = %s OR dialer_status = %s;',
+            cursor.execute('SELECT Count(*) FROM ONLY campaign WHERE dialer_status = %s OR dialer_status = %s;',
                            (ACTIVE, RESUMED))
             active_campaigns = cursor.fetchone()[0]
         return active_campaigns
@@ -239,7 +239,7 @@ class NaiveWorker(DialerWorker):
                                      SET status = %s
                                      FROM contact as co
                                      WHERE cc.id IN (SELECT id
-                                     FROM contact_in_campaign
+                                     FROM ONLY contact_in_campaign
                                      WHERE id_campaign = %s and status <> %s and status <> %s and status <> %s
                                      LIMIT %s) AND co.id = cc.id_contact
                                      RETURNING cc.id, cc.id_contact, cc.id_campaign, co.phone;""",
@@ -426,13 +426,13 @@ class NaiveWorker(DialerWorker):
             cursor.execute(sql, campaign_data)
             # 2- copy incidence rules
             logger.debug('Copying incidence rules data')
-            cursor.execute('SELECT * FROM incidence_rules WHERE campaign_id = %s;', (id_campaign,))
+            cursor.execute('SELECT * FROM ONLY incidence_rules WHERE campaign_id = %s;', (id_campaign,))
             for incidence_rule in cursor.fetchall():
                 cursor.execute('INSERT INTO incidence_rules_historic VALUES (%s, %s, %s, %s, %s, %s, %s);', incidence_rule)
             # 3- copy contacts
             logger.debug('Copying contacts data')
             size = 1000
-            cursor.execute('SELECT * FROM contact_in_campaign WHERE id_campaign = %s', (id_campaign,))
+            cursor.execute('SELECT * FROM ONLY contact_in_campaign WHERE id_campaign = %s', (id_campaign,))
             while True:
                 cursor_insert = conn.cursor()
                 contacts = cursor.fetchmany(size=size)
