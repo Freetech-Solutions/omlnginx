@@ -10,6 +10,7 @@ import redis
 import psycopg
 import gearman.client
 
+from datetime import datetime, timezone
 from decimal import Decimal
 from time import sleep
 
@@ -196,17 +197,33 @@ class NaiveWorker(DialerWorker):
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute('SELECT dialer_status FROM ONLY campaign WHERE id = %s', (id_campaign,))
             status = cursor_dialer.fetchone()[0]
+
+            # notify to OML if the campaign is outdated and pause the campaign
+            cursor_dialer.execute(
+                f"""SELECT id
+                FROM ONLY campaign
+                WHERE end_date >= now()::date
+                AND start_date < now()::date
+                AND id = %s;""", (id_campaign,))
+            campaign_in_range = cursor_dialer.fetchone()
+            if not campaign_in_range:
+                logger.debug(f'Campaign {id_campaign}: campaign expired')
+                cls.set_campaign_status(id_campaign, PAUSED)
+                cls.connect_redis_oml()
+                cls.REDIS_OML_CONNECTION.publish(f'omnidialer-campaign-{id_campaign}',
+                                                 'Campaign expired')
+                return False
+
+            # notify to OML if there are no more contacts for call and pause the campaign
             cursor_dialer.execute ('SELECT id FROM ONLY contact_in_campaign WHERE id_campaign = %s AND status <> %s limit 1;',
                                    (id_campaign, STATUS_ANSWERED_AGENT))
             contacts_not_called_exists = cursor_dialer.fetchone()
-
-            # notify to OML if there are no more contacts for call and pause the campaign
             if not contacts_not_called_exists:
                 logger.debug(f'Campaign {id_campaign}: no more contacts pending for call')
+                cls.set_campaign_status(id_campaign, PAUSED)
                 cls.connect_redis_oml()
                 cls.REDIS_OML_CONNECTION.publish(f'omnidialer-campaign-{id_campaign}',
                                                  'No more contacts pending for call')
-                cls.set_campaign_status(id_campaign, PAUSED)
                 return False
 
             # notify to OML if there are less than PERCENTAGE_PENDING_CALL_THRESHOLD% of contacts pending for call
