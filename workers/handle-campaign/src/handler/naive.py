@@ -10,6 +10,7 @@ import redis
 import psycopg
 import gearman.client
 
+from decimal import Decimal
 from time import sleep
 
 from settings.default import REDIS_DIALER_PORT, REDIS_DIALER_SERVER, GEARMAN_JOB_SERVERS
@@ -225,8 +226,12 @@ class NaiveWorker(DialerWorker):
         active_campaigns = cls.get_number_active_campaigns()
         logger.debug("var available_agents={0}".format(available_agents))
         logger.debug("var active_campaigns={0}".format(active_campaigns))
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute('SELECT initial_boost_factor FROM ONLY campaign WHERE id = %s', (id_campaign,))
+            boost_factor = cursor_dialer.fetchone()[0]
         if active_campaigns > 0:
-            return int(available_agents / active_campaigns)
+            return int(Decimal(available_agents / active_campaigns) * boost_factor)
         return 0
 
 
