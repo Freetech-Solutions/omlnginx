@@ -62,6 +62,8 @@ POSTGRES_DIALER_PASSWORD = os.getenv('POSTGRES_DIALER_PASSWORD')
 
 DIALER_ACD_HOST=os.getenv('DIALER_ACD_HOST', 'omlacd')
 
+WEEK_DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+
 
 # campaign status possible values
 CREATED = 1
@@ -192,11 +194,25 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
+    def opening_hours_match(cls, cursor, id_campaign):
+        cursor.execute('SELECT EXTRACT(DOW FROM CURRENT_DATE) AS day_of_week;')
+        day_of_week = WEEK_DAYS[int(cursor.fetchone()[0])]
+        cursor.execute(f'SELECT {day_of_week} FROM ONLY campaign WHERE id = %s;', (id_campaign,))
+        day_of_week_allowed = cursor.fetchone()[0]
+        return day_of_week_allowed
+
+
+    @classmethod
     def campaign_is_active(cls, id_campaign):
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute('SELECT dialer_status FROM ONLY campaign WHERE id = %s', (id_campaign,))
             status = cursor_dialer.fetchone()[0]
+
+            # check if opening hours are ok
+            if not cls.opening_hours_match(cursor_dialer, id_campaign):
+                logger.debug(f'Campaign {id_campaign}: day week not allowed to call')
+                return False
 
             # notify to OML if the campaign is outdated and pause the campaign
             cursor_dialer.execute(
