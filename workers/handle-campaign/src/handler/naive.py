@@ -202,7 +202,7 @@ class NaiveWorker(DialerWorker):
 
             # notify to OML if there are no more contacts for call and pause the campaign
             if not contacts_not_called_exists:
-                logger.error(f'Campaign {id_campaign}: no more contacts pending for call')
+                logger.debug(f'Campaign {id_campaign}: no more contacts pending for call')
                 cls.connect_redis_oml()
                 cls.REDIS_OML_CONNECTION.publish(f'omnidialer-campaign-{id_campaign}',
                                                  'No more contacts pending for call')
@@ -219,7 +219,7 @@ class NaiveWorker(DialerWorker):
             percentage_called = cursor_dialer.fetchone()[1]
             percentage_pending_call = 100 - percentage_called
             if percentage_pending_call <= PERCENTAGE_PENDING_CALL_THRESHOLD:
-                logger.error(f'Campaign {id_campaign}: less than {PERCENTAGE_PENDING_CALL_THRESHOLD}% contacts pending for call')
+                logger.debug(f'Campaign {id_campaign}: less than {PERCENTAGE_PENDING_CALL_THRESHOLD}% contacts pending for call')
                 cls.connect_redis_oml()
                 cls.REDIS_OML_CONNECTION.publish(f'omnidialer-campaign-{id_campaign}',
                                                  f'Less than {PERCENTAGE_PENDING_CALL_THRESHOLD}% of contacts pending for call')
