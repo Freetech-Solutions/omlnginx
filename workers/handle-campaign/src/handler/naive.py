@@ -78,6 +78,9 @@ STATUS_BUSY = 5
 STATUS_NOANSWER = 6
 STATUS_CONGESTION = 7
 
+# percentage called threshold for notify OML
+PERCENTAGE_PENDING_CALL_THRESHOLD = 5
+
 
 def exception_handler_decorator(method):
     def wrapper(*args, **kwargs):
@@ -196,7 +199,32 @@ class NaiveWorker(DialerWorker):
             cursor_dialer.execute ('SELECT id FROM ONLY contact_in_campaign WHERE id_campaign = %s AND status <> %s limit 1;',
                                    (id_campaign, STATUS_ANSWERED_AGENT))
             contacts_not_called_exists = cursor_dialer.fetchone()
-        return (status in [ACTIVE, RESUMED]) and contacts_not_called_exists
+
+            # notify to OML if there are no more contacts for call and pause the campaign
+            if not contacts_not_called_exists:
+                logger.error(f'Campaign {id_campaign}: no more contacts pending for call')
+                cls.connect_redis_oml()
+                cls.REDIS_OML_CONNECTION.publish(f'omnidialer-campaign-{id_campaign}',
+                                                 'No more contacts pending for call')
+                cls.set_campaign_status(id_campaign, PAUSED)
+                return False
+
+            # notify to OML if there are less than PERCENTAGE_PENDING_CALL_THRESHOLD% of contacts pending for call
+            # TODO: not sure about the frequency of this notification
+            cursor_dialer.execute(
+                """SELECT status, count(*) * 100.0 / (SELECT count(*) FROM contact_in_campaign)
+                FROM ONLY contact_in_campaign
+                WHERE status = %s AND id_campaign = %s
+                GROUP BY status;""", (STATUS_ANSWERED_AGENT, id_campaign))
+            percentage_called = cursor_dialer.fetchone()[1]
+            percentage_pending_call = 100 - percentage_called
+            if percentage_pending_call <= PERCENTAGE_PENDING_CALL_THRESHOLD:
+                logger.error(f'Campaign {id_campaign}: less than {PERCENTAGE_PENDING_CALL_THRESHOLD}% contacts pending for call')
+                cls.connect_redis_oml()
+                cls.REDIS_OML_CONNECTION.publish(f'omnidialer-campaign-{id_campaign}',
+                                                 f'Less than {PERCENTAGE_PENDING_CALL_THRESHOLD}% of contacts pending for call')
+
+        return (status in [ACTIVE, RESUMED])
 
 
     @classmethod
