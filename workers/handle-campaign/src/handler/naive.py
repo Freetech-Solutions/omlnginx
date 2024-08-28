@@ -199,8 +199,8 @@ class NaiveWorker(DialerWorker):
         day_of_week = WEEK_DAYS[int(cursor.fetchone()[0])]
         cursor.execute(f'SELECT {day_of_week} FROM ONLY campaign WHERE id = %s;', (id_campaign,))
         day_of_week_allowed = cursor.fetchone()[0]
-        cursor.execute(f'SELECT * FROM ONLY campaign WHERE id = %s CURRENT_TIME BETWEEN hour_start AND hour_ends;', (id_campaign,))
-        hour_match = cursor.fetchone()[0]
+        cursor.execute(f'SELECT * FROM ONLY campaign WHERE id = %s AND CURRENT_TIME BETWEEN hour_start AND hour_ends;', (id_campaign,))
+        hour_match = cursor.fetchone()
         if not day_of_week_allowed:
             logger.debug(f'Campaign {id_campaign}: day week not allowed to call')
         elif not hour_match:
