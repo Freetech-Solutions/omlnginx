@@ -199,7 +199,13 @@ class NaiveWorker(DialerWorker):
         day_of_week = WEEK_DAYS[int(cursor.fetchone()[0])]
         cursor.execute(f'SELECT {day_of_week} FROM ONLY campaign WHERE id = %s;', (id_campaign,))
         day_of_week_allowed = cursor.fetchone()[0]
-        return day_of_week_allowed
+        cursor.execute(f'SELECT * FROM ONLY campaign WHERE id = %s CURRENT_TIME BETWEEN hour_start AND hour_ends;', (id_campaign,))
+        hour_match = cursor.fetchone()[0]
+        if not day_of_week_allowed:
+            logger.debug(f'Campaign {id_campaign}: day week not allowed to call')
+        elif not hour_match:
+            logger.debug(f'Campaign {id_campaign}: in the current time is not allowed to call')
+        return day_of_week_allowed and hour_match
 
 
     @classmethod
@@ -211,7 +217,6 @@ class NaiveWorker(DialerWorker):
 
             # check if opening hours are ok
             if not cls.opening_hours_match(cursor_dialer, id_campaign):
-                logger.debug(f'Campaign {id_campaign}: day week not allowed to call')
                 return False
 
             # notify to OML if the campaign is outdated and pause the campaign
