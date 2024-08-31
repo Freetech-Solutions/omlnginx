@@ -311,11 +311,10 @@ class NaiveWorker(DialerWorker):
                                      FROM contact as co
                                      WHERE cc.id IN (SELECT id
                                      FROM ONLY contact_in_campaign
-                                     WHERE id_campaign = %s and status <> %s and status <> %s and status <> %s
+                                     WHERE id_campaign = %s and status = %s
                                      LIMIT %s) AND co.id = cc.id_contact
                                      RETURNING cc.id, cc.id_contact, cc.id_campaign, co.phone;""",
-                                  (STATUS_SELECTED_CALL, id_campaign, STATUS_SELECTED_CALL,
-                                   STATUS_ANSWERED_AGENT, STATUS_ANSWERED_PSTN, contacts_attempts_number))
+                                  (STATUS_SELECTED_CALL, id_campaign, STATUS_CREATED, contacts_attempts_number))
             return cursor_dialer.fetchall()
 
 
@@ -400,6 +399,9 @@ class NaiveWorker(DialerWorker):
                 cls.set_contact_status(id_campaign, contact_id, STATUS_ANSWERED_AGENT)
                 logger.debug(f'Contact {contact_id} was succesfully called to phone {phone_number}'
                              f' in campaign {id_campaign}')
+        # TODO: change the handle for these kind of events
+        # the idea would be analize the 'history' field of the contact
+        # and the incidence rules to manage the eventual next calls to the contact
         elif cls.is_busy_event(ari_event_data):
             logger.debug('Receiving busy')
             cls.set_contact_status(id_campaign, contact_id, STATUS_BUSY)
