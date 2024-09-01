@@ -393,7 +393,7 @@ class NaiveWorker(DialerWorker):
         id_campaign = data['id_campaign']
         delay = data['seconds']
         process_contact_subcommand = f'python caller.py {contact} {id_campaign}'
-        command = f'nohup bash -c "sleep {delay}; {process_contact_subcommand}" &'
+        command = f'nohup sh -c "sleep {delay}; {process_contact_subcommand}" &'
         os.system(command)
         return b'The contact was scheduled'
 
