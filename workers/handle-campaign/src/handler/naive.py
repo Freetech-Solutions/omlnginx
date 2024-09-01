@@ -64,7 +64,6 @@ DIALER_ACD_HOST=os.getenv('DIALER_ACD_HOST', 'omlacd')
 
 WEEK_DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
 
-
 # campaign status possible values
 CREATED = 1
 ACTIVE = 2
@@ -72,14 +71,15 @@ PAUSED = 3
 RESUMED = 4
 FINALIZED = 5
 
-# contact status
-STATUS_CREATED = 1
-STATUS_SELECTED_CALL = 2
-STATUS_ANSWERED_AGENT = 3
-STATUS_ANSWERED_PSTN = 4
-STATUS_BUSY = 5
-STATUS_NOANSWER = 6
-STATUS_CONGESTION = 7
+# contact status, in sync with OML's incidence_rules statuses
+# TODO: see the remaining statuses
+STATUS_CREATED = 2
+STATUS_SELECTED_CALL = 5
+STATUS_ANSWERED_AGENT = 6
+STATUS_ANSWERED_PSTN = 7
+STATUS_BUSY = 1
+STATUS_NOANSWER = 3
+STATUS_CONGESTION = 4
 
 # percentage called threshold for notify OML
 PERCENTAGE_PENDING_CALL_THRESHOLD = 5
@@ -407,7 +407,7 @@ class NaiveWorker(DialerWorker):
                 'SELECT status, retry_later, max_attempt FROM ONLY incidence_rules WHERE campaign_id = %s',
                 (id_campaign,))
             for status, retry_later, max_attempt in cursor_dialer.fetchall():
-                if INCIDENCE_RULES_CONTACT_STATUS[status] == contact_status:
+                if status == contact_status:
                     if max_attempt < contact_history.count(status):
                         cls.schedule_call(retry_later, contact_in_campaign_id)
                         break
