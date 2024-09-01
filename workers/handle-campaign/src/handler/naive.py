@@ -388,7 +388,14 @@ class NaiveWorker(DialerWorker):
     @classmethod
     @exception_handler_decorator
     def schedule_contact(cls, worker, job):
-        pass
+        data = cls.decode_payload(job.data)
+        contact = json.dumps(data['contact'])
+        id_campaign = data['id_campaign']
+        delay = data['seconds']
+        process_contact_subcommand = f'python caller.py {contact} {id_campaign}'
+        command = f'nohup bash -c "sleep {delay}; {process_contact_subcommand}" &'
+        os.system(command)
+        return b'The contact was scheduled'
 
 
     @classmethod
