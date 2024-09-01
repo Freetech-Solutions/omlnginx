@@ -386,7 +386,8 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
-    def schedule_call(cls, n_seconds, contact_in_campaign_id):
+    @exception_handler_decorator
+    def schedule_contact(cls, worker, job):
         pass
 
 
@@ -409,7 +410,9 @@ class NaiveWorker(DialerWorker):
             for status, retry_later, max_attempt in cursor_dialer.fetchall():
                 if status == contact_status:
                     if max_attempt < contact_history.count(status):
-                        cls.schedule_call(retry_later, contact_in_campaign_id)
+                        contact = (contact_in_campaign_id, contact_id, id_campaign, phone_number)
+                        message = json.dumps({'contact': contact, 'id_campaign': id_campaign, 'seconds': retry_later})
+                        cls.GM_CLIENT.submit_job('schedule-contact', message)
                         break
 
 

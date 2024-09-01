@@ -23,7 +23,7 @@ JOBS_TO_METHODS = {
     'pause-campaign': WORKER.pause_campaign,
     'delete-campaign': WORKER.delete_campaign,
     # scheduled processes
-    'syncronize-campaign': WORKER.delete_campaign,
+    'schedule-contact': WORKER.schedule_contact,
 }
 
 
