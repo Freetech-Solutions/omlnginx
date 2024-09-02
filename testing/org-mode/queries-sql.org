@@ -1,7 +1,131 @@
 #+begin_src sql :engine postgresql :dbhost localhost :dbuser omnidialer :dbpassword dialer456 :database omnidialer :dbport 5433
-update contact_in_campaign set status = 1;
+update contact_in_campaign set status = 2, history = '{}';
 #+end_src
 
 #+RESULTS:
-| UPDATE 101 |
+| UPDATE 100 |
 |------------|
+
+#+begin_src sql :engine postgresql :dbhost localhost :dbuser omnidialer :dbpassword dialer456 :database omnidialer :dbport 5433
+update campaign set hour_start = '00:00', hour_ends = '23:59', monday = True where id = 4;
+#+end_src
+
+
+#+begin_src sql :engine postgresql :dbhost localhost :dbuser omnidialer :dbpassword dialer456 :database omnidialer :dbport 5433
+select id, status, history from only contact_in_campaign;
+#+end_src
+
+#+RESULTS:
+|  id | status | history |
+|-----+--------+---------|
+|  23 |      2 | {}      |
+|  67 |      2 | {}      |
+|  30 |      2 | {}      |
+|  66 |      2 | {}      |
+|  99 |      2 | {}      |
+|  26 |      2 | {}      |
+| 100 |      2 | {}      |
+|  74 |      2 | {}      |
+|  28 |      2 | {}      |
+|  37 |      2 | {}      |
+|  42 |      2 | {}      |
+|  40 |      2 | {}      |
+|  68 |      2 | {}      |
+|  71 |      2 | {}      |
+|  72 |      2 | {}      |
+|  79 |      2 | {}      |
+|  93 |      2 | {}      |
+|  38 |      2 | {}      |
+|   4 |      2 | {}      |
+|  46 |      2 | {}      |
+|  44 |      2 | {}      |
+|  76 |      2 | {}      |
+|  34 |      2 | {}      |
+|  39 |      2 | {}      |
+|  62 |      2 | {}      |
+|  17 |      2 | {}      |
+|  35 |      2 | {}      |
+|  15 |      2 | {}      |
+|  57 |      2 | {}      |
+|  16 |      2 | {}      |
+|  19 |      2 | {}      |
+|  14 |      2 | {}      |
+|   9 |      2 | {}      |
+|  78 |      2 | {}      |
+|  59 |      2 | {}      |
+|  80 |      2 | {}      |
+|  60 |      2 | {}      |
+|  70 |      2 | {}      |
+|  21 |      2 | {}      |
+|  12 |      2 | {}      |
+|  10 |      2 | {}      |
+|  13 |      2 | {}      |
+|  92 |      2 | {}      |
+|  11 |      2 | {}      |
+|  77 |      2 | {}      |
+|  22 |      2 | {}      |
+|  50 |      2 | {}      |
+|   3 |      2 | {}      |
+|   8 |      2 | {}      |
+|  49 |      2 | {}      |
+|  36 |      2 | {}      |
+|  91 |      2 | {}      |
+|  47 |      2 | {}      |
+|  61 |      2 | {}      |
+|  31 |      2 | {}      |
+|  65 |      2 | {}      |
+|  97 |      2 | {}      |
+|  27 |      2 | {}      |
+|  89 |      2 | {}      |
+|  96 |      2 | {}      |
+|   2 |      2 | {}      |
+|   1 |      2 | {}      |
+|  51 |      2 | {}      |
+|  18 |      2 | {}      |
+|  95 |      2 | {}      |
+|  48 |      2 | {}      |
+|  94 |      2 | {}      |
+|  64 |      2 | {}      |
+|  20 |      2 | {}      |
+|   6 |      2 | {}      |
+|   7 |      2 | {}      |
+|  69 |      2 | {}      |
+|  41 |      2 | {}      |
+|  58 |      2 | {}      |
+|  32 |      2 | {}      |
+|  52 |      2 | {}      |
+|  90 |      2 | {}      |
+|  25 |      2 | {}      |
+|  43 |      2 | {}      |
+|  55 |      2 | {}      |
+|  54 |      2 | {}      |
+|  63 |      2 | {}      |
+|  24 |      2 | {}      |
+|  29 |      2 | {}      |
+|   5 |      2 | {}      |
+|  45 |      2 | {}      |
+|  56 |      2 | {}      |
+|  75 |      2 | {}      |
+|  33 |      2 | {}      |
+|  73 |      2 | {}      |
+|  53 |      2 | {}      |
+|  81 |      2 | {}      |
+|  82 |      2 | {}      |
+|  83 |      2 | {}      |
+|  84 |      2 | {}      |
+|  85 |      2 | {}      |
+|  86 |      2 | {}      |
+|  87 |      2 | {}      |
+|  88 |      2 | {}      |
+|  98 |      2 | {}      |
+
+
+
+#+begin_src sql :engine postgresql :dbhost localhost :dbuser omnidialer :dbpassword dialer456 :database omnidialer :dbport 5433
+update contact_in_campaign set status = 2, history = '{}';
+#+end_src
+
+
+#+begin_src sql :engine postgresql :dbhost localhost :dbuser omnidialer :dbpassword dialer456 :database omnidialer :dbport 5433
+select * from campaign;
+#+end_src
