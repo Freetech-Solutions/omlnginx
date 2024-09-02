@@ -396,12 +396,10 @@ class NaiveWorker(DialerWorker):
     @exception_handler_decorator
     def schedule_contact(cls, worker, job):
         data = cls.decode_payload(job.data)
-        contact = json.dumps(data['contact'])
-        id_campaign = data['id_campaign']
-        delay = data['seconds']
-        logger.debug(f'Attempting to schedule contact {contact} in campaign {id_campaign}')
-        # TODO: better pass arguments separated to avoid JSON stuff
-        process_contact_subcommand = f'python caller.py "{contact}" {id_campaign}'
+        (contact_in_campaign_id, contact_id, id_campaign, phone_number) = data['contact_info']
+        delay = data['delay']
+        logger.debug(f'Attempting to schedule contact {contact_id} in campaign {id_campaign}')
+        process_contact_subcommand = f'python caller.py {contact_in_campaign_id} {contact_id} {id_campaign} {phone_number}'
         command = f'nohup sh -c "sleep {delay}; {process_contact_subcommand}" &'
         os.system(command)
         return b'The contact was scheduled'
@@ -415,7 +413,7 @@ class NaiveWorker(DialerWorker):
         # TODO: optimization: merge this method with 'set_contact_status' to use the same connection and cursor
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
-            cursor_dialer.execute (
+            cursor_dialer.execute(
                 'SELECT id, status, history FROM ONLY contact_in_campaign WHERE id_campaign = %s AND id_contact = %s',
                 (id_campaign, contact_id)
             )
@@ -427,7 +425,7 @@ class NaiveWorker(DialerWorker):
                 if status == contact_status:
                     if contact_history.count(status) <= max_attempt:
                         contact = (contact_in_campaign_id, contact_id, id_campaign, phone_number)
-                        message = json.dumps({'contact': contact, 'id_campaign': id_campaign, 'seconds': retry_later})
+                        message = json.dumps({'contact_info': contact, 'delay': retry_later})
                         cls.GM_CLIENT.submit_job('schedule-contact', message)
                         break
 
