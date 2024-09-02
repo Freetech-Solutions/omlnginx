@@ -400,6 +400,7 @@ class NaiveWorker(DialerWorker):
         id_campaign = data['id_campaign']
         delay = data['seconds']
         logger.debug(f'Attempting to schedule contact {contact} in campaign {id_campaign}')
+        # TODO: better pass arguments separated to avoid JSON stuff
         process_contact_subcommand = f'python caller.py "{contact}" {id_campaign}'
         command = f'nohup sh -c "sleep {delay}; {process_contact_subcommand}" &'
         os.system(command)
