@@ -2,7 +2,7 @@ from sys import argv
 
 import json
 
-from .naive import NaiveWorker
+from handler.naive import NaiveWorker
 
 if __name__ == '__main__':
     contact = tuple(json.loads(argv[1]))

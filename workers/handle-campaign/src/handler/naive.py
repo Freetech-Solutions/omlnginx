@@ -114,14 +114,24 @@ class NaiveWorker(DialerWorker):
     @classmethod
     def process_campaign(cls, id_campaign):
         while cls.campaign_is_active(id_campaign):
-            contacts_attempts_number = cls.allowed_parallel_contact_attempts(id_campaign)
-            for contact in cls.take_contacts(contacts_attempts_number, id_campaign):
-                cls.attempt_contact(contact, id_campaign)
+            if cls.is_allowed_to_call(id_campaign):
+                contacts_attempts_number = cls.allowed_parallel_contact_attempts(id_campaign)
+                for contact in cls.take_contacts(contacts_attempts_number, id_campaign):
+                    cls.attempt_contact(contact, id_campaign)
 
     @classmethod
     def connect_redis_oml(cls):
         if cls.REDIS_OML_CONNECTION is None:
             cls.REDIS_OML_CONNECTION = redis.Redis(host=REDIS_OML_SERVER, port=REDIS_OML_PORT, decode_responses=True)
+
+
+    @classmethod
+    def is_allowed_to_call(cls, id_campaign):
+        # check if opening hours are ok
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            return cls.opening_hours_match(cursor_dialer, id_campaign)
+        return False
 
 
     @classmethod
@@ -215,10 +225,6 @@ class NaiveWorker(DialerWorker):
             cursor_dialer.execute('SELECT dialer_status FROM ONLY campaign WHERE id = %s', (id_campaign,))
             status = cursor_dialer.fetchone()[0]
 
-            # check if opening hours are ok
-            if not cls.opening_hours_match(cursor_dialer, id_campaign):
-                return False
-
             # notify to OML if the campaign is outdated and pause the campaign
             cursor_dialer.execute(
                 f"""SELECT id
@@ -254,7 +260,8 @@ class NaiveWorker(DialerWorker):
                 FROM ONLY contact_in_campaign
                 WHERE status = %s AND id_campaign = %s
                 GROUP BY status;""", (STATUS_ANSWERED_AGENT, id_campaign))
-            percentage_called = cursor_dialer.fetchone()[1]
+            percentage_called = cursor_dialer.fetchone()
+            percentage_called = percentage_called[1] if percentage_called is not None else 0
             percentage_pending_call = 100 - percentage_called
             if percentage_pending_call <= PERCENTAGE_PENDING_CALL_THRESHOLD:
                 logger.debug(f'Campaign {id_campaign}: less than {PERCENTAGE_PENDING_CALL_THRESHOLD}% contacts pending for call')
@@ -392,7 +399,8 @@ class NaiveWorker(DialerWorker):
         contact = json.dumps(data['contact'])
         id_campaign = data['id_campaign']
         delay = data['seconds']
-        process_contact_subcommand = f'python caller.py {contact} {id_campaign}'
+        logger.debug(f'Attempting to schedule contact {contact} in campaign {id_campaign}')
+        process_contact_subcommand = f'python caller.py "{contact}" {id_campaign}'
         command = f'nohup sh -c "sleep {delay}; {process_contact_subcommand}" &'
         os.system(command)
         return b'The contact was scheduled'
@@ -416,7 +424,7 @@ class NaiveWorker(DialerWorker):
                 (id_campaign,))
             for status, retry_later, max_attempt in cursor_dialer.fetchall():
                 if status == contact_status:
-                    if max_attempt < contact_history.count(status):
+                    if contact_history.count(status) <= max_attempt:
                         contact = (contact_in_campaign_id, contact_id, id_campaign, phone_number)
                         message = json.dumps({'contact': contact, 'id_campaign': id_campaign, 'seconds': retry_later})
                         cls.GM_CLIENT.submit_job('schedule-contact', message)
@@ -442,16 +450,16 @@ class NaiveWorker(DialerWorker):
         # and the incidence rules to manage the eventual next calls to the contact
         elif cls.is_busy_event(ari_event_data):
             logger.debug('Receiving busy')
-            cls.handle_incidence_rules(STATUS_BUSY, id_campaign, contact_id, phone_number)
             cls.set_contact_status(id_campaign, contact_id, STATUS_BUSY)
+            cls.handle_incidence_rules(STATUS_BUSY, id_campaign, contact_id, phone_number)
         elif cls.is_noanswer_event(ari_event_data):
             logger.debug('Receiving noanswer')
-            cls.handle_incidence_rules(STATUS_NOANSWER, id_campaign, contact_id, phone_number)
             cls.set_contact_status(id_campaign, contact_id, STATUS_NOANSWER)
+            cls.handle_incidence_rules(STATUS_NOANSWER, id_campaign, contact_id, phone_number)
         elif cls.is_congestion_event(ari_event_data):
             logger.debug('Receiving congestion')
-            cls.handle_incidence_rules(STATUS_CONGESTION, id_campaign, contact_id, phone_number)
             cls.set_contact_status(id_campaign, contact_id, STATUS_CONGESTION)
+            cls.handle_incidence_rules(STATUS_CONGESTION, id_campaign, contact_id, phone_number)
         return b'Event was processed'
 
 
