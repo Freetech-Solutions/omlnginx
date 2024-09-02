@@ -64,7 +64,6 @@ DIALER_ACD_HOST=os.getenv('DIALER_ACD_HOST', 'omlacd')
 
 WEEK_DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
 
-
 # campaign status possible values
 CREATED = 1
 ACTIVE = 2
@@ -72,14 +71,15 @@ PAUSED = 3
 RESUMED = 4
 FINALIZED = 5
 
-# contact status
-STATUS_CREATED = 1
-STATUS_SELECTED_CALL = 2
-STATUS_ANSWERED_AGENT = 3
-STATUS_ANSWERED_PSTN = 4
-STATUS_BUSY = 5
-STATUS_NOANSWER = 6
-STATUS_CONGESTION = 7
+# contact status, in sync with OML's incidence_rules statuses
+# TODO: see the remaining statuses
+STATUS_CREATED = 2
+STATUS_SELECTED_CALL = 5
+STATUS_ANSWERED_AGENT = 6
+STATUS_ANSWERED_PSTN = 7
+STATUS_BUSY = 1
+STATUS_NOANSWER = 3
+STATUS_CONGESTION = 4
 
 # percentage called threshold for notify OML
 PERCENTAGE_PENDING_CALL_THRESHOLD = 5
@@ -114,14 +114,24 @@ class NaiveWorker(DialerWorker):
     @classmethod
     def process_campaign(cls, id_campaign):
         while cls.campaign_is_active(id_campaign):
-            contacts_attempts_number = cls.allowed_parallel_contact_attempts(id_campaign)
-            for contact in cls.take_contacts(contacts_attempts_number, id_campaign):
-                cls.attempt_contact(contact, id_campaign)
+            if cls.is_allowed_to_call(id_campaign):
+                contacts_attempts_number = cls.allowed_parallel_contact_attempts(id_campaign)
+                for contact in cls.take_contacts(contacts_attempts_number, id_campaign):
+                    cls.attempt_contact(contact, id_campaign)
 
     @classmethod
     def connect_redis_oml(cls):
         if cls.REDIS_OML_CONNECTION is None:
             cls.REDIS_OML_CONNECTION = redis.Redis(host=REDIS_OML_SERVER, port=REDIS_OML_PORT, decode_responses=True)
+
+
+    @classmethod
+    def is_allowed_to_call(cls, id_campaign):
+        # check if opening hours are ok
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            return cls.opening_hours_match(cursor_dialer, id_campaign)
+        return False
 
 
     @classmethod
@@ -215,10 +225,6 @@ class NaiveWorker(DialerWorker):
             cursor_dialer.execute('SELECT dialer_status FROM ONLY campaign WHERE id = %s', (id_campaign,))
             status = cursor_dialer.fetchone()[0]
 
-            # check if opening hours are ok
-            if not cls.opening_hours_match(cursor_dialer, id_campaign):
-                return False
-
             # notify to OML if the campaign is outdated and pause the campaign
             cursor_dialer.execute(
                 f"""SELECT id
@@ -236,6 +242,8 @@ class NaiveWorker(DialerWorker):
                 return False
 
             # notify to OML if there are no more contacts for call and pause the campaign
+            # TODO: clarify if contacts with failed statuses that completed the incidence rules should be taken in consideration for these
+            # notifications
             cursor_dialer.execute ('SELECT id FROM ONLY contact_in_campaign WHERE id_campaign = %s AND status <> %s limit 1;',
                                    (id_campaign, STATUS_ANSWERED_AGENT))
             contacts_not_called_exists = cursor_dialer.fetchone()
@@ -254,7 +262,8 @@ class NaiveWorker(DialerWorker):
                 FROM ONLY contact_in_campaign
                 WHERE status = %s AND id_campaign = %s
                 GROUP BY status;""", (STATUS_ANSWERED_AGENT, id_campaign))
-            percentage_called = cursor_dialer.fetchone()[1]
+            percentage_called = cursor_dialer.fetchone()
+            percentage_called = percentage_called[1] if percentage_called is not None else 0
             percentage_pending_call = 100 - percentage_called
             if percentage_pending_call <= PERCENTAGE_PENDING_CALL_THRESHOLD:
                 logger.debug(f'Campaign {id_campaign}: less than {PERCENTAGE_PENDING_CALL_THRESHOLD}% contacts pending for call')
@@ -311,11 +320,10 @@ class NaiveWorker(DialerWorker):
                                      FROM contact as co
                                      WHERE cc.id IN (SELECT id
                                      FROM ONLY contact_in_campaign
-                                     WHERE id_campaign = %s and status <> %s and status <> %s and status <> %s
+                                     WHERE id_campaign = %s and status = %s
                                      LIMIT %s) AND co.id = cc.id_contact
                                      RETURNING cc.id, cc.id_contact, cc.id_campaign, co.phone;""",
-                                  (STATUS_SELECTED_CALL, id_campaign, STATUS_SELECTED_CALL,
-                                   STATUS_ANSWERED_AGENT, STATUS_ANSWERED_PSTN, contacts_attempts_number))
+                                  (STATUS_SELECTED_CALL, id_campaign, STATUS_CREATED, contacts_attempts_number))
             return cursor_dialer.fetchall()
 
 
@@ -388,6 +396,44 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     @exception_handler_decorator
+    def schedule_contact(cls, worker, job):
+        data = cls.decode_payload(job.data)
+        (contact_in_campaign_id, contact_id, id_campaign, phone_number) = data['contact_info']
+        delay = data['delay']
+        logger.debug(f'Attempting to schedule contact {contact_id} in campaign {id_campaign}')
+        process_contact_subcommand = f'python caller.py {contact_in_campaign_id} {contact_id} {id_campaign} {phone_number}'
+        command = f'nohup sh -c "sleep {delay}; {process_contact_subcommand}" &'
+        os.system(command)
+        return b'The contact was scheduled'
+
+
+    @classmethod
+    def handle_incidence_rules(cls, status, id_campaign, contact_id, phone_number):
+        # if there is an incidence rule for the status:
+        #   if the contact's history and the incidence rule indicates that the
+        #   contact must be called again, schedule a call according to the incidence rule
+        # TODO: optimization: merge this method with 'set_contact_status' to use the same connection and cursor
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute(
+                'SELECT id, status, history FROM ONLY contact_in_campaign WHERE id_campaign = %s AND id_contact = %s',
+                (id_campaign, contact_id)
+            )
+            contact_in_campaign_id, contact_status, contact_history = cursor_dialer.fetchone()
+            cursor_dialer.execute(
+                'SELECT status, retry_later, max_attempt FROM ONLY incidence_rules WHERE campaign_id = %s',
+                (id_campaign,))
+            for status, retry_later, max_attempt in cursor_dialer.fetchall():
+                if status == contact_status:
+                    if contact_history.count(status) <= max_attempt:
+                        contact = (contact_in_campaign_id, contact_id, id_campaign, phone_number)
+                        message = json.dumps({'contact_info': contact, 'delay': retry_later})
+                        cls.GM_CLIENT.submit_job('schedule-contact', message)
+                        break
+
+
+    @classmethod
+    @exception_handler_decorator
     def process_event(cls, worker, job):
         ari_event_data = cls.decode_payload(job.data)
         id_campaign, contact_id, phone_number = cls.get_contact_data(ari_event_data)
@@ -403,12 +449,15 @@ class NaiveWorker(DialerWorker):
         elif cls.is_busy_event(ari_event_data):
             logger.debug('Receiving busy')
             cls.set_contact_status(id_campaign, contact_id, STATUS_BUSY)
+            cls.handle_incidence_rules(STATUS_BUSY, id_campaign, contact_id, phone_number)
         elif cls.is_noanswer_event(ari_event_data):
             logger.debug('Receiving noanswer')
             cls.set_contact_status(id_campaign, contact_id, STATUS_NOANSWER)
+            cls.handle_incidence_rules(STATUS_NOANSWER, id_campaign, contact_id, phone_number)
         elif cls.is_congestion_event(ari_event_data):
             logger.debug('Receiving congestion')
             cls.set_contact_status(id_campaign, contact_id, STATUS_CONGESTION)
+            cls.handle_incidence_rules(STATUS_CONGESTION, id_campaign, contact_id, phone_number)
         return b'Event was processed'
 
 
@@ -459,8 +508,8 @@ class NaiveWorker(DialerWorker):
     def set_contact_status(cls, id_campaign, contact_id, status):
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
-            cursor_dialer.execute('UPDATE contact_in_campaign SET status = %s WHERE id_campaign = %s AND id_contact = %s;',
-                                  (status, id_campaign, contact_id))
+            cursor_dialer.execute('UPDATE contact_in_campaign SET status = %s, history = array_append(history,%s) WHERE id_campaign = %s AND id_contact = %s;',
+                                  (status, status, id_campaign, contact_id))
 
     @classmethod
     @exception_handler_decorator
