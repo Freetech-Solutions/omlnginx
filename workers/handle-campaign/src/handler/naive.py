@@ -242,6 +242,8 @@ class NaiveWorker(DialerWorker):
                 return False
 
             # notify to OML if there are no more contacts for call and pause the campaign
+            # TODO: clarify if contacts with failed statuses that completed the incidence rules should be taken in consideration for these
+            # notifications
             cursor_dialer.execute ('SELECT id FROM ONLY contact_in_campaign WHERE id_campaign = %s AND status <> %s limit 1;',
                                    (id_campaign, STATUS_ANSWERED_AGENT))
             contacts_not_called_exists = cursor_dialer.fetchone()
@@ -444,9 +446,6 @@ class NaiveWorker(DialerWorker):
                 cls.set_contact_status(id_campaign, contact_id, STATUS_ANSWERED_AGENT)
                 logger.debug(f'Contact {contact_id} was succesfully called to phone {phone_number}'
                              f' in campaign {id_campaign}')
-        # TODO: change the handle for these kind of events
-        # the idea would be analize the 'history' field of the contact
-        # and the incidence rules to manage the eventual next calls to the contact
         elif cls.is_busy_event(ari_event_data):
             logger.debug('Receiving busy')
             cls.set_contact_status(id_campaign, contact_id, STATUS_BUSY)
