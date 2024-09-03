@@ -326,7 +326,9 @@ class NaiveWorker(DialerWorker):
                                      LIMIT %s) AND co.id = cc.id_contact
                                      RETURNING cc.id, cc.id_contact, cc.id_campaign, co.phone;""",
                                   (STATUS_SELECTED_CALL, id_campaign, STATUS_CREATED, contacts_attempts_number))
-            return cursor_dialer.fetchall()
+            contacts = cursor_dialer.fetchall()
+            logger.debug("Selected contacts={0}".format(contacts))
+            return contacts
 
 
     @classmethod
