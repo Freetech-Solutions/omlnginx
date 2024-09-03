@@ -129,3 +129,22 @@ update contact_in_campaign set status = 2, history = '{}';
 #+begin_src sql :engine postgresql :dbhost localhost :dbuser omnidialer :dbpassword dialer456 :database omnidialer :dbport 5433
 select * from campaign;
 #+end_src
+
+
+#+begin_src sql :engine postgresql :dbhost localhost :dbuser omnidialer :dbpassword dialer456 :database omnidialer :dbport 5433
+insert into incidence_rules values (2, 4, 'congestion', 3, 40, 1, 4)
+#+end_src
+
+#+RESULTS:
+| INSERT 0 1 |
+|------------|
+
+
+#+begin_src sql :engine postgresql :dbhost localhost :dbuser omnidialer :dbpassword dialer456 :database omnidialer :dbport 5433
+select * from only incidence_rules;
+#+end_src
+
+#+RESULTS:
+| id | status | status_custom | max_attempt | retry_later | in_mode | campaign_id |
+|----+--------+---------------+-------------+-------------+---------+-------------|
+|  1 |      1 | busy          |           3 |          30 |       1 |           4 |
