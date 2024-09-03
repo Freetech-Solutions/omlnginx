@@ -32,5 +32,5 @@ update contact_in_campaign set status = 2, history = '{}';
 
 # Use this following query, or a similar to establish opening hours for the campaign
 #+begin_src sql :engine postgresql :dbhost localhost :dbuser omnidialer :dbpassword dialer456 :database omnidialer :dbport 5433
-update campaign set hour_start = '00:00', hour_ends = '23:59', monday = True where id = 4;
++update campaign set hour_start = '00:00', hour_ends = '23:59', tuesday = True, end_date = '2024-10-29' where id = 4;
 #+end_src
