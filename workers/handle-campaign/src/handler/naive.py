@@ -114,7 +114,9 @@ class NaiveWorker(DialerWorker):
     @classmethod
     def process_campaign(cls, id_campaign):
         while cls.campaign_is_active(id_campaign):
+            logger.debug(f'\nCampaign {id_campaign} is active')
             if cls.is_allowed_to_call(id_campaign):
+                logger.debug(f'Campaign {id_campaign} is allowed to call')
                 contacts_attempts_number = cls.allowed_parallel_contact_attempts(id_campaign)
                 for contact in cls.take_contacts(contacts_attempts_number, id_campaign):
                     cls.attempt_contact(contact, id_campaign)
