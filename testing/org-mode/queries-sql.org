@@ -29,6 +29,13 @@ insert into incidence_rules values (1, 1, 'busy', 4, 20, 1, 4)
 update contact_in_campaign set status = 2, history = '{}';
 #+end_src
 
+# setting only 2 contacts that will lead to busy and congestion so we can test incidence rules
+#+begin_src sql :engine postgresql :dbhost localhost :dbuser omnidialer :dbpassword dialer456 :database omnidialer :dbport 5433
+update contact_in_campaign set status = 2, history = '{}' where id_campaign = 4 and (id = 106 or id = 193);
+#+end_src
+
+
+
 
 # Use this following query, or a similar to establish opening hours for the campaign
 #+begin_src sql :engine postgresql :dbhost localhost :dbuser omnidialer :dbpassword dialer456 :database omnidialer :dbport 5433
