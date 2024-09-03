@@ -128,6 +128,8 @@ class NaiveWorker(DialerWorker):
     @classmethod
     def is_allowed_to_call(cls, id_campaign):
         # check if opening hours are ok
+        # TODO: a possible optimization here could be pause the campaign and place a schedule task
+        # to resume it later at the following allowed opening hour
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             return cls.opening_hours_match(cursor_dialer, id_campaign)
