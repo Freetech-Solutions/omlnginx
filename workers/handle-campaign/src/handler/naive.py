@@ -327,7 +327,7 @@ class NaiveWorker(DialerWorker):
                                      RETURNING cc.id, cc.id_contact, cc.id_campaign, co.phone;""",
                                   (STATUS_SELECTED_CALL, id_campaign, STATUS_CREATED, contacts_attempts_number))
             contacts = cursor_dialer.fetchall()
-            logger.debug("Selected contacts={0}".format(contacts))
+            logger.debug("Selected {0} contacts".format(len(contacts)))
             return contacts
 
 
