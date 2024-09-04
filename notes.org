@@ -6,3 +6,5 @@ TODO: try with "endpoint:PJSIP/omlacd", see if we can config read only the event
 ** Maximum number of concurrent calls in FTS production
 ~ 400
 With DB of 1500 contacts
+** Avoiding Log exhaustion in Docker
+watch -t docker logs --tail 50 foo
