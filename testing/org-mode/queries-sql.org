@@ -41,3 +41,9 @@ update contact_in_campaign set status = 2, history = '{}' where id_campaign = 4 
 #+begin_src sql :engine postgresql :dbhost localhost :dbuser omnidialer :dbpassword dialer456 :database omnidialer :dbport 5433
 +update campaign set hour_start = '00:00', hour_ends = '23:59', tuesday = True, end_date = '2024-10-29' where id = 4;
 #+end_src
+
+
+# just for check the active connections
+#+begin_src sql :engine postgresql :dbhost localhost :dbuser omnidialer :dbpassword dialer456 :database omnidialer :dbport 5433
+SELECT * FROM pg_stat_activity WHERE datname = 'omnidialer';
+#+end_src
