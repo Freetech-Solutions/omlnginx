@@ -417,14 +417,14 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     @timed_lru_cache(seconds=600, maxsize=128)
-    def get_incidence_rules(cls, id_campaign):
-        logger.debug(f'Campaign {id_campaign}: getting the incidence rules')
+    def get_incidence_rule(cls, id_campaign, status):
+        logger.debug(f'Campaign {id_campaign}: getting the incidence rule for {status}')
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute(
-                'SELECT status, retry_later, max_attempt FROM ONLY incidence_rules WHERE campaign_id = %s',
-                (id_campaign,))
-            return cursor_dialer.fetchall()
+                'SELECT retry_later, max_attempt FROM ONLY incidence_rules WHERE campaign_id = %s AND status = %s;',
+                (id_campaign, status))
+            return cursor_dialer.fetchone()
 
 
     @classmethod
@@ -433,21 +433,20 @@ class NaiveWorker(DialerWorker):
         #   if the contact's history and the incidence rule indicates that the
         #   contact must be called again, schedule a call according to the incidence rule
         # TODO: optimization: merge this method with 'set_contact_status' to use the same connection and cursor
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
-            cursor_dialer = conn_dialer.cursor()
-            cursor_dialer.execute(
-                'SELECT id, status, history FROM ONLY contact_in_campaign WHERE id_campaign = %s AND id_contact = %s',
-                (id_campaign, contact_id)
-            )
-            contact_in_campaign_id, contact_status, contact_history = cursor_dialer.fetchone()
-            incidence_rules = cls.get_incidence_rules(id_campaign)
-            for status, retry_later, max_attempt in incidence_rules:
-                if status == contact_status:
-                    if contact_history.count(status) <= max_attempt:
-                        contact = (contact_in_campaign_id, contact_id, id_campaign, phone_number)
-                        message = json.dumps({'contact_info': contact, 'delay': retry_later})
-                        cls.GM_CLIENT.submit_job('schedule-contact', message)
-                        break
+        incidence_rule = cls.get_incidence_rule(id_campaign, status)
+        if incidence_rule is not None:
+            retry_later, max_attempt = incidence_rule
+            with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+                cursor_dialer = conn_dialer.cursor()
+                cursor_dialer.execute(
+                    'SELECT id, history FROM ONLY contact_in_campaign WHERE id_campaign = %s AND id_contact = %s;',
+                    (id_campaign, contact_id)
+                )
+                contact_in_campaign_id, contact_history = cursor_dialer.fetchone()
+                if contact_history.count(status) <= max_attempt:
+                    contact = (contact_in_campaign_id, contact_id, id_campaign, phone_number)
+                    message = json.dumps({'contact_info': contact, 'delay': retry_later})
+                    cls.GM_CLIENT.submit_job('schedule-contact', message)
 
 
     @classmethod

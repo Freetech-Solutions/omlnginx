@@ -352,6 +352,13 @@ CREATE INDEX fki_foreign_key_contact ON public.contact_in_campaign USING btree (
 
 
 --
+-- Name: fki_foreign_key_campaign; Type: INDEX; Schema: public; Owner: omnidialer
+--
+
+CREATE INDEX fki_foreign_key_campaign ON public.contact_in_campaign USING btree (id_campaign);
+
+
+--
 -- Name: fki_incidence_rules_historic_fkey_campaign_id; Type: INDEX; Schema: public; Owner: omnidialer
 --
 
