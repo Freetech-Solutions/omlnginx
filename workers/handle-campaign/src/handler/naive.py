@@ -2,6 +2,8 @@
 
 from .basic import DialerWorker
 from .ari_manager import ARI
+from .utils import timed_lru_cache
+from time import sleep
 
 import json
 import sys
@@ -414,6 +416,19 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
+    @timed_lru_cache(seconds=600, maxsize=128)
+    def get_incidence_rules(cls, id_campaign):
+    logger.debug(f'Campaign {id_campaign}: getting the incidence rules')
+    with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+        cursor_dialer = conn_dialer.cursor()
+        cursor_dialer.execute(
+            'SELECT status, retry_later, max_attempt FROM ONLY incidence_rules WHERE campaign_id = %s',
+            (id_campaign,))
+        return cursor_dialer.fetchall()
+
+
+
+    @classmethod
     def handle_incidence_rules(cls, status, id_campaign, contact_id, phone_number):
         # if there is an incidence rule for the status:
         #   if the contact's history and the incidence rule indicates that the
@@ -426,10 +441,8 @@ class NaiveWorker(DialerWorker):
                 (id_campaign, contact_id)
             )
             contact_in_campaign_id, contact_status, contact_history = cursor_dialer.fetchone()
-            cursor_dialer.execute(
-                'SELECT status, retry_later, max_attempt FROM ONLY incidence_rules WHERE campaign_id = %s',
-                (id_campaign,))
-            for status, retry_later, max_attempt in cursor_dialer.fetchall():
+            incidence_rules = cls.get_incidence_rules(id_campaign)
+            for status, retry_later, max_attempt in incidence_rules:
                 if status == contact_status:
                     if contact_history.count(status) <= max_attempt:
                         contact = (contact_in_campaign_id, contact_id, id_campaign, phone_number)
@@ -598,3 +611,11 @@ class SingleCallWorker(NaiveWorker):
     @classmethod
     def allowed_parallel_contact_attempts(cls, id_campaign):
         return 1
+
+
+class NoIncidenceRulesHandler(NaiveWorker):
+
+    @classmethod
+    def handle_incidence_rules(cls, status, id_campaign, contact_id, phone_number):
+        # don't do anything
+        pass
