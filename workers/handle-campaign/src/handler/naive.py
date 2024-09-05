@@ -418,14 +418,13 @@ class NaiveWorker(DialerWorker):
     @classmethod
     @timed_lru_cache(seconds=600, maxsize=128)
     def get_incidence_rules(cls, id_campaign):
-    logger.debug(f'Campaign {id_campaign}: getting the incidence rules')
-    with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
-        cursor_dialer = conn_dialer.cursor()
-        cursor_dialer.execute(
-            'SELECT status, retry_later, max_attempt FROM ONLY incidence_rules WHERE campaign_id = %s',
-            (id_campaign,))
-        return cursor_dialer.fetchall()
-
+        logger.debug(f'Campaign {id_campaign}: getting the incidence rules')
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute(
+                'SELECT status, retry_later, max_attempt FROM ONLY incidence_rules WHERE campaign_id = %s',
+                (id_campaign,))
+            return cursor_dialer.fetchall()
 
 
     @classmethod
