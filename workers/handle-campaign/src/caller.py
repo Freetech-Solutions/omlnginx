@@ -16,7 +16,9 @@ if __name__ == '__main__':
     id_contact_in_campaign = argv[1]
     id_contact = argv[2]
     id_campaign = argv[3]
-    phone_number = argv[4]
-    contact = (id_contact_in_campaign, id_contact, id_campaign, phone_number)
+    status = argv[4]
+    history_str = json.loads(argv[5])
+    phone_number = argv[6]
+    contact = (id_contact_in_campaign, id_contact, id_campaign, status, history_str, phone_number)
     logger.debug(f'Attempting to call scheduled contact {id_contact} in campaign {id_campaign}')
     NaiveWorker.attempt_contact(contact, id_campaign)
