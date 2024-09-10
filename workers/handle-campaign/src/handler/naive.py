@@ -337,7 +337,7 @@ class NaiveWorker(DialerWorker):
                                      FROM ONLY contact_in_campaign
                                      WHERE id_campaign = %s and status = %s
                                      LIMIT %s) AND co.id = cc.id_contact
-                                     RETURNING cc.id, cc.id_contact, cc.id_campaign, co.phone;""",
+                                     RETURNING cc.id_contact, cc.id_campaign, co.phone;""",
                                   (STATUS_SELECTED_CALL, id_campaign, STATUS_CREATED, contacts_attempts_number))
             contacts = cursor_dialer.fetchall()
             logger.debug("Selected {0} contacts".format(len(contacts)))
@@ -361,8 +361,8 @@ class NaiveWorker(DialerWorker):
     @classmethod
     def attempt_contact_asterisk(cls, contact_info, id_campaign):
         logger.debug('Trying to call the contact')
-        id_customer = contact_info[1]
-        phone_number = contact_info[3]
+        id_customer = contact_info[0]
+        phone_number = contact_info[2]
         queue_timeout = 20
         dial_timeout = 30
         channel_type = 'to_omlacd_dialout'
@@ -415,10 +415,10 @@ class NaiveWorker(DialerWorker):
     @exception_handler_decorator
     def schedule_contact(cls, worker, job):
         data = cls.decode_payload(job.data)
-        (contact_in_campaign_id, contact_id, id_campaign, phone_number) = data['contact_info']
+        (contact_id, id_campaign, phone_number) = data['contact_info']
         delay = data['delay']
         logger.debug(f'Attempting to schedule contact {contact_id} in campaign {id_campaign}')
-        process_contact_subcommand = f'python caller.py {contact_in_campaign_id} {contact_id} {id_campaign} {phone_number}'
+        process_contact_subcommand = f'python caller.py {contact_id} {id_campaign} {phone_number}'
         command = f'nohup sh -c "sleep {delay}; {process_contact_subcommand}" &'
         os.system(command)
         return b'The contact was scheduled'
@@ -441,21 +441,14 @@ class NaiveWorker(DialerWorker):
         # if there is an incidence rule for the status:
         #   if the contact's history and the incidence rule indicates that the
         #   contact must be called again, schedule a call according to the incidence rule
-        # TODO: optimization: merge this method with 'set_contact_status' to use the same connection and cursor
         incidence_rule = cls.get_incidence_rule(id_campaign, status)
         if incidence_rule is not None:
             retry_later, max_attempt = incidence_rule
-            with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
-                cursor_dialer = conn_dialer.cursor()
-                cursor_dialer.execute(
-                    'SELECT id, history FROM ONLY contact_in_campaign WHERE id_campaign = %s AND id_contact = %s;',
-                    (id_campaign, contact_id)
-                )
-                contact_in_campaign_id, contact_history = cursor_dialer.fetchone()
-                if contact_history.count(status) <= max_attempt:
-                    contact = (contact_in_campaign_id, contact_id, id_campaign, phone_number)
-                    message = json.dumps({'contact_info': contact, 'delay': retry_later})
-                    cls.GM_CLIENT.submit_job('schedule-contact', message)
+            contact_history = cls.REDIS_DIALER_CONNECTION.lrange(f'CONTACT:{contact_id}:CAMP:{id_campaign}:history', 0, -1)
+            if contact_history.count(status) <= max_attempt:
+                contact = (contact_id, id_campaign, phone_number)
+                message = json.dumps({'contact_info': contact, 'delay': retry_later})
+                cls.GM_CLIENT.submit_job('schedule-contact', message)
 
 
     @classmethod
@@ -536,6 +529,8 @@ class NaiveWorker(DialerWorker):
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute('UPDATE contact_in_campaign SET status = %s, history = array_append(history,%s) WHERE id_campaign = %s AND id_contact = %s;',
                                   (status, status, id_campaign, contact_id))
+            cls.connect_redis_dialer()
+            cls.REDIS_DIALER_CONNECTION.rpush(f'contact:{contact_id}:camp:{id_campaign}:history', status)
 
     @classmethod
     @exception_handler_decorator
