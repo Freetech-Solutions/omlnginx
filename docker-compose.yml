@@ -67,6 +67,8 @@ services:
     dns: 8.8.8.8
     environment:
       - BIND_IP=0.0.0.0
+    networks:
+      - network1
     ports:
       - '6380:6380'
     expose:
@@ -150,3 +152,5 @@ networks:
 
 volumes:
   omnidialer-postgresql:
+  redis_redisinsight:
+  redis_omnidialer:
