@@ -123,10 +123,18 @@ class NaiveWorker(DialerWorker):
                 for contact in cls.take_contacts(contacts_attempts_number, id_campaign):
                     cls.attempt_contact(contact, id_campaign)
 
+
     @classmethod
     def connect_redis_oml(cls):
         if cls.REDIS_OML_CONNECTION is None:
             cls.REDIS_OML_CONNECTION = redis.Redis(host=REDIS_OML_SERVER, port=REDIS_OML_PORT, decode_responses=True)
+
+
+    @classmethod
+    def connect_redis_dialer(cls):
+        if cls.REDIS_DIALER_CONNECTION is None:
+            cls.REDIS_DIALER_CONNECTION = redis.Redis(host=REDIS_DIALER_SERVER, port=REDIS_DIALER_PORT, decode_responses=True)
+
 
 
     @classmethod
