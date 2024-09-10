@@ -444,8 +444,8 @@ class NaiveWorker(DialerWorker):
         incidence_rule = cls.get_incidence_rule(id_campaign, status)
         if incidence_rule is not None:
             retry_later, max_attempt = incidence_rule
-            contact_history = cls.REDIS_DIALER_CONNECTION.lrange(f'CONTACT:{contact_id}:CAMP:{id_campaign}:history', 0, -1)
-            if contact_history.count(status) <= max_attempt:
+            contact_history = cls.REDIS_DIALER_CONNECTION.lrange(f'CONTACT:{contact_id}:CAMP:{id_campaign}:HISTORY', 0, -1)
+            if contact_history.count(str(status)) <= max_attempt:
                 contact = (contact_id, id_campaign, phone_number)
                 message = json.dumps({'contact_info': contact, 'delay': retry_later})
                 cls.GM_CLIENT.submit_job('schedule-contact', message)
@@ -466,6 +466,7 @@ class NaiveWorker(DialerWorker):
                 logger.debug(f'Contact {contact_id} was succesfully called to phone {phone_number}'
                              f' in campaign {id_campaign}')
         elif cls.is_busy_event(ari_event_data):
+
             logger.debug('Receiving busy')
             cls.set_contact_status(id_campaign, contact_id, STATUS_BUSY)
             cls.handle_incidence_rules(STATUS_BUSY, id_campaign, contact_id, phone_number)
@@ -530,7 +531,7 @@ class NaiveWorker(DialerWorker):
             cursor_dialer.execute('UPDATE contact_in_campaign SET status = %s, history = array_append(history,%s) WHERE id_campaign = %s AND id_contact = %s;',
                                   (status, status, id_campaign, contact_id))
             cls.connect_redis_dialer()
-            cls.REDIS_DIALER_CONNECTION.rpush(f'contact:{contact_id}:camp:{id_campaign}:history', status)
+            cls.REDIS_DIALER_CONNECTION.rpush(f'CONTACT:{contact_id}:CAMP:{id_campaign}:HISTORY', status)
 
     @classmethod
     @exception_handler_decorator
