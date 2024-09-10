@@ -346,14 +346,8 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def attempt_contact(cls, contact, id_campaign):
-        contact_in_campaign_id, id_contact, id_campaign, status, history, phone_number = contact
-        if history == []:
-            # contact yet to be called
-            message = json.dumps({'contact': contact, 'id_campaign': id_campaign})
-            cls.GM_CLIENT.submit_job('process-contact', message)
-        else:
-            # status is one of [STATUS_BUSY, STATUS_CONGESTION, STATUS_NOANSWER]:
-            cls.handle_incidence_rules(history[-1], id_campaign, id_contact, phone_number, history, contact_in_campaign_id)
+        message = json.dumps({'contact': contact, 'id_campaign': id_campaign})
+        cls.GM_CLIENT.submit_job('process-contact', message)
 
 
     @classmethod
@@ -423,7 +417,6 @@ class NaiveWorker(DialerWorker):
         data = cls.decode_payload(job.data)
         (contact_id, id_campaign, phone_number) = data['contact_info']
         delay = data['delay']
-        history_json = json.dumps(history)
         logger.debug(f'Attempting to schedule contact {contact_id} in campaign {id_campaign}')
         process_contact_subcommand = f'python caller.py {contact_id} {id_campaign} {phone_number}'
         command = f'nohup sh -c "sleep {delay}; {process_contact_subcommand}" &'
@@ -444,7 +437,7 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
-    def handle_incidence_rules(cls, status, id_campaign, contact_id, phone_number, contact_history, contact_in_campaign_id):
+    def handle_incidence_rules(cls, status, id_campaign, contact_id, phone_number):
         # if there is an incidence rule for the status:
         #   if the contact's history and the incidence rule indicates that the
         #   contact must be called again, schedule a call according to the incidence rule
@@ -473,15 +466,17 @@ class NaiveWorker(DialerWorker):
                 logger.debug(f'Contact {contact_id} was succesfully called to phone {phone_number}'
                              f' in campaign {id_campaign}')
         elif cls.is_busy_event(ari_event_data):
-
             logger.debug('Receiving busy')
             cls.set_contact_status(id_campaign, contact_id, STATUS_BUSY)
+            cls.handle_incidence_rules(STATUS_BUSY, id_campaign, contact_id, phone_number)
         elif cls.is_noanswer_event(ari_event_data):
             logger.debug('Receiving noanswer')
             cls.set_contact_status(id_campaign, contact_id, STATUS_NOANSWER)
+            cls.handle_incidence_rules(STATUS_NOANSWER, id_campaign, contact_id, phone_number)
         elif cls.is_congestion_event(ari_event_data):
             logger.debug('Receiving congestion')
             cls.set_contact_status(id_campaign, contact_id, STATUS_CONGESTION)
+            cls.handle_incidence_rules(STATUS_CONGESTION, id_campaign, contact_id, phone_number)
         return b'Event was processed'
 
 
@@ -532,8 +527,9 @@ class NaiveWorker(DialerWorker):
     def set_contact_status(cls, id_campaign, contact_id, status):
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
-            cursor_dialer.execute('UPDATE contact_in_campaign SET status = %s, history = array_append(history,%s) WHERE id_campaign = %s AND id_contact = %s;',
-                                  (status, status, id_campaign, contact_id))
+            cursor_dialer.execute(
+                'UPDATE contact_in_campaign SET status = %s, history = array_append(history,%s) WHERE id_campaign = %s AND id_contact = %s;',
+                (status, status, id_campaign, contact_id))
             cls.connect_redis_dialer()
             cls.REDIS_DIALER_CONNECTION.rpush(f'CONTACT:{contact_id}:CAMP:{id_campaign}:HISTORY', status)
 
