@@ -14,6 +14,7 @@ services:
     stdin_open: true
     depends_on:
       - job_server
+      - redis
       - postgresql
     environment:
       - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
@@ -58,6 +59,43 @@ services:
     depends_on:
       - job_server
       - postgresql
+      - redis
+
+
+  redis:
+    container_name: omnidialer-redis
+    dns: 8.8.8.8
+    environment:
+      - BIND_IP=0.0.0.0
+    networks:
+      - network1
+    ports:
+      - '6380:6380'
+    expose:
+      - '6380'
+    image: redis:7.2.5-alpine
+    volumes:
+      - redis_omnidialer:/data
+    command: redis-server --port 6380
+
+  redisinsight:
+    container_name: omnidialer-redisinsight
+    dns: 8.8.8.8
+    environment:
+      - TZ=${TZ}
+      - BIND_IP=0.0.0.0
+    networks:
+      - network1
+    ports:
+      - '5540:5540'
+    expose:
+      - '5540'
+    image: redis/redisinsight:latest
+    privileged: true
+    restart: on-failure
+    stop_grace_period: 1m30s
+    volumes:
+      - redis_redisinsight:/data
 
   postgresql:
     container_name: dialer-postgres
@@ -114,3 +152,5 @@ networks:
 
 volumes:
   omnidialer-postgresql:
+  redis_redisinsight:
+  redis_omnidialer:

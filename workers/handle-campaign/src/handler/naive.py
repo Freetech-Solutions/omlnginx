@@ -104,6 +104,7 @@ class NaiveWorker(DialerWorker):
     POSTGRES_OML_CONNECTION_STR = f'postgresql://{POSTGRES_OML_USER}:{POSTGRES_OML_PASSWORD}@{POSTGRES_OML_SERVER}:{POSTGRES_OML_PORT}/{POSTGRES_OML_DB}'
     POSTGRES_DIALER_CONNECTION_STR = f'postgresql://{POSTGRES_DIALER_USER}:{POSTGRES_DIALER_PASSWORD}@{POSTGRES_DIALER_SERVER}:{POSTGRES_DIALER_PORT}/{POSTGRES_DIALER_DB}'
     REDIS_OML_CONNECTION = None
+    REDIS_DIALER_CONNECTION = None
     GM_CLIENT = gearman.GearmanClient(GEARMAN_JOB_SERVERS)
 
     ari = ARI(
@@ -123,10 +124,18 @@ class NaiveWorker(DialerWorker):
                 for contact in cls.take_contacts(contacts_attempts_number, id_campaign):
                     cls.attempt_contact(contact, id_campaign)
 
+
     @classmethod
     def connect_redis_oml(cls):
         if cls.REDIS_OML_CONNECTION is None:
             cls.REDIS_OML_CONNECTION = redis.Redis(host=REDIS_OML_SERVER, port=REDIS_OML_PORT, decode_responses=True)
+
+
+    @classmethod
+    def connect_redis_dialer(cls):
+        if cls.REDIS_DIALER_CONNECTION is None:
+            cls.REDIS_DIALER_CONNECTION = redis.Redis(host=REDIS_DIALER_SERVER, port=REDIS_DIALER_PORT, decode_responses=True)
+
 
 
     @classmethod
@@ -326,11 +335,10 @@ class NaiveWorker(DialerWorker):
                                      FROM contact as co
                                      WHERE cc.id IN (SELECT id
                                      FROM ONLY contact_in_campaign
-                                     WHERE id_campaign = %s and status <> %s and status <> %s and status <> %s
+                                     WHERE id_campaign = %s and status = %s
                                      LIMIT %s) AND co.id = cc.id_contact
-                                     RETURNING cc.id, cc.id_contact, cc.id_campaign, cc.status, cc.history, co.phone;""",
-                                  (STATUS_SELECTED_CALL, id_campaign, STATUS_ANSWERED_AGENT,
-                                   STATUS_ANSWERED_PSTN, STATUS_SELECTED_CALL, contacts_attempts_number))
+                                     RETURNING cc.id_contact, cc.id_campaign, co.phone;""",
+                                  (STATUS_SELECTED_CALL, id_campaign, STATUS_CREATED, contacts_attempts_number))
             contacts = cursor_dialer.fetchall()
             logger.debug("Selected {0} contacts".format(len(contacts)))
             return contacts
@@ -359,8 +367,8 @@ class NaiveWorker(DialerWorker):
     @classmethod
     def attempt_contact_asterisk(cls, contact_info, id_campaign):
         logger.debug('Trying to call the contact')
-        id_customer = contact_info[1]
-        phone_number = contact_info[5]
+        id_customer = contact_info[0]
+        phone_number = contact_info[2]
         queue_timeout = 20
         dial_timeout = 30
         channel_type = 'to_omlacd_dialout'
@@ -413,11 +421,11 @@ class NaiveWorker(DialerWorker):
     @exception_handler_decorator
     def schedule_contact(cls, worker, job):
         data = cls.decode_payload(job.data)
-        (contact_in_campaign_id, contact_id, id_campaign, status, history, phone_number) = data['contact_info']
+        (contact_id, id_campaign, phone_number) = data['contact_info']
         delay = data['delay']
         history_json = json.dumps(history)
         logger.debug(f'Attempting to schedule contact {contact_id} in campaign {id_campaign}')
-        process_contact_subcommand = f'python caller.py {contact_in_campaign_id} {contact_id} {id_campaign} {status} "{history_json}" {phone_number}'
+        process_contact_subcommand = f'python caller.py {contact_id} {id_campaign} {phone_number}'
         command = f'nohup sh -c "sleep {delay}; {process_contact_subcommand}" &'
         os.system(command)
         return b'The contact was scheduled'
@@ -440,12 +448,12 @@ class NaiveWorker(DialerWorker):
         # if there is an incidence rule for the status:
         #   if the contact's history and the incidence rule indicates that the
         #   contact must be called again, schedule a call according to the incidence rule
-        # TODO: optimization: merge this method with 'set_contact_status' to use the same connection and cursor
         incidence_rule = cls.get_incidence_rule(id_campaign, status)
         if incidence_rule is not None:
             retry_later, max_attempt = incidence_rule
-            if contact_history.count(status) <= max_attempt:
-                contact = (contact_in_campaign_id, contact_id, id_campaign, status, contact_history, phone_number)
+            contact_history = cls.REDIS_DIALER_CONNECTION.lrange(f'CONTACT:{contact_id}:CAMP:{id_campaign}:HISTORY', 0, -1)
+            if contact_history.count(str(status)) <= max_attempt:
+                contact = (contact_id, id_campaign, phone_number)
                 message = json.dumps({'contact_info': contact, 'delay': retry_later})
                 cls.GM_CLIENT.submit_job('schedule-contact', message)
 
@@ -465,6 +473,7 @@ class NaiveWorker(DialerWorker):
                 logger.debug(f'Contact {contact_id} was succesfully called to phone {phone_number}'
                              f' in campaign {id_campaign}')
         elif cls.is_busy_event(ari_event_data):
+
             logger.debug('Receiving busy')
             cls.set_contact_status(id_campaign, contact_id, STATUS_BUSY)
         elif cls.is_noanswer_event(ari_event_data):
@@ -525,6 +534,8 @@ class NaiveWorker(DialerWorker):
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute('UPDATE contact_in_campaign SET status = %s, history = array_append(history,%s) WHERE id_campaign = %s AND id_contact = %s;',
                                   (status, status, id_campaign, contact_id))
+            cls.connect_redis_dialer()
+            cls.REDIS_DIALER_CONNECTION.rpush(f'CONTACT:{contact_id}:CAMP:{id_campaign}:HISTORY', status)
 
     @classmethod
     @exception_handler_decorator
