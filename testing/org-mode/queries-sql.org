@@ -31,7 +31,7 @@ update contact_in_campaign set status = 2, history = '{}';
 
 # setting only 2 contacts that will lead to busy and congestion so we can test incidence rules
 #+begin_src sql :engine postgresql :dbhost localhost :dbuser omnidialer :dbpassword dialer456 :database omnidialer :dbport 5433
-update contact_in_campaign set status = 2, history = '{}' where id_campaign = 4 and (id = 106 or id = 193);
+update contact_in_campaign set status = 2, history = '{}' where id_campaign = 4 and (id = 6 or id = 93 or id = 23);
 #+end_src
 
 
