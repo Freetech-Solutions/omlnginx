@@ -1,0 +1,41 @@
+# -*- coding: utf-8 -*-
+
+# only for testing by hand
+
+from handler.naive import NaiveWorker
+
+import logging
+
+import os
+
+import psycopg
+
+LOGLEVEL = os.environ.get('PYTHON_LOGLEVEL', 'INFO').upper()
+
+logger = logging.getLogger(__name__)
+
+logging.basicConfig(level=LOGLEVEL, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+
+def clean():
+    """Clean Redis DB and contact_in_campaign table in Postgres for be able to test again the main process of
+    a campaign from scratch"""
+    NaiveWorker.connect_redis_dialer()
+    NaiveWorker.REDIS_DIALER_CONNECTION.flushdb()
+    # rule for busy
+    NaiveWorker.REDIS_DIALER_CONNECTION.rpush(f'CAMP:4:INCIDENCE_RULES:1', 20)
+    NaiveWorker.REDIS_DIALER_CONNECTION.rpush(f'CAMP:4:INCIDENCE_RULES:1', 4)
+    # rule for congestion
+    NaiveWorker.REDIS_DIALER_CONNECTION.rpush(f'CAMP:4:INCIDENCE_RULES:4', 40)
+    NaiveWorker.REDIS_DIALER_CONNECTION.rpush(f'CAMP:4:INCIDENCE_RULES:4', 3)
+
+    # setting all contacts for campaign 4 in status == CREATED
+    with psycopg.connect(NaiveWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+        cursor_dialer = conn_dialer.cursor()
+        cursor_dialer.execute("UPDATE contact_in_campaign SET status = 2, history = '{}' WHERE id_campaign = 4;")
+
+    logger.debug('Campaign is ready to be started from scratch again')
+
+
+if __name__ == '__main__':
+    clean()
