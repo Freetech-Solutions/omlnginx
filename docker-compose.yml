@@ -20,12 +20,13 @@ services:
       - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
 
   job_server:
-    image: artefactual/gearmand:1.1.19.1-alpine
+    image: artefactual/gearmand:1.1.18-alpine
     container_name: gearman_job_server_1
     ports:
       - '4730:4730'
     networks:
       - network1
+    command: gearmand -t 1
 
   worker:
     deploy:

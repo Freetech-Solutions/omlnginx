@@ -22,12 +22,6 @@ def clean():
     a campaign from scratch"""
     NaiveWorker.connect_redis_dialer()
     NaiveWorker.REDIS_DIALER_CONNECTION.flushdb()
-    # rule for busy
-    NaiveWorker.REDIS_DIALER_CONNECTION.rpush(f'CAMP:4:INCIDENCE_RULES:1', 20)
-    NaiveWorker.REDIS_DIALER_CONNECTION.rpush(f'CAMP:4:INCIDENCE_RULES:1', 4)
-    # rule for congestion
-    NaiveWorker.REDIS_DIALER_CONNECTION.rpush(f'CAMP:4:INCIDENCE_RULES:4', 40)
-    NaiveWorker.REDIS_DIALER_CONNECTION.rpush(f'CAMP:4:INCIDENCE_RULES:4', 3)
 
     # setting all contacts for campaign 4 in status == CREATED
     with psycopg.connect(NaiveWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
