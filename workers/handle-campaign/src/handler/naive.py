@@ -150,36 +150,80 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
+    def get_campaign_data(cls, id_campaign, cursor_oml, contact_strategy):
+        # import campaign configuration from tables of OML
+        logger.debug(f'Retrieving data from OML campaign with id={id_campaign}')
+        logger.debug('From ominicontacto_app_campana')
+        cursor_oml.execute(f'SELECT id,estado,nombre,fecha_inicio,fecha_fin,control_de_duplicados,prioridad '
+                       f'FROM ominicontacto_app_campana WHERE id = {id_campaign};')
+        campaign_id_data = cursor_oml.fetchone()
+        logger.debug('From queue_table')
+        cursor_oml.execute(f'SELECT strategy,wait,initial_predictive_model,initial_boost_factor '
+                       f' FROM queue_table WHERE campana_id = {id_campaign};')
+        campaign_id_data += cursor_oml.fetchone()
+        logger.debug('From ominicontacto_app_actuacionvigente')
+        cursor_oml.execute(f'SELECT domingo,lunes,martes,miercoles,jueves,viernes,sabado,hora_desde,hora_hasta'
+                       f' FROM ominicontacto_app_actuacionvigente WHERE campana_id = {id_campaign};')
+        campaign_id_data += cursor_oml.fetchone()
+        logger.debug('Setting dialer specific options')
+        campaign_id_data += (contact_strategy, CREATED)
+        logger.debug('From incidence rules')
+        cursor_oml.execute(f'SELECT * FROM ominicontacto_app_reglasincidencia WHERE campana_id = {id_campaign};')
+        incidence_rules_data = cursor_oml.fetchall()
+        return campaign_id_data, incidence_rules_data
+
+
+    @classmethod
+    @exception_handler_decorator
+    def edit_campaign(cls, worker, job):
+        # assumes the dialer campaign exists in OML with all the required tables and fields created
+        data = cls.decode_payload(job.data)
+        id_campaign = data['id_campaign']
+        logger.debug(f'Editing the campaign {id_campaign}')
+        contact_strategy = data['contact_strategy']
+        # 0- pause campaign
+        cls.set_campaign_status(id_campaign, PAUSED)
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            with conn_dialer.transaction() as dialer_tx_outer:
+                cursor_dialer = conn_dialer.cursor()
+                with psycopg.connect(cls.POSTGRES_OML_CONNECTION_STR) as conn_oml:
+                    cursor_oml = conn_oml.cursor()
+                    campaign_id_data, incidence_rules_data = cls.get_campaign_data(id_campaign, cursor_oml, contact_strategy)
+                    # 1- update campaign table
+                    logger.debug('Inserting the campaign data into omnidialer')
+                    params = campaign_id_data[1:] + (id_campaign,)
+                    cursor_dialer.execute(
+                        """UPDATE campaign SET oml_status = %s, name = %s, start_date = %s, end_date = %s,
+                        duplicates_control = %s, priority = %s, strategy = %s, wait = %s, initial_predictive_model = %s,
+                        initial_boost_factor = %s, sunday = %s, monday = %s, tuesday = %s, wednesday = %s,
+                        thursday = %s, friday = %s, saturday = %s, hour_start = %s, hour_ends = %s, contact_strategy = %s,
+                        dialer_status = %s WHERE id = %s;""", params)
+                    # 2- update incidence rules
+                    cursor_dialer.execute('DELETE FROM incidence_rules WHERE campaign_id = %s', (id_campaign,))
+                    logger.debug('Inserting the incidence_rules into omnidialer')
+                    for incidence_rule in incidence_rules_data:
+                        cursor_dialer.execute("INSERT INTO incidence_rules (id, status, status_custom, max_attempt, retry_later, in_mode, campaign_id) VALUES (%s, %s, %s, %s, %s, %s, %s);", incidence_rule)
+
+        response = f'Campaign {id_campaign} with strategy {contact_strategy} succesfully updated!!!'
+
+        response = json.dumps({'msg': response})
+        return bytes(response, encoding='UTF8')
+
+
+    @classmethod
     @exception_handler_decorator
     def create_campaign(cls, worker, job):
         # assumes the dialer campaign exists in OML with all the required tables and fields created
-        logger.debug('creating the campaign')
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
+        logger.debug(f'Creating the campaign {id_campaign}')
         contact_strategy = data['contact_strategy']
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             with conn_dialer.transaction() as dialer_tx_outer:
                 cursor_dialer = conn_dialer.cursor()
                 with psycopg.connect(cls.POSTGRES_OML_CONNECTION_STR) as conn_oml:
-                    logger.debug(f'Retrieving data from OML campaign with id={id_campaign}')
-                    logger.debug('From ominicontacto_app_campana')
                     cursor_oml = conn_oml.cursor()
-                    cursor_oml.execute(f'SELECT id,estado,nombre,fecha_inicio,fecha_fin,control_de_duplicados,prioridad '
-                                   f'FROM ominicontacto_app_campana WHERE id = {id_campaign};')
-                    campaign_id_data = cursor_oml.fetchone()
-                    logger.debug('From queue_table')
-                    cursor_oml.execute(f'SELECT strategy,wait,initial_predictive_model,initial_boost_factor '
-                                   f' FROM queue_table WHERE campana_id = {id_campaign};')
-                    campaign_id_data += cursor_oml.fetchone()
-                    logger.debug('From ominicontacto_app_actuacionvigente')
-                    cursor_oml.execute(f'SELECT domingo,lunes,martes,miercoles,jueves,viernes,sabado,hora_desde,hora_hasta'
-                                   f' FROM ominicontacto_app_actuacionvigente WHERE campana_id = {id_campaign};')
-                    campaign_id_data += cursor_oml.fetchone()
-                    logger.debug('Setting dialer specific options')
-                    campaign_id_data += (contact_strategy, CREATED)
-                    logger.debug('From incidence rules')
-                    cursor_oml.execute(f'SELECT * FROM ominicontacto_app_reglasincidencia WHERE campana_id = {id_campaign};')
-                    incidence_rules_data = cursor_oml.fetchall()
+                    campaign_id_data, incidence_rules_data = cls.get_campaign_data(id_campaign, cursor_oml, contact_strategy)
                     logger.debug('Inserting the campaign data into omnidialer')
                     cursor_dialer.execute("INSERT INTO campaign (id, oml_status, name, start_date, end_date, duplicates_control, priority, strategy, wait, initial_predictive_model, initial_boost_factor, sunday, monday, tuesday, wednesday, thursday, friday, saturday, hour_start, hour_ends, contact_strategy, dialer_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);", campaign_id_data)
                     logger.debug('Inserting the incidence_rules into omnidialer')

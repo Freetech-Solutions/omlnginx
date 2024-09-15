@@ -1,0 +1,10 @@
+POST http://localhost:1440/create-campaign/1
+Content-Type: application/json
+
+{
+        "contact-strategy": [
+                1,
+                3,
+                4
+        ]
+}
