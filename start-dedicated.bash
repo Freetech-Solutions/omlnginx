@@ -7,3 +7,5 @@ bash add-worker-single-job.bash start-campaign
 bash add-worker-single-job.bash process-event
 
 bash add-worker-single-job.bash schedule-contact
+
+bash add-worker-single-job.bash send-reports
