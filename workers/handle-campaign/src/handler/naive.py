@@ -500,8 +500,7 @@ class NaiveWorker(DialerWorker):
     def process_event(cls, worker, job):
         ari_event_data = cls.decode_payload(job.data)
         id_campaign, contact_id, phone_number = cls.get_contact_data(ari_event_data)
-        message = json.dumps({'event_data': job.data})
-        cls.GM_CLIENT.submit_job('send-reports', message, background=True)
+        cls.GM_CLIENT.submit_job('send-reports', job.data, background=True)
         if cls.is_answer_event(ari_event_data):
             if cls.was_answered_pstn(ari_event_data):
                 logger.debug('Receiving answer pstn')
@@ -665,6 +664,11 @@ class SingleCallWorker(NaiveWorker):
     @classmethod
     @exception_handler_decorator
     def send_reports(cls, worker, job):
+        ari_event_data = cls.decode_payload(job.data)
+        id_campaign, contact_id, phone_number = cls.get_contact_data(ari_event_data)
+        stats = "{}"
+        cls.connect_redis_oml()
+        cls.REDIS_OML_CONNECTION.publish(f'OML:CHANNEL:DIALEREVENTS:CAMP:{id_campaign}', stats)
         return b'Success!'
 
 
@@ -673,4 +677,3 @@ class NoIncidenceRulesHandler(NaiveWorker):
     @classmethod
     def handle_incidence_rules(cls, status, id_campaign, contact_id, phone_number):
         # don't do anything
-        pass
