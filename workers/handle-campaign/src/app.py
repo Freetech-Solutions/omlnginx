@@ -22,6 +22,8 @@ JOBS_TO_METHODS = {
     'stop-campaign': WORKER.stop_campaign,
     'pause-campaign': WORKER.pause_campaign,
     'delete-campaign': WORKER.delete_campaign,
+    # medium processes
+    'send-reports': WORKER.send_reports,
     # scheduled processes
     'schedule-contact': WORKER.schedule_contact,
 }
