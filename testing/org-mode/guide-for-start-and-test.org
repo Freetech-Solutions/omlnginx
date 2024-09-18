@@ -1,0 +1,8 @@
+- check that the .env & the env are the same file, except for modifications made for the .env file on purpose
+- rebuild the source code if there was changes (only for re-tests)
+- create campaign from OML (only for the first time)
+- add incidence rules by hand (only for the first time)
+- make sure the dialer db postgres is clean (only for re-tests)
+- make sure the dialer db redis is clean (only for re-tests)
+- start all workers including the dedicated
+- start the campaign

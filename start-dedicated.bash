@@ -2,7 +2,9 @@
 
 docker-compose up -d
 
-bash add-worker-single-job.bash start-campaign
+for i in {1..3}; do
+    bash add-worker-single-job.bash process-contact
+done
 
 bash add-worker-single-job.bash process-event
 

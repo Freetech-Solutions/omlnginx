@@ -29,9 +29,6 @@ services:
     command: gearmand -t 1
 
   worker:
-    deploy:
-      mode: replicated
-      replicas: 3
     build:
       context: ./workers/handle-campaign/src
     networks:
@@ -56,7 +53,7 @@ services:
       - POSTGRES_DIALER_PORT=${POSTGRES_DIALER_PORT}
       - TZ=${TZ}
       - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
-      - GEARMAN_JOBS=${GEARMAN_JOBS}
+      - GEARMAN_JOBS=start-campaign
       - PYTHON_LOGLEVEL=${PYTHON_LOGLEVEL}
       - DIALER_ACD_HOST=${DIALER_ACD_HOST}
     depends_on:
