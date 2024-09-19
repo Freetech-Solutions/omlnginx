@@ -2,6 +2,7 @@ version: '3.5'
 
 services:
   worker:
+    image: omnileads_worker
     build:
       context: ./workers/handle-campaign/src
     tty: true
