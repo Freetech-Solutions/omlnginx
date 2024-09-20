@@ -8,6 +8,16 @@ done
 
 bash add-worker-single-job.bash create-campaign create-campaign-1
 
+bash add-worker-single-job.bash resume-campaign resume-campaign-1
+
+bash add-worker-single-job.bash edit-campaign edit-campaign-1
+
+bash add-worker-single-job.bash stop-campaign stop-campaign-1
+
+bash add-worker-single-job.bash pause-campaign pause-campaign-1
+
+bash add-worker-single-job.bash delete-campaign delete-campaign-1
+
 bash add-worker-single-job.bash process-event process-event-1
 
 bash add-worker-single-job.bash schedule-contact schedule-contact-1
