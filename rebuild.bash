@@ -2,4 +2,6 @@
 
 docker-compose down
 
-docker-compose up -d --build
+docker-compose build
+
+bash start-dedicated.bash
