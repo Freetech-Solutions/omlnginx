@@ -83,6 +83,20 @@ STATUS_BUSY = 1
 STATUS_NOANSWER = 3
 STATUS_CONGESTION = 4
 
+STATUS_TO_NAME = {
+    STATUS_BUSY: "BUSY",
+    STATUS_NOANSWER: "NOANSWER",
+    STATUS_CONGESTION: "CONGESTION",
+    STATUS_ANSWERED_PSTN: "ANSWERED_PSTN",
+    STATUS_ANSWERED_AGENT: "ANSWERED_AGENT",
+}
+
+# contact final status
+INITIAL = 0
+PENDING_ATTEMPTS = 1
+FINALIZED_SUCCESS = 2
+FINALIZED_NOCONTACT = 3
+
 # percentage called threshold for notify OML
 PERCENTAGE_PENDING_CALL_THRESHOLD = 5
 
@@ -581,6 +595,11 @@ class NaiveWorker(DialerWorker):
                 (status, status, id_campaign, contact_id))
             cls.connect_redis_dialer()
             cls.REDIS_DIALER_CONNECTION.rpush(f'CONTACT:{contact_id}:CAMP:{id_campaign}:HISTORY', status)
+            cls.REDIS_DIALER_CONNECTION.hincrby(
+                f'CONTACT:{contact_id}:CAMP:{id_campaign}:COUNTER',
+                STATUS_TO_NAME[status],
+            )
+
 
     @classmethod
     @exception_handler_decorator
