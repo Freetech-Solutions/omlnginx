@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
-docker-compose up -d
+echo starting dedicated containers ...
+
+docker-compose up -d --build
 
 for i in {1..3}; do
     bash add-worker-single-job.bash process-contact process-contact-$i

@@ -29,7 +29,7 @@ services:
     command: gearmand -t 1
 
   worker:
-    image: omnileads_worker
+    image: omnidialer_worker
     build:
       context: ./workers/handle-campaign/src
     networks:
