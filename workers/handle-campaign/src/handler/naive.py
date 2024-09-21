@@ -675,14 +675,14 @@ class NaiveWorker(DialerWorker):
         id_campaign, contact_id, phone_number = cls.get_contact_data(ari_event_data)
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
-            cursor_dialer.execute('SELECT COUNT(*) FROM campaign WHERE id = %s and status = %s or status = %s;',
+            cursor_dialer.execute('SELECT COUNT(*) FROM ONLY contact_in_campaign WHERE id_campaign = %s and (status = %s or status = %s);',
                                   (id_campaign, STATUS_CREATED, STATUS_SELECTED_CALL))
             pending_for_call = cursor_dialer.fetchone()[0]
         stats = "{}"
         cls.connect_redis_dialer()
         cls.REDIS_DIALER_CONNECTION.hset(
             f'CAMP:{id_campaign}:COUNTER',
-            'PENDING_CONTACT_ATTEMPS', # pending to be contacted for the first time
+            'PENDING_CONTACT_ATTEMPTS', # pending to be contacted for the first time
             pending_for_call
         )
         cls.connect_redis_oml()
