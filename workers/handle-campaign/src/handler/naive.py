@@ -596,7 +596,7 @@ class NaiveWorker(DialerWorker):
             cls.connect_redis_dialer()
             cls.REDIS_DIALER_CONNECTION.rpush(f'CONTACT:{contact_id}:CAMP:{id_campaign}:HISTORY', status)
             cls.REDIS_DIALER_CONNECTION.hincrby(
-                f'CONTACT:{contact_id}:CAMP:{id_campaign}:COUNTER',
+                f'CAMP:{id_campaign}:COUNTER',
                 STATUS_TO_NAME[status],
             )
 
