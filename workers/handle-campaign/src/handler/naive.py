@@ -417,6 +417,11 @@ class NaiveWorker(DialerWorker):
     def process_contact(cls, worker, job):
         data = cls.decode_payload(job.data)
         cls.attempt_contact_asterisk(data['contact'], data['id_campaign'])
+        cls.connect_redis_dialer()
+        cls.REDIS_DIALER_CONNECTION.hincrby(
+            f'CAMP:{id_campaign}:COUNTER',
+            'ATTEMPTED_CALLS',
+        )
         return b'Contact was called'
 
 
