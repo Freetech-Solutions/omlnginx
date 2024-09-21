@@ -673,7 +673,18 @@ class NaiveWorker(DialerWorker):
     def send_reports(cls, worker, job):
         ari_event_data = cls.decode_payload(job.data)
         id_campaign, contact_id, phone_number = cls.get_contact_data(ari_event_data)
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute('SELECT COUNT(*) FROM campaign WHERE id = %s and status = %s or status = %s;',
+                                  (id_campaign, STATUS_CREATED, STATUS_SELECTED_CALL))
+            pending_for_call = cursor_dialer.fetchone()[0]
         stats = "{}"
+        cls.connect_redis_dialer()
+        cls.REDIS_DIALER_CONNECTION.hset(
+            f'CAMP:{id_campaign}:COUNTER',
+            'PENDING_CONTACT_ATTEMPS', # pending to be contacted for the first time
+            pending_for_call
+        )
         cls.connect_redis_oml()
         cls.REDIS_OML_CONNECTION.publish(f'OML:CHANNEL:DIALEREVENTS:CAMP:{id_campaign}', stats)
         return b'Success!'
