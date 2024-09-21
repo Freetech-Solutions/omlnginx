@@ -416,7 +416,8 @@ class NaiveWorker(DialerWorker):
     @exception_handler_decorator
     def process_contact(cls, worker, job):
         data = cls.decode_payload(job.data)
-        cls.attempt_contact_asterisk(data['contact'], data['id_campaign'])
+        id_campaign = data['id_campaign']
+        cls.attempt_contact_asterisk(data['contact'], id_campaign)
         cls.connect_redis_dialer()
         cls.REDIS_DIALER_CONNECTION.hincrby(
             f'CAMP:{id_campaign}:COUNTER',
