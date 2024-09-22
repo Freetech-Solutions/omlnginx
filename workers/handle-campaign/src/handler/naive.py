@@ -94,8 +94,8 @@ STATUS_TO_NAME = {
 # contact final status
 INITIAL = 0
 PENDING_ATTEMPTS = 1
-FINALIZED_SUCCESS = 2
-FINALIZED_NOCONTACT = 3
+FINALIZED_NOCONTACT = 2
+FINALIZED_SUCCESS = 3
 
 # percentage called threshold for notify OML
 PERCENTAGE_PENDING_CALL_THRESHOLD = 5
@@ -261,8 +261,8 @@ class NaiveWorker(DialerWorker):
                         for (id_contact, phone, data, is_original) in contacts:
                             cursor_dialer.execute('INSERT INTO contact (id, phone, data, is_original) VALUES (%s, %s, %s, %s)'
                                                   'ON CONFLICT (id) DO NOTHING;', (id_contact, phone, data, is_original))
-                            cursor_dialer.execute('INSERT INTO contact_in_campaign (id_campaign, id_contact, status) VALUES (%s, %s, %s);',
-                                                  (id_campaign, id_contact, STATUS_CREATED))
+                            cursor_dialer.execute('INSERT INTO contact_in_campaign (id_campaign, id_contact, status, final_status) VALUES (%s, %s, %s, %s);',
+                                                  (id_campaign, id_contact, STATUS_CREATED, INITIAL))
 
         response = f'Campaign {id_campaign} with strategy {contact_strategy} created!!!'
 
@@ -509,14 +509,28 @@ class NaiveWorker(DialerWorker):
         # if there is an incidence rule for the status:
         #   if the contact's history and the incidence rule indicates that the
         #   contact must be called again, schedule a call according to the incidence rule
-        incidence_rule = cls.get_incidence_rule(id_campaign, status)
-        if incidence_rule is not None:
-            retry_later, max_attempt = incidence_rule
-            contact_history = cls.REDIS_DIALER_CONNECTION.lrange(f'CONTACT:{contact_id}:CAMP:{id_campaign}:HISTORY', 0, -1)
-            if contact_history.count(str(status)) <= max_attempt:
-                contact = (contact_id, id_campaign, phone_number)
-                message = json.dumps({'contact_info': contact, 'delay': retry_later})
-                cls.GM_CLIENT.submit_job('schedule-contact', message)
+        cls.connect_redis_dialer()
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            incidence_rule = cls.get_incidence_rule(id_campaign, status)
+            if incidence_rule is not None:
+                retry_later, max_attempt = incidence_rule
+                contact_history = cls.REDIS_DIALER_CONNECTION.lrange(f'CONTACT:{contact_id}:CAMP:{id_campaign}:HISTORY', 0, -1)
+                if contact_history.count(str(status)) <= max_attempt:
+                    contact = (contact_id, id_campaign, phone_number)
+                    message = json.dumps({'contact_info': contact, 'delay': retry_later})
+                    cursor_dialer.execute('UPDATE contact_in_campaign SET final_status = %s WHERE id_campaign = %s and id_contact = %s;',
+                                          (PENDING_ATTEMPTS, id_campaign, contact_id))
+                    cls.REDIS_DIALER_CONNECTION.hset(f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'STATUS', PENDING_ATTEMPTS)
+                    cls.GM_CLIENT.submit_job('schedule-contact', message)
+                else:
+                    cursor_dialer.execute('UPDATE contact_in_campaign SET final_status = %s WHERE id_campaign = %s and id_contact = %s;',
+                                          (FINALIZED_NOCONTACT, id_campaign, contact_id))
+                    cls.REDIS_DIALER_CONNECTION.hset(f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'STATUS', FINALIZED_NOCONTACT)
+            else:
+                cursor_dialer.execute('UPDATE contact_in_campaign SET final_status = %s WHERE id_campaign = %s and id_contact = %s;',
+                                      (FINALIZED_NOCONTACT, id_campaign, contact_id))
+                cls.REDIS_DIALER_CONNECTION.hset(f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'STATUS', FINALIZED_NOCONTACT)
 
 
     @classmethod
@@ -524,7 +538,6 @@ class NaiveWorker(DialerWorker):
     def process_event(cls, worker, job):
         ari_event_data = cls.decode_payload(job.data)
         id_campaign, contact_id, phone_number = cls.get_contact_data(ari_event_data)
-        cls.GM_CLIENT.submit_job('send-reports', job.data, background=True)
         if cls.is_answer_event(ari_event_data):
             if cls.was_answered_pstn(ari_event_data):
                 logger.debug('Receiving answer pstn')
@@ -532,6 +545,12 @@ class NaiveWorker(DialerWorker):
             elif cls.was_answered_agent(ari_event_data):
                 logger.debug('Receiving answer agent')
                 cls.set_contact_status(id_campaign, contact_id, STATUS_ANSWERED_AGENT)
+                cls.connect_redis_dialer()
+                with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+                    cursor_dialer = conn_dialer.cursor()
+                    cursor_dialer.execute('UPDATE contact_in_campaign SET final_status = %s WHERE id_campaign = %s and id_contact = %s;',
+                                          (FINALIZED_SUCCESS, id_campaign, contact_id))
+                    cls.REDIS_DIALER_CONNECTION.hset(f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'STATUS', FINALIZED_SUCCESS)
                 logger.debug(f'Contact {contact_id} was succesfully called to phone {phone_number}'
                              f' in campaign {id_campaign}')
         elif cls.is_busy_event(ari_event_data):
@@ -546,6 +565,7 @@ class NaiveWorker(DialerWorker):
             logger.debug('Receiving congestion')
             cls.set_contact_status(id_campaign, contact_id, STATUS_CONGESTION)
             cls.handle_incidence_rules(STATUS_CONGESTION, id_campaign, contact_id, phone_number)
+        cls.GM_CLIENT.submit_job('send-reports', job.data, background=True)
         return b'Event was processed'
 
 
@@ -679,16 +699,20 @@ class NaiveWorker(DialerWorker):
             cursor_dialer.execute('SELECT COUNT(*) FROM ONLY contact_in_campaign WHERE id_campaign = %s and (status = %s or status = %s);',
                                   (id_campaign, STATUS_CREATED, STATUS_SELECTED_CALL))
             pending_for_call = cursor_dialer.fetchone()[0]
-        stats = "{}"
-        cls.connect_redis_dialer()
-        cls.REDIS_DIALER_CONNECTION.hset(
-            f'CAMP:{id_campaign}:COUNTER',
-            'PENDING_CONTACT_ATTEMPTS', # pending to be contacted for the first time
-            pending_for_call
-        )
-        cls.connect_redis_oml()
-        cls.REDIS_OML_CONNECTION.publish(f'OML:CHANNEL:DIALEREVENTS:CAMP:{id_campaign}', stats)
-        return b'Success!'
+            cursor_dialer.execute('SELECT final_status, COUNT(*) FROM ONLY contact_in_campaign WHERE id_campaign = %s and final_status <> %s GROUP BY final_status;',
+                                  (id_campaign, INITIAL))
+            final_status_stats = cursor_dialer.fetchall()
+            logger.debug("var final_status_stats={0}".format(final_status_stats))
+            stats = "{}"
+            cls.connect_redis_dialer()
+            cls.REDIS_DIALER_CONNECTION.hset(
+                f'CAMP:{id_campaign}:COUNTER',
+                'PENDING_CONTACT_ATTEMPTS', # pending to be contacted for the first time
+                pending_for_call
+            )
+            cls.connect_redis_oml()
+            cls.REDIS_OML_CONNECTION.publish(f'OML:CHANNEL:DIALEREVENTS:CAMP:{id_campaign}', stats)
+            return b'Success!'
 
 
 class SingleCallWorker(NaiveWorker):

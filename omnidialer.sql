@@ -46,7 +46,8 @@ CREATE TABLE public.campaign (
     hour_start time without time zone NOT NULL,
     hour_ends time without time zone NOT NULL,
     contact_strategy integer[],
-    dialer_status integer NOT NULL
+    dialer_status integer NOT NULL,
+    statistics JSONB
 );
 
 
@@ -130,6 +131,7 @@ CREATE TABLE public.contact_in_campaign (
     id_contact integer NOT NULL,
     id integer NOT NULL,
     status integer NOT NULL,
+    final_status integer NOT NULL,
     history integer[]
 );
 
