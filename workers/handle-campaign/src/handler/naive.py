@@ -97,6 +97,11 @@ PENDING_ATTEMPTS = 1
 FINALIZED_NOCONTACT = 2
 FINALIZED_SUCCESS = 3
 
+FINAL_STATUS_TO_NAME = {
+    FINALIZED_NOCONTACT: "FINALIZED WITH NO CONTACT",
+    PENDING_ATTEMPTS: "NO CONTACTS WITH PENDING ATTEMPTS"
+}
+
 # percentage called threshold for notify OML
 PERCENTAGE_PENDING_CALL_THRESHOLD = 5
 
@@ -699,19 +704,24 @@ class NaiveWorker(DialerWorker):
             cursor_dialer.execute('SELECT COUNT(*) FROM ONLY contact_in_campaign WHERE id_campaign = %s and (status = %s or status = %s);',
                                   (id_campaign, STATUS_CREATED, STATUS_SELECTED_CALL))
             pending_for_call = cursor_dialer.fetchone()[0]
-            cursor_dialer.execute('SELECT final_status, COUNT(*) FROM ONLY contact_in_campaign WHERE id_campaign = %s and final_status <> %s GROUP BY final_status;',
-                                  (id_campaign, INITIAL))
-            final_status_stats = cursor_dialer.fetchall()
-            logger.debug("var final_status_stats={0}".format(final_status_stats))
-            stats = "{}"
+            cursor_dialer.execute('SELECT final_status, COUNT(*) FROM ONLY contact_in_campaign WHERE id_campaign = %s and final_status <> %s and final_status <> %s GROUP BY final_status;',
+                                  (id_campaign, INITIAL, FINALIZED_SUCCESS))
             cls.connect_redis_dialer()
+            for final_status_label, final_status_value in cursor_dialer.fetchall():
+                cls.REDIS_DIALER_CONNECTION.hset(
+                    f'CAMP:{id_campaign}:COUNTER',
+                    FINAL_STATUS_TO_NAME[final_status_label],
+                    final_status_value
+                )
             cls.REDIS_DIALER_CONNECTION.hset(
                 f'CAMP:{id_campaign}:COUNTER',
-                'PENDING_CONTACT_ATTEMPTS', # pending to be contacted for the first time
+                'PENDING_INITIAL_CONTACT_ATTEMPTS', # pending to be contacted for the first time
                 pending_for_call
             )
+            stats = cls.REDIS_DIALER_CONNECTION.hgetall(f'CAMP:{id_campaign}:COUNTER')
+            logger.debug(f'Report for campaign {id_campaign}: {stats}')
             cls.connect_redis_oml()
-            cls.REDIS_OML_CONNECTION.publish(f'OML:CHANNEL:DIALEREVENTS:CAMP:{id_campaign}', stats)
+            cls.REDIS_OML_CONNECTION.publish(f'OML:CHANNEL:DIALEREVENTS:CAMP:{id_campaign}', json.dumps(stats))
             return b'Success!'
 
 
