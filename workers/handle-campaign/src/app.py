@@ -22,6 +22,7 @@ JOBS_TO_METHODS = {
     'stop-campaign': WORKER.stop_campaign,
     'pause-campaign': WORKER.pause_campaign,
     'delete-campaign': WORKER.delete_campaign,
+    'add-incidence-rule-disposition': WORKER.add_incidence_rule_disposition,
     # medium processes
     'send-reports': WORKER.send_reports,
     # scheduled processes

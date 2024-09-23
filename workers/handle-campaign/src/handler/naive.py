@@ -737,6 +737,12 @@ class NaiveWorker(DialerWorker):
             return b'Success!'
 
 
+    @classmethod
+    @exception_handler_decorator
+    def add_incidence_rule_disposition(cls, worker, job):
+        return b'Incidence rule was added!'
+
+
 class SingleCallWorker(NaiveWorker):
     """Another naive dialer worker flow that makes only 1 call at a time, and after every call pauses the campaign,
     It will also remove the contacts one by one after the calls. Assumes the call was always answered."""

@@ -56,5 +56,13 @@ def delete_campaign(id_campaign):
     return DIALER.delete_campaign(id_campaign)
 
 
+@app.route('/add-incidence-rule-disposition/<id_campaign>', methods = ['POST'])
+def add_incidence_rule_disposition(id_campaign):
+    attempts = request.get_json().get('attempts', 0)
+    retry_later = request.get_json().get('retry-later', 0)
+    disposition_option = request.get_json().get('disposition_option', -1)
+    return DIALER.add_incidence_rule_disposition(id_campaign, attempts, retry_later, disposition_option)
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=1440, debug=True)
