@@ -728,9 +728,12 @@ class NaiveWorker(DialerWorker):
                 pending_for_call
             )
             stats = cls.REDIS_DIALER_CONNECTION.hgetall(f'CAMP:{id_campaign}:COUNTER')
+            stats_json = json.dumps(stats)
             logger.debug(f'Report for campaign {id_campaign}: {stats}')
             cls.connect_redis_oml()
-            cls.REDIS_OML_CONNECTION.publish(f'OML:CHANNEL:DIALEREVENTS:CAMP:{id_campaign}', json.dumps(stats))
+            cls.REDIS_OML_CONNECTION.publish(f'OML:CHANNEL:DIALEREVENTS:CAMP:{id_campaign}:EVENTS', job.data)
+            cls.REDIS_OML_CONNECTION.publish(f'OML:CHANNEL:DIALEREVENTS:CAMP:{id_campaign}', stats_json)
+            cursor_dialer.execute(f'UPDATE campaign SET statistics = %s WHERE id = %s;', (stats_json, id_campaign))
             return b'Success!'
 
 
