@@ -707,6 +707,15 @@ class NaiveWorker(DialerWorker):
             cursor_dialer.execute('SELECT final_status, COUNT(*) FROM ONLY contact_in_campaign WHERE id_campaign = %s and final_status <> %s and final_status <> %s GROUP BY final_status;',
                                   (id_campaign, INITIAL, FINALIZED_SUCCESS))
             cls.connect_redis_dialer()
+            # cleaning previous values of final_status related reports
+            cls.REDIS_DIALER_CONNECTION.hdel(
+                f'CAMP:{id_campaign}:COUNTER',
+                FINAL_STATUS_TO_NAME[PENDING_ATTEMPTS]
+            )
+            cls.REDIS_DIALER_CONNECTION.hdel(
+                f'CAMP:{id_campaign}:COUNTER',
+                FINAL_STATUS_TO_NAME[FINALIZED_NOCONTACT]
+            )
             for final_status_label, final_status_value in cursor_dialer.fetchall():
                 cls.REDIS_DIALER_CONNECTION.hset(
                     f'CAMP:{id_campaign}:COUNTER',
