@@ -58,8 +58,9 @@ def delete_campaign(id_campaign):
 
 @app.route('/add-incidence-rule-disposition/<id_campaign>', methods = ['POST'])
 def add_incidence_rule_disposition(id_campaign):
+    id_contact = request.get_json().get('id_contact', -1)
     disposition_option = request.get_json().get('disposition_option', -1)
-    return DIALER.add_incidence_rule_disposition(id_campaign, disposition_option)
+    return DIALER.add_incidence_rule_disposition(id_campaign, disposition_option, id_contact)
 
 
 if __name__ == '__main__':

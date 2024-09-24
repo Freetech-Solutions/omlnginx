@@ -25,3 +25,5 @@ bash add-worker-single-job.bash process-event process-event-1
 bash add-worker-single-job.bash schedule-contact schedule-contact-1
 
 bash add-worker-single-job.bash send-reports send-reports-1
+
+bash add-worker-single-job.bash add-incidence-rule-disposition add-incidence-rule-disposition-1

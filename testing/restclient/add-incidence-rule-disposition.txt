@@ -1,0 +1,7 @@
+POST http://localhost:1440/add-incidence-rule-disposition/4
+Content-Type: application/json
+
+{
+        "id_contact": 3,
+        "disposition_option": 7
+}

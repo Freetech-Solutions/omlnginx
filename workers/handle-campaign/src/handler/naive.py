@@ -102,6 +102,8 @@ FINAL_STATUS_TO_NAME = {
     PENDING_ATTEMPTS: "NO CONTACTS WITH PENDING ATTEMPTS"
 }
 
+NO_DISPOSITION_OPTION = -1
+
 # percentage called threshold for notify OML
 PERCENTAGE_PENDING_CALL_THRESHOLD = 5
 
@@ -266,8 +268,8 @@ class NaiveWorker(DialerWorker):
                         for (id_contact, phone, data, is_original) in contacts:
                             cursor_dialer.execute('INSERT INTO contact (id, phone, data, is_original) VALUES (%s, %s, %s, %s)'
                                                   'ON CONFLICT (id) DO NOTHING;', (id_contact, phone, data, is_original))
-                            cursor_dialer.execute('INSERT INTO contact_in_campaign (id_campaign, id_contact, status, final_status) VALUES (%s, %s, %s, %s);',
-                                                  (id_campaign, id_contact, STATUS_CREATED, INITIAL))
+                            cursor_dialer.execute('INSERT INTO contact_in_campaign (id_campaign, id_contact, status, final_status, disposition_option) VALUES (%s, %s, %s, %s, %s);',
+                                                  (id_campaign, id_contact, STATUS_CREATED, INITIAL, NO_DISPOSITION_OPTION))
 
         response = f'Campaign {id_campaign} with strategy {contact_strategy} created!!!'
 
@@ -740,6 +742,16 @@ class NaiveWorker(DialerWorker):
     @classmethod
     @exception_handler_decorator
     def add_incidence_rule_disposition(cls, worker, job):
+        data = cls.decode_payload(job.data)
+        id_campaign = data['id_campaign']
+        disposition_option = data['disposition_option']
+        id_contact = data['id_contact']
+        logger.debug(f'Adding disposition option {disposition_option} to the campaign {id_campaign}')
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute(
+                'UPDATE contact_in_campaign SET dispostion_option = %s WHERE id_campaign = %s and id_contact = %s;',
+                (disposition_option, id_campaign, id_contact))
         return b'Incidence rule was added!'
 
 

@@ -132,6 +132,7 @@ CREATE TABLE public.contact_in_campaign (
     id integer NOT NULL,
     status integer NOT NULL,
     final_status integer NOT NULL,
+    disposition_option integer,
     history integer[]
 );
 
