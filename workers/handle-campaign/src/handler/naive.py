@@ -746,11 +746,11 @@ class NaiveWorker(DialerWorker):
         id_campaign = data['id_campaign']
         disposition_option = data['disposition_option']
         id_contact = data['id_contact']
-        logger.debug(f'Adding disposition option {disposition_option} to the campaign {id_campaign}')
+        logger.debug(f'Adding disposition option {disposition_option} to contact {id_contact} in campaign {id_campaign}')
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute(
-                'UPDATE contact_in_campaign SET dispostion_option = %s WHERE id_campaign = %s and id_contact = %s;',
+                'UPDATE contact_in_campaign SET disposition_option = %s WHERE id_campaign = %s and id_contact = %s;',
                 (disposition_option, id_campaign, id_contact))
         return b'Incidence rule was added!'
 
