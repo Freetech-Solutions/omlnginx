@@ -8,3 +8,23 @@ TODO: try with "endpoint:PJSIP/omlacd", see if we can config read only the event
 With DB of 1500 contacts
 ** Avoiding Log exhaustion in Docker
 watch -t docker logs --tail 50 foo
+
+
+| campaign | agentes | active_campaign |
+|----------+---------+-----------------|
+| c1       | sa2     |                 |
+|          | sa3     |                 |
+|          | og1     |                 |
+|          | og2     |                 |
+
+
+
+num_agents_online_assigned_to_it / num_active_campaigns
+
+
+how to count agents?
+
+agent assigned to n campaigns active : 1/n
+
+
+sum (1/n_j) for agent i / num_active_campaigns
