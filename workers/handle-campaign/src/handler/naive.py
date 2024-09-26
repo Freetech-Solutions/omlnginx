@@ -367,13 +367,16 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
-    def get_number_available_agents(cls):
+    def get_number_available_agents(cls, id_campaign):
         cls.connect_redis_oml()
+        agent_ids_campaign = cls.get_agent_ids_campaign(id_campaign)
         agents_available = 0
         for key in cls.REDIS_OML_CONNECTION.scan_iter(match='OML:AGENT:*', count=1000):
-            status = cls.REDIS_OML_CONNECTION.hget(key, 'STATUS')
-            if status == 'READY':
-                agents_available += 1
+            id_agent = key.split(':')[-1]
+            if id_agent in agent_ids_campaign:
+                status = cls.REDIS_OML_CONNECTION.hget(key, 'STATUS')
+                if status == 'READY':
+                    agents_available += 1
         return agents_available
 
 
@@ -389,7 +392,7 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def get_allowed_attempts_according_agents(cls, id_campaign):
-        available_agents = cls.get_number_available_agents()
+        available_agents = cls.get_number_available_agents(id_campaign)
         active_campaigns = cls.get_number_active_campaigns()
         return available_agents / active_campaigns
 
