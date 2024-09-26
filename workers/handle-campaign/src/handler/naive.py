@@ -374,11 +374,11 @@ class NaiveWorker(DialerWorker):
     @classmethod
     def get_number_available_agents(cls, id_campaign):
         cls.connect_redis_oml()
-        agent_ids_campaign, agents_distribution = cls.get_agent_ids_campaign(id_campaign)
+        agents_distribution = cls.get_agent_ids_campaign(id_campaign)
         agents_available = 0
         for key in cls.REDIS_OML_CONNECTION.scan_iter(match='OML:AGENT:*', count=1000):
             id_agent = key.split(':')[-1]
-            if id_agent in agent_ids_campaign:
+            if agents_distribution[id_agent]:
                 status = cls.REDIS_OML_CONNECTION.hget(key, 'STATUS')
                 if status == 'READY':
                     agents_available += (1 / agents_distribution[id_agent])
