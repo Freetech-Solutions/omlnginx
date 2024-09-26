@@ -137,8 +137,6 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def process_campaign(cls, id_campaign):
-        # TODO: add validation for available channels
-        # contacts_attempts_number = min(num_available_channels, boost_factor * int(available_agents/active_campaigns)
         while cls.campaign_is_active(id_campaign):
             logger.debug(f'\nCampaign {id_campaign} is active')
             if cls.is_allowed_to_call(id_campaign):
@@ -380,17 +378,38 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
-    def allowed_parallel_contact_attempts(cls, id_campaign):
+    def get_active_channels(cls, id_campaign):
+        return 1
+
+
+    @classmethod
+    def get_campaign_max_available_channels(cls, id_campaign):
+        return 2
+
+
+    @classmethod
+    def get_allowed_attempts_according_agents(cls, id_campaign):
         available_agents = cls.get_number_available_agents()
         active_campaigns = cls.get_number_active_campaigns()
+        return available_agents / active_campaigns
+
+
+    @classmethod
+    def allowed_parallel_contact_attempts(cls, id_campaign):
+        active_channels = cls.get_active_channels(id_campaign)
+        campaign_max_available_channels = cls.get_campaign_max_available_channels(id_campaign)
+        num_available_channels = campaign_max_available_channels - active_channels
         logger.debug("var available_agents={0}".format(available_agents))
         logger.debug("var active_campaigns={0}".format(active_campaigns))
+        logger.debug("var active_channels={0}".format(active_channels))
+        logger.debug("Campaign {id_campaign}: campaign_max_available_channels={0}".format(campaign_max_available_channels))
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute('SELECT initial_boost_factor FROM ONLY campaign WHERE id = %s', (id_campaign,))
             boost_factor = cursor_dialer.fetchone()[0]
         if active_campaigns > 0:
-            return int(Decimal(available_agents / active_campaigns) * boost_factor)
+            allowed_parallel_attempts_acc_agents = int(Decimal(cls.get_allowed_attempts_according_agents(id_campaign)) * boost_factor)
+            return min(num_available_channels, allowed_parallel_attempts_acc_agents)
         return 0
 
 
