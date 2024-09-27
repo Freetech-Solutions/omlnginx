@@ -456,13 +456,15 @@ class NaiveWorker(DialerWorker):
     def process_contact(cls, worker, job):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
-        cls.attempt_contact_asterisk(data['contact'], id_campaign)
-        cls.connect_redis_dialer()
-        cls.REDIS_DIALER_CONNECTION.hincrby(
-            f'CAMP:{id_campaign}:COUNTER',
-            'ATTEMPTED_CALLS',
-        )
-        return b'Contact was called'
+        if cls.campaign_is_active(id_campaign):
+            cls.attempt_contact_asterisk(data['contact'], id_campaign)
+            cls.connect_redis_dialer()
+            cls.REDIS_DIALER_CONNECTION.hincrby(
+                f'CAMP:{id_campaign}:COUNTER',
+                'ATTEMPTED_CALLS',
+            )
+            return b'Contact was called'
+        return b'Aborted call, campaign is not active'
 
 
     @classmethod
