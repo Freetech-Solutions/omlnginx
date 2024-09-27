@@ -570,10 +570,38 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
+    def is_initial_event(cls, ari_event_data):
+        # TODO: implement
+        pass
+
+
+    @classmethod
+    def is_final_event(cls, ari_event_data):
+        # TODO: implement
+        pass
+
+
+    @classmethod
+    def add_channel_to_campaign(cls, id_campaign):
+        # TODO: implement
+        pass
+
+
+    @classmethod
+    def remove_channel_to_campaign(cls, id_campaign):
+        # TODO: implement
+        pass
+
+
+    @classmethod
     @exception_handler_decorator
     def process_event(cls, worker, job):
         ari_event_data = cls.decode_payload(job.data)
         id_campaign, contact_id, phone_number = cls.get_contact_data(ari_event_data)
+        if cls.is_initial_event(ari_event_data):
+            cls.add_channel_to_campaign(id_campaign)
+        if cls.is_final_event(ari_event_data):
+            cls.remove_channel_to_campaign(id_campaign)
         if cls.is_answer_event(ari_event_data):
             if cls.was_answered_pstn(ari_event_data):
                 logger.debug('Receiving answer pstn')
