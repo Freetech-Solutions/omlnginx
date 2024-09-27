@@ -177,21 +177,21 @@ class NaiveWorker(DialerWorker):
         # import campaign configuration from tables of OML
         logger.debug(f'Retrieving data from OML campaign with id={id_campaign}')
         logger.debug('From ominicontacto_app_campana')
-        cursor_oml.execute(f'SELECT id,estado,nombre,fecha_inicio,fecha_fin,control_de_duplicados,prioridad '
-                       f'FROM ominicontacto_app_campana WHERE id = {id_campaign};')
+        cursor_oml.execute('SELECT id,estado,nombre,fecha_inicio,fecha_fin,control_de_duplicados,prioridad '
+                           ' FROM ominicontacto_app_campana WHERE id = %s;', (id_campaign,))
         campaign_id_data = cursor_oml.fetchone()
         logger.debug('From queue_table')
-        cursor_oml.execute(f'SELECT strategy,wait,initial_predictive_model,initial_boost_factor '
-                       f' FROM queue_table WHERE campana_id = {id_campaign};')
+        cursor_oml.execute('SELECT strategy,wait,initial_predictive_model,initial_boost_factor '
+                           ' FROM queue_table WHERE campana_id = %s;', (id_campaign,))
         campaign_id_data += cursor_oml.fetchone()
         logger.debug('From ominicontacto_app_actuacionvigente')
-        cursor_oml.execute(f'SELECT domingo,lunes,martes,miercoles,jueves,viernes,sabado,hora_desde,hora_hasta'
-                       f' FROM ominicontacto_app_actuacionvigente WHERE campana_id = {id_campaign};')
+        cursor_oml.execute('SELECT domingo,lunes,martes,miercoles,jueves,viernes,sabado,hora_desde,hora_hasta'
+                           ' FROM ominicontacto_app_actuacionvigente WHERE campana_id = %s;', (id_campaign))
         campaign_id_data += cursor_oml.fetchone()
         logger.debug('Setting dialer specific options')
         campaign_id_data += (contact_strategy, CREATED)
         logger.debug('From incidence rules')
-        cursor_oml.execute(f'SELECT * FROM ominicontacto_app_reglasincidencia WHERE campana_id = {id_campaign};')
+        cursor_oml.execute('SELECT * FROM ominicontacto_app_reglasincidencia WHERE campana_id = %s;', (id_campaign,))
         incidence_rules_data = cursor_oml.fetchall()
         return campaign_id_data, incidence_rules_data
 
@@ -255,12 +255,12 @@ class NaiveWorker(DialerWorker):
                         cursor_dialer.execute("INSERT INTO incidence_rules (id, status, status_custom, max_attempt, retry_later, in_mode, campaign_id) VALUES (%s, %s, %s, %s, %s, %s, %s);", incidence_rule)
                     # TODO: import incidences rules for disposition options
                     logger.debug('Retrieving the contacts')
-                    sql = f"""SELECT co.id, co.telefono, co.datos, co.es_originario FROM ominicontacto_app_contacto AS co
+                    sql = """SELECT co.id, co.telefono, co.datos, co.es_originario FROM ominicontacto_app_contacto AS co
                     INNER JOIN ominicontacto_app_contacto AS db ON db.id = co.bd_contacto_id
-                    INNER JOIN ominicontacto_app_campana AS ca ON db.id = ca.bd_contacto_id AND ca.id = {id_campaign};"""
+                    INNER JOIN ominicontacto_app_campana AS ca ON db.id = ca.bd_contacto_id AND ca.id = %s;"""
                     size = 1000
                     logger.debug('Copying the contacts')
-                    cursor_oml.execute(sql)
+                    cursor_oml.execute(sql, (id_campaign,))
                     while True:
                         contacts = cursor_oml.fetchmany(size=size)
                         if not contacts:
@@ -293,7 +293,7 @@ class NaiveWorker(DialerWorker):
         day_of_week = WEEK_DAYS[int(cursor.fetchone()[0])]
         cursor.execute(f'SELECT {day_of_week} FROM ONLY campaign WHERE id = %s;', (id_campaign,))
         day_of_week_allowed = cursor.fetchone()[0]
-        cursor.execute(f'SELECT * FROM ONLY campaign WHERE id = %s AND CURRENT_TIME BETWEEN hour_start AND hour_ends;', (id_campaign,))
+        cursor.execute('SELECT * FROM ONLY campaign WHERE id = %s AND CURRENT_TIME BETWEEN hour_start AND hour_ends;', (id_campaign,))
         hour_match = cursor.fetchone()
         if not day_of_week_allowed:
             logger.debug(f'Campaign {id_campaign}: day week not allowed to call')
@@ -311,7 +311,7 @@ class NaiveWorker(DialerWorker):
 
             # notify to OML if the campaign is outdated and pause the campaign
             cursor_dialer.execute(
-                f"""SELECT id
+                """SELECT id
                 FROM ONLY campaign
                 WHERE end_date >= now()::date
                 AND start_date < now()::date
@@ -800,7 +800,7 @@ class NaiveWorker(DialerWorker):
             cls.connect_redis_oml()
             cls.REDIS_OML_CONNECTION.publish(f'OML:CHANNEL:DIALEREVENTS:CAMP:{id_campaign}:EVENTS', job.data)
             cls.REDIS_OML_CONNECTION.publish(f'OML:CHANNEL:DIALEREVENTS:CAMP:{id_campaign}', stats_json)
-            cursor_dialer.execute(f'UPDATE campaign SET statistics = %s WHERE id = %s;', (stats_json, id_campaign))
+            cursor_dialer.execute('UPDATE campaign SET statistics = %s WHERE id = %s;', (stats_json, id_campaign))
             return b'Success!'
 
 
