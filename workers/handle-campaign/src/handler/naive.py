@@ -226,6 +226,7 @@ class NaiveWorker(DialerWorker):
                     logger.debug('Inserting the incidence_rules into omnidialer')
                     for incidence_rule in incidence_rules_data:
                         cursor_dialer.execute("INSERT INTO incidence_rules (id, status, status_custom, max_attempt, retry_later, in_mode, campaign_id) VALUES (%s, %s, %s, %s, %s, %s, %s);", incidence_rule)
+                    # TODO: import incidences rules for disposition options
 
         response = f'Campaign {id_campaign} with strategy {contact_strategy} succesfully updated!!!'
 
@@ -252,6 +253,7 @@ class NaiveWorker(DialerWorker):
                     logger.debug('Inserting the incidence_rules into omnidialer')
                     for incidence_rule in incidence_rules_data:
                         cursor_dialer.execute("INSERT INTO incidence_rules (id, status, status_custom, max_attempt, retry_later, in_mode, campaign_id) VALUES (%s, %s, %s, %s, %s, %s, %s);", incidence_rule)
+                    # TODO: import incidences rules for disposition options
                     logger.debug('Retrieving the contacts')
                     sql = f"""SELECT co.id, co.telefono, co.datos, co.es_originario FROM ominicontacto_app_contacto AS co
                     INNER JOIN ominicontacto_app_contacto AS db ON db.id = co.bd_contacto_id
@@ -699,6 +701,7 @@ class NaiveWorker(DialerWorker):
             cursor.execute('SELECT * FROM ONLY incidence_rules WHERE campaign_id = %s;', (id_campaign,))
             for incidence_rule in cursor.fetchall():
                 cursor.execute('INSERT INTO incidence_rules_historic VALUES (%s, %s, %s, %s, %s, %s, %s);', incidence_rule)
+            # TODO: save to historic incidences rules for disposition options
             # 3- copy contacts
             logger.debug('Copying contacts data')
             size = 1000
