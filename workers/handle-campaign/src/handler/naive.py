@@ -323,6 +323,7 @@ class NaiveWorker(DialerWorker):
                 cls.connect_redis_oml()
                 cls.REDIS_OML_CONNECTION.publish(f'omnidialer-campaign-{id_campaign}',
                                                  'Campaign expired')
+                cls.finalize_campaign(id_campaign)
                 return False
 
             # notify to OML if there are no more contacts for call and pause the campaign
@@ -337,6 +338,7 @@ class NaiveWorker(DialerWorker):
                 cls.connect_redis_oml()
                 cls.REDIS_OML_CONNECTION.publish(f'omnidialer-campaign-{id_campaign}',
                                                  'No more contacts pending for call')
+                cls.finalize_campaign(id_campaign)
                 return False
 
             # notify to OML if there are less than PERCENTAGE_PENDING_CALL_THRESHOLD% of contacts pending for call
