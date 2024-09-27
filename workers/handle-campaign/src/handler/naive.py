@@ -370,6 +370,7 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def get_agent_ids_campaign(cls, id_campaign):
+        # TODO: implement
         return 1, {1: 1}
 
 
@@ -389,11 +390,13 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def get_active_channels(cls, id_campaign):
+        # TODO: implement
         return 1
 
 
     @classmethod
     def get_campaign_max_available_channels(cls, id_campaign):
+        # TODO: implement
         return 2
 
 
