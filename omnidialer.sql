@@ -133,7 +133,8 @@ CREATE TABLE public.contact_in_campaign (
     status integer NOT NULL,
     final_status integer NOT NULL,
     disposition_option integer,
-    history integer[]
+    history integer[],
+    disposition_history integer[]
 );
 
 
@@ -422,6 +423,98 @@ ALTER TABLE ONLY public.incidence_rules_historic
 ALTER TABLE ONLY public.incidence_rules
     ADD CONSTRAINT re_campaign_id_707899e9_fk_ominicont FOREIGN KEY (campaign_id) REFERENCES public.campaign(id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED ;
 
+
+CREATE TABLE public.incidence_rules_disposition (
+    id integer NOT NULL,
+    disposition_option_id integer NOT NULL,
+    max_attempt integer NOT NULL,
+    retry_later integer NOT NULL,
+    in_mode integer NOT NULL,
+    campaign_id integer NOT NULL,
+    CONSTRAINT incidence_rules_in_mode_check CHECK ((in_mode >= 0))
+);
+
+ALTER TABLE public.incidence_rules_disposition OWNER TO omnidialer;
+
+
+--
+-- Name: incidence_rules_historic; Type: TABLE; Schema: public; Owner: omnidialer
+--
+
+CREATE TABLE public.incidence_rules_disposition_historic (
+)
+INHERITS (public.incidence_rules);
+
+
+ALTER TABLE public.incidence_rules_disposition_historic OWNER TO omnidialer;
+
+--
+-- Name: incidence_rules_disposition_id_seq; Type: SEQUENCE; Schema: public; Owner: omnidialer
+--
+
+CREATE SEQUENCE public.incidence_rules_disposition_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.incidence_rules_disposition_id_seq OWNER TO omnidialer;
+
+--
+-- Name: incidence_rules_disposition_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: omnidialer
+--
+
+ALTER SEQUENCE public.incidence_rules_disposition_id_seq OWNED BY public.incidence_rules_disposition.id;
+
+--
+-- Name: incidence_rules_disposition id; Type: DEFAULT; Schema: public; Owner: omnidialer
+--
+
+ALTER TABLE ONLY public.incidence_rules_disposition ALTER COLUMN id SET DEFAULT nextval('public.incidence_rules_disposition_id_seq'::regclass);
+
+--
+-- Name: incidence_rules_disposition_historic id; Type: DEFAULT; Schema: public; Owner: omnidialer
+--
+
+ALTER TABLE ONLY public.incidence_rules_disposition_historic ALTER COLUMN id SET DEFAULT nextval('public.incidence_rules_disposition_id_seq'::regclass);
+
+--
+-- Name: incidence_rules_disposition incidence_rules_disposition_pkey; Type: CONSTRAINT; Schema: public; Owner: omnidialer
+--
+
+ALTER TABLE ONLY public.incidence_rules_disposition
+    ADD CONSTRAINT incidence_rules_disposition_pkey PRIMARY KEY (id);
+
+-- Name: fki_incidence_rules_disposition_historic_fkey_campaign_id; Type: INDEX; Schema: public; Owner: omnidialer
+--
+
+CREATE INDEX fki_incidence_rules_disposition_historic_fkey_campaign_id ON public.incidence_rules_disposition_historic USING btree (campaign_id);
+
+
+--
+-- Name: incidence_rules_disposition_campaign_disposition_id_707899e9; Type: INDEX; Schema: public; Owner: omnidialer
+--
+
+CREATE INDEX incidence_rules_campaign_disposition_id_707899e9 ON public.incidence_rules_disposition USING btree (campaign_id);
+
+
+--
+-- Name: incidence_rules_disposition_historic incidence_rules_disposition_historic_fkey_campaign_id; Type: FK CONSTRAINT; Schema: public; Owner: omnidialer
+--
+
+ALTER TABLE ONLY public.incidence_rules_disposition_historic
+    ADD CONSTRAINT incidence_rules_disposition_historic_fkey_campaign_id FOREIGN KEY (campaign_id) REFERENCES public.campaign_historic(id) ON DELETE CASCADE NOT VALID;
+
+
+--
+-- Name: incidence_rules_disposition re_campaign_id_707899ea_fk_ominicont; Type: FK CONSTRAINT; Schema: public; Owner: omnidialer
+--
+
+ALTER TABLE ONLY public.incidence_rules_disposition
+    ADD CONSTRAINT re_campaign_id_707899ea_fk_ominicont FOREIGN KEY (campaign_id) REFERENCES public.campaign(id) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED ;
 
 --
 -- PostgreSQL database dump complete
