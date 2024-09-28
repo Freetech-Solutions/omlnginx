@@ -23,6 +23,35 @@ insert into incidence_rules values (2, 4, 'congestion', 3, 40, 1, 4)
 insert into incidence_rules values (1, 1, 'busy', 4, 20, 1, 4)
 #+end_src
 
+# inspect the incidence rules for the campaign
+#+begin_src sql :engine postgresql :dbhost localhost :dbuser omnidialer :dbpassword dialer456 :database omnidialer :dbport 5433
+select * from only incidence_rules_disposition where campaign_id = 4;
+#+end_src
+
+#+RESULTS:
+| id | disposition_option_id | max_attempt | retry_later | in_mode | campaign_id |
+|----+-----------------------+-------------+-------------+---------+-------------|
+|  1 |                     3 |           2 |          10 |       1 |           4 |
+|  2 |                     5 |           3 |           5 |       1 |           4 |
+
+# insert an incidence_rule for disposition_option_id = 3
+#+begin_src sql :engine postgresql :dbhost localhost :dbuser omnidialer :dbpassword dialer456 :database omnidialer :dbport 5433
+insert into incidence_rules_disposition values (1, 3, 2, 10, 1, 4)
+#+end_src
+
+#+RESULTS:
+| INSERT 0 1 |
+|------------|
+
+# insert an incidence_rule for disposition_option_id = 5
+#+begin_src sql :engine postgresql :dbhost localhost :dbuser omnidialer :dbpassword dialer456 :database omnidialer :dbport 5433
+insert into incidence_rules_disposition values (2, 5, 3, 5, 1, 4)
+#+end_src
+
+#+RESULTS:
+| INSERT 0 1 |
+|------------|
+
 # Cleaning the contact statuses in the campaign, just for start fresh, useful for see again the calls behavior without
 # restart anything
 #+begin_src sql :engine postgresql :dbhost localhost :dbuser omnidialer :dbpassword dialer456 :database omnidialer :dbport 5433
