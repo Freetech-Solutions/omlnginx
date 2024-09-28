@@ -164,7 +164,7 @@ class NaiveWorker(DialerWorker):
     @classmethod
     def is_allowed_to_call(cls, id_campaign):
         # check if opening hours are ok
-        # TODO: a possible optimization here could be pause the campaign and place a schedule task
+        # TODO: a possible optimization here could be pause the campaign and place a scheduled task
         # to resume it later at the following allowed opening hour
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
@@ -211,7 +211,8 @@ class NaiveWorker(DialerWorker):
                 cursor_dialer = conn_dialer.cursor()
                 with psycopg.connect(cls.POSTGRES_OML_CONNECTION_STR) as conn_oml:
                     cursor_oml = conn_oml.cursor()
-                    campaign_id_data, incidence_rules_data = cls.get_campaign_data(id_campaign, cursor_oml, contact_strategy)
+                    campaign_id_data, incidence_rules_data, incidence_rules_disposition_data = cls.get_campaign_data(
+                        id_campaign, cursor_oml, contact_strategy)
                     # 1- update campaign table
                     logger.debug('Inserting the campaign data into omnidialer')
                     params = campaign_id_data[1:] + (id_campaign,)
@@ -225,8 +226,12 @@ class NaiveWorker(DialerWorker):
                     cursor_dialer.execute('DELETE FROM incidence_rules WHERE campaign_id = %s', (id_campaign,))
                     logger.debug('Inserting the incidence_rules into omnidialer')
                     for incidence_rule in incidence_rules_data:
-                        cursor_dialer.execute("INSERT INTO incidence_rules (id, status, status_custom, max_attempt, retry_later, in_mode, campaign_id) VALUES (%s, %s, %s, %s, %s, %s, %s);", incidence_rule)
-                    # TODO: import incidences rules for disposition options
+                        cursor_dialer.execute("INSERT INTO incidence_rules (id, status, status_custom, max_attempt, retry_later, in_mode, campaign_id) VALUES (%s, %s, %s, %s, %s, %s);", incidence_rule)
+                    cursor_dialer.execute('DELETE FROM incidence_rules_disposition WHERE campaign_id = %s', (id_campaign,))
+                    logger.debug('Inserting the incidence_rules for disposition into omnidialer')
+                    for incidence_rule in incidence_rules_disposition_data:
+                        cursor_dialer.execute("INSERT INTO incidence_rules_disposition (id, disposition_option_id, max_attempt, retry_later, in_mode, campaign_id) VALUES (%s, %s, %s, %s, %s, %s, %s);", incidence_rule)
+
 
         response = f'Campaign {id_campaign} with strategy {contact_strategy} succesfully updated!!!'
 
@@ -247,13 +252,16 @@ class NaiveWorker(DialerWorker):
                 cursor_dialer = conn_dialer.cursor()
                 with psycopg.connect(cls.POSTGRES_OML_CONNECTION_STR) as conn_oml:
                     cursor_oml = conn_oml.cursor()
-                    campaign_id_data, incidence_rules_data = cls.get_campaign_data(id_campaign, cursor_oml, contact_strategy)
+                    campaign_id_data, incidence_rules_data, incidence_rules_disposition_data = cls.get_campaign_data(
+                        id_campaign, cursor_oml, contact_strategy)
                     logger.debug('Inserting the campaign data into omnidialer')
                     cursor_dialer.execute("INSERT INTO campaign (id, oml_status, name, start_date, end_date, duplicates_control, priority, strategy, wait, initial_predictive_model, initial_boost_factor, sunday, monday, tuesday, wednesday, thursday, friday, saturday, hour_start, hour_ends, contact_strategy, dialer_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);", campaign_id_data)
                     logger.debug('Inserting the incidence_rules into omnidialer')
                     for incidence_rule in incidence_rules_data:
                         cursor_dialer.execute("INSERT INTO incidence_rules (id, status, status_custom, max_attempt, retry_later, in_mode, campaign_id) VALUES (%s, %s, %s, %s, %s, %s, %s);", incidence_rule)
-                    # TODO: import incidences rules for disposition options
+                    logger.debug('Inserting the incidence_rules for disposition option into omnidialer')
+                    for incidence_rule in incidence_rules_disposition_data:
+                        cursor_dialer.execute("INSERT INTO incidence_rules (id, disposition_option_id, max_attempt, retry_later, in_mode, campaign_id) VALUES (%s, %s, %s, %s, %s, %s);", incidence_rule)
                     logger.debug('Retrieving the contacts')
                     sql = """SELECT co.id, co.telefono, co.datos, co.es_originario FROM ominicontacto_app_contacto AS co
                     INNER JOIN ominicontacto_app_contacto AS db ON db.id = co.bd_contacto_id
@@ -736,7 +744,9 @@ class NaiveWorker(DialerWorker):
             cursor.execute('SELECT * FROM ONLY incidence_rules WHERE campaign_id = %s;', (id_campaign,))
             for incidence_rule in cursor.fetchall():
                 cursor.execute('INSERT INTO incidence_rules_historic VALUES (%s, %s, %s, %s, %s, %s, %s);', incidence_rule)
-            # TODO: save to historic incidences rules for disposition options
+            cursor.execute('SELECT * FROM ONLY incidence_rules_disposition WHERE campaign_id = %s;', (id_campaign,))
+            for incidence_rule in cursor.fetchall():
+                cursor.execute('INSERT INTO incidence_rules_disposition_historic VALUES (%s, %s, %s, %s, %s, %s);', incidence_rule)
             # 3- copy contacts
             logger.debug('Copying contacts data')
             size = 1000
