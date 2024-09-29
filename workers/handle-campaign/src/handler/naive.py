@@ -186,14 +186,21 @@ class NaiveWorker(DialerWorker):
         campaign_id_data += cursor_oml.fetchone()
         logger.debug('From ominicontacto_app_actuacionvigente')
         cursor_oml.execute('SELECT domingo,lunes,martes,miercoles,jueves,viernes,sabado,hora_desde,hora_hasta'
-                           ' FROM ominicontacto_app_actuacionvigente WHERE campana_id = %s;', (id_campaign))
+                           ' FROM ominicontacto_app_actuacionvigente WHERE campana_id = %s;', (id_campaign,))
         campaign_id_data += cursor_oml.fetchone()
         logger.debug('Setting dialer specific options')
         campaign_id_data += (contact_strategy, CREATED)
         logger.debug('From incidence rules')
         cursor_oml.execute('SELECT * FROM ominicontacto_app_reglasincidencia WHERE campana_id = %s;', (id_campaign,))
         incidence_rules_data = cursor_oml.fetchall()
-        return campaign_id_data, incidence_rules_data
+        logger.debug('From incidence rules for disposition options')
+        cursor_oml.execute(
+            """SELECT ric.id,ric.opcion_calificacion_id,ric.intento_max,ric.reintentar_tarde,ric.en_modo,opc.campana_id
+            FROM ominicontacto_app_reglaincidenciaporcalificacion AS ric
+            INNER JOIN ominicontacto_app_opcioncalificacion AS opc ON ric.opcion_calificacion_id = opc.id
+            AND opc.campana_id = %s;""", (id_campaign,))
+        incidence_rules_disposition_data = cursor_oml.fetchall()
+        return campaign_id_data, incidence_rules_data, incidence_rules_disposition_data
 
 
     @classmethod
@@ -230,7 +237,7 @@ class NaiveWorker(DialerWorker):
                     cursor_dialer.execute('DELETE FROM incidence_rules_disposition WHERE campaign_id = %s', (id_campaign,))
                     logger.debug('Inserting the incidence_rules for disposition into omnidialer')
                     for incidence_rule in incidence_rules_disposition_data:
-                        cursor_dialer.execute("INSERT INTO incidence_rules_disposition (id, disposition_option_id, max_attempt, retry_later, in_mode, campaign_id) VALUES (%s, %s, %s, %s, %s, %s, %s);", incidence_rule)
+                        cursor_dialer.execute("INSERT INTO incidence_rules_disposition (id, disposition_option_id, max_attempt, retry_later, in_mode, campaign_id) VALUES (%s, %s, %s, %s, %s, %s);", incidence_rule)
 
 
         response = f'Campaign {id_campaign} with strategy {contact_strategy} succesfully updated!!!'
@@ -261,7 +268,7 @@ class NaiveWorker(DialerWorker):
                         cursor_dialer.execute("INSERT INTO incidence_rules (id, status, status_custom, max_attempt, retry_later, in_mode, campaign_id) VALUES (%s, %s, %s, %s, %s, %s, %s);", incidence_rule)
                     logger.debug('Inserting the incidence_rules for disposition option into omnidialer')
                     for incidence_rule in incidence_rules_disposition_data:
-                        cursor_dialer.execute("INSERT INTO incidence_rules (id, disposition_option_id, max_attempt, retry_later, in_mode, campaign_id) VALUES (%s, %s, %s, %s, %s, %s);", incidence_rule)
+                        cursor_dialer.execute("INSERT INTO incidence_rules_disposition (id, disposition_option_id, max_attempt, retry_later, in_mode, campaign_id) VALUES (%s, %s, %s, %s, %s, %s);", incidence_rule)
                     logger.debug('Retrieving the contacts')
                     sql = """SELECT co.id, co.telefono, co.datos, co.es_originario FROM ominicontacto_app_contacto AS co
                     INNER JOIN ominicontacto_app_contacto AS db ON db.id = co.bd_contacto_id
