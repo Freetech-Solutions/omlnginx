@@ -443,7 +443,7 @@ ALTER TABLE public.incidence_rules_disposition OWNER TO omnidialer;
 
 CREATE TABLE public.incidence_rules_disposition_historic (
 )
-INHERITS (public.incidence_rules);
+INHERITS (public.incidence_rules_disposition);
 
 
 ALTER TABLE public.incidence_rules_disposition_historic OWNER TO omnidialer;
