@@ -388,6 +388,7 @@ class NaiveWorker(DialerWorker):
     @classmethod
     def get_agent_ids_campaign(cls, id_campaign):
         # TODO: implement
+        # TODO: use this query AgenteProfile.objects.all().values('id', 'campana_member__membername').annotate(dcount=Count('campana_member__membername')).order_by()
         return 1, {1: 1}
 
 
