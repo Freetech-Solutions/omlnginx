@@ -181,7 +181,7 @@ class NaiveWorker(DialerWorker):
                            ' FROM ominicontacto_app_campana WHERE id = %s;', (id_campaign,))
         campaign_id_data = cursor_oml.fetchone()
         logger.debug('From queue_table')
-        cursor_oml.execute('SELECT strategy,wait,initial_predictive_model,initial_boost_factor,maxlevel '
+        cursor_oml.execute('SELECT strategy,wait,initial_predictive_model,initial_boost_factor,maxlen '
                            ' FROM queue_table WHERE campana_id = %s;', (id_campaign,))
         campaign_id_data += cursor_oml.fetchone()
         logger.debug('From ominicontacto_app_actuacionvigente')
@@ -758,7 +758,7 @@ class NaiveWorker(DialerWorker):
             cursor.execute('SELECT * FROM ONLY campaign WHERE id = %s;', (id_campaign,))
             campaign_data = cursor.fetchone()
             sql1 = 'INSERT INTO campaign_historic VALUES'
-            sql2 = ' ({0} %s);'.format('%s, ' * 22)
+            sql2 = ' ({0} %s);'.format('%s, ' * 23)
             sql = sql1 + sql2
             cursor.execute(sql, campaign_data)
             # 2- copy incidence rules
