@@ -34,6 +34,7 @@ CREATE TABLE public.campaign (
     priority integer NOT NULL,
     strategy character varying(128) NOT NULL,
     wait integer NOT NULL,
+    max_channels integer NOT NULL,
     initial_predictive_model boolean NOT NULL,
     initial_boost_factor numeric(3,1),
     sunday boolean NOT NULL,

@@ -181,7 +181,7 @@ class NaiveWorker(DialerWorker):
                            ' FROM ominicontacto_app_campana WHERE id = %s;', (id_campaign,))
         campaign_id_data = cursor_oml.fetchone()
         logger.debug('From queue_table')
-        cursor_oml.execute('SELECT strategy,wait,initial_predictive_model,initial_boost_factor '
+        cursor_oml.execute('SELECT strategy,wait,initial_predictive_model,initial_boost_factor,maxlevel '
                            ' FROM queue_table WHERE campana_id = %s;', (id_campaign,))
         campaign_id_data += cursor_oml.fetchone()
         logger.debug('From ominicontacto_app_actuacionvigente')
@@ -226,7 +226,7 @@ class NaiveWorker(DialerWorker):
                     cursor_dialer.execute(
                         """UPDATE campaign SET oml_status = %s, name = %s, start_date = %s, end_date = %s,
                         duplicates_control = %s, priority = %s, strategy = %s, wait = %s, initial_predictive_model = %s,
-                        initial_boost_factor = %s, sunday = %s, monday = %s, tuesday = %s, wednesday = %s,
+                        initial_boost_factor = %s, max_channels = %s, sunday = %s, monday = %s, tuesday = %s, wednesday = %s,
                         thursday = %s, friday = %s, saturday = %s, hour_start = %s, hour_ends = %s, contact_strategy = %s,
                         dialer_status = %s WHERE id = %s;""", params)
                     # 2- update incidence rules
@@ -262,7 +262,7 @@ class NaiveWorker(DialerWorker):
                     campaign_id_data, incidence_rules_data, incidence_rules_disposition_data = cls.get_campaign_data(
                         id_campaign, cursor_oml, contact_strategy)
                     logger.debug('Inserting the campaign data into omnidialer')
-                    cursor_dialer.execute("INSERT INTO campaign (id, oml_status, name, start_date, end_date, duplicates_control, priority, strategy, wait, initial_predictive_model, initial_boost_factor, sunday, monday, tuesday, wednesday, thursday, friday, saturday, hour_start, hour_ends, contact_strategy, dialer_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);", campaign_id_data)
+                    cursor_dialer.execute("INSERT INTO campaign (id, oml_status, name, start_date, end_date, duplicates_control, priority, strategy, wait, initial_predictive_model, initial_boost_factor, max_channels, sunday, monday, tuesday, wednesday, thursday, friday, saturday, hour_start, hour_ends, contact_strategy, dialer_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);", campaign_id_data)
                     logger.debug('Inserting the incidence_rules into omnidialer')
                     for incidence_rule in incidence_rules_data:
                         cursor_dialer.execute("INSERT INTO incidence_rules (id, status, status_custom, max_attempt, retry_later, in_mode, campaign_id) VALUES (%s, %s, %s, %s, %s, %s, %s);", incidence_rule)
@@ -423,11 +423,13 @@ class NaiveWorker(DialerWorker):
         return cls.REDIS_DIALER_CONNECTION.hget(f'CAMP:{id_campaign}:COUNTER', 'ACTIVE_CHANNELS')
 
 
-
     @classmethod
     def get_campaign_max_available_channels(cls, id_campaign):
-        # TODO: implement
-        return 2
+        # TODO: consider some caching here?
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute('SELECT max_channels FROM ONLY campaign WHERE id = %s;', (id_campaign,))
+            return cursor_dialer.fetchone()[0]
 
 
     @classmethod
