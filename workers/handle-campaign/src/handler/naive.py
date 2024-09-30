@@ -409,18 +409,20 @@ class NaiveWorker(DialerWorker):
         agents_distribution = cls.get_agent_ids_campaign(id_campaign)
         agents_available = 0
         for key in cls.REDIS_OML_CONNECTION.scan_iter(match='OML:AGENT:*', count=1000):
-            id_agent = key.split(':')[-1]
-            if agents_distribution[id_agent]:
+            id_agent = int(key.split(':')[-1])
+            if agents_distribution.get(id_agent):
                 status = cls.REDIS_OML_CONNECTION.hget(key, 'STATUS')
                 if status == 'READY':
                     agents_available += (1 / agents_distribution[id_agent])
+        if agents_available < 1:
+            return 1
         return int(agents_available)
 
 
     @classmethod
     def get_active_channels(cls, id_campaign):
         cls.connect_redis_dialer()
-        return cls.REDIS_DIALER_CONNECTION.hget(f'CAMP:{id_campaign}:COUNTER', 'ACTIVE_CHANNELS')
+        return cls.REDIS_DIALER_CONNECTION.hget(f'CAMP:{id_campaign}:COUNTER', 'ACTIVE_CHANNELS') or 0
 
 
     @classmethod
@@ -436,7 +438,11 @@ class NaiveWorker(DialerWorker):
     def get_allowed_attempts_according_agents(cls, id_campaign):
         available_agents = cls.get_number_available_agents(id_campaign)
         active_campaigns = cls.get_number_active_campaigns()
-        return available_agents / active_campaigns
+        logger.debug("Campaign {0}: active_campaigns={1}".format(id_campaign, active_campaigns))
+        logger.debug("Campaign {0}: available_agents={1}".format(id_campaign, available_agents))
+        if active_campaigns > 0:
+            return available_agents / active_campaigns
+        return 0
 
 
     @classmethod
@@ -444,18 +450,14 @@ class NaiveWorker(DialerWorker):
         active_channels = cls.get_active_channels(id_campaign)
         campaign_max_available_channels = cls.get_campaign_max_available_channels(id_campaign)
         num_available_channels = campaign_max_available_channels - active_channels
-        logger.debug("var available_agents={0}".format(available_agents))
-        logger.debug("var active_campaigns={0}".format(active_campaigns))
         logger.debug("var active_channels={0}".format(active_channels))
-        logger.debug("Campaign {id_campaign}: campaign_max_available_channels={0}".format(campaign_max_available_channels))
+        logger.debug("Campaign {0}: campaign_max_available_channels={1}".format(id_campaign, campaign_max_available_channels))
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute('SELECT initial_boost_factor FROM ONLY campaign WHERE id = %s', (id_campaign,))
             boost_factor = cursor_dialer.fetchone()[0]
-        if active_campaigns > 0:
             allowed_parallel_attempts_acc_agents = int(Decimal(cls.get_allowed_attempts_according_agents(id_campaign)) * boost_factor)
             return min(num_available_channels, allowed_parallel_attempts_acc_agents)
-        return 0
 
 
     @classmethod
@@ -609,13 +611,13 @@ class NaiveWorker(DialerWorker):
     @classmethod
     def is_initial_event(cls, ari_event_data):
         # TODO: implement
-        pass
+        return False
 
 
     @classmethod
     def is_final_event(cls, ari_event_data):
         # TODO: implement
-        pass
+        return False
 
 
     @classmethod
