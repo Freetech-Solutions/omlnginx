@@ -387,9 +387,20 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def get_agent_ids_campaign(cls, id_campaign):
-        # TODO: implement
-        # TODO: use this query AgenteProfile.objects.all().values('id', 'campana_member__membername').annotate(dcount=Count('campana_member__membername')).order_by()
-        return 1, {1: 1}
+        # TODO: should we check if the campaigns linked to the agents are active?
+        with psycopg.connect(cls.POSTGRES_OML_CONNECTION_STR) as conn_oml:
+            cursor_oml = conn_oml.cursor()
+            cursor_oml.execute(
+                """SELECT ominicontacto_app_agenteprofile.id, COUNT(queue_table.campana_id) AS queue__campana__count
+                FROM ominicontacto_app_agenteprofile LEFT OUTER JOIN queue_member_table ON (ominicontacto_app_agenteprofile.id = queue_member_table.member_id)
+                LEFT OUTER JOIN queue_table ON (queue_member_table.queue_name = queue_table.name) WHERE ominicontacto_app_agenteprofile.id in
+                (
+                SELECT ominicontacto_app_agenteprofile.id FROM ominicontacto_app_agenteprofile
+                INNER JOIN queue_member_table ON (ominicontacto_app_agenteprofile.id = queue_member_table.member_id)
+                INNER JOIN queue_table ON (queue_member_table.queue_name = queue_table.name) WHERE queue_table.campana_id = %s
+                ) GROUP BY ominicontacto_app_agenteprofile.id;""",
+                (id_campaign,))
+            return dict(cursor_oml.fetchall())
 
 
     @classmethod
