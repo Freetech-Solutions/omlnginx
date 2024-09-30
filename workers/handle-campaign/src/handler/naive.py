@@ -419,8 +419,9 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def get_active_channels(cls, id_campaign):
-        # TODO: implement
-        return 1
+        cls.connect_redis_dialer()
+        return cls.REDIS_DIALER_CONNECTION.hget(f'CAMP:{id_campaign}:COUNTER', 'ACTIVE_CHANNELS')
+
 
 
     @classmethod
