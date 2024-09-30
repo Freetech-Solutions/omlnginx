@@ -618,14 +618,14 @@ class NaiveWorker(DialerWorker):
 
     @classmethod
     def add_channel_to_campaign(cls, id_campaign):
-        # TODO: implement
-        pass
+        cls.connect_redis_dialer()
+        return cls.REDIS_DIALER_CONNECTION.hincrby(f'CAMP:{id_campaign}:COUNTER', 'ACTIVE_CHANNELS', 1)
 
 
     @classmethod
     def remove_channel_to_campaign(cls, id_campaign):
-        # TODO: implement
-        pass
+        cls.connect_redis_dialer()
+        return cls.REDIS_DIALER_CONNECTION.hincrby(f'CAMP:{id_campaign}:COUNTER', 'ACTIVE_CHANNELS', -1)
 
 
     @classmethod
