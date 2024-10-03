@@ -847,6 +847,13 @@ class NaiveWorker(DialerWorker):
             cursor_dialer.execute(
                 'UPDATE contact_in_campaign SET disposition_option = %s WHERE id_campaign = %s and id_contact = %s;',
                 (disposition_option, id_campaign, id_contact))
+        # TODO: below ...
+        # set contact history (redis and postgres)
+        # apply incidence rule
+        # # if the incidence rule apply and the campaign is finalized, reactivate(?) the campaign
+        # # update statistics
+        # # schedule call if applies
+        # # log workflow
         return b'Incidence rule was added!'
 
 
