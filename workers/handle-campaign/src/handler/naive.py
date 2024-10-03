@@ -83,12 +83,12 @@ STATUS_BUSY = 1
 STATUS_NOANSWER = 3
 STATUS_CONGESTION = 4
 
-STATUS_TO_NAME = {
-    STATUS_BUSY: "BUSY",
-    STATUS_NOANSWER: "NOANSWER",
-    STATUS_CONGESTION: "CONGESTION",
-    STATUS_ANSWERED_PSTN: "ANSWERED_PSTN",
-    STATUS_ANSWERED_AGENT: "ANSWERED_AGENT",
+NAME_TO_STATUS = {
+    "BUSY": STATUS_BUSY,
+    "NOANSWER": STATUS_NOANSWER,
+    "CONGESTION": STATUS_CONGESTION,
+    "ANSWERED_PSTN": STATUS_ANSWERED_PSTN,
+    "ANSWERED_AGENT": STATUS_ANSWERED_AGENT,
 }
 
 # contact final status
@@ -106,6 +106,14 @@ NO_DISPOSITION_OPTION = -1
 
 # percentage called threshold for notify OML
 PERCENTAGE_PENDING_CALL_THRESHOLD = 5
+
+
+# status types
+PHONE_TYPE = 1
+DISPOSITION_TYPE = 2
+
+# fail statuses
+FAIL_EVENTS = ['BUSY', 'NOANSWER', 'CONGESTION']
 
 
 def exception_handler_decorator(method):
@@ -571,11 +579,12 @@ class NaiveWorker(DialerWorker):
     @timed_lru_cache(seconds=600, maxsize=128)
     def get_incidence_rule(cls, id_campaign, status):
         logger.debug(f'Campaign {id_campaign}: getting the incidence rule for {status}')
+        status_code = NAME_TO_STATUS[status]
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute(
                 'SELECT retry_later, max_attempt FROM ONLY incidence_rules WHERE campaign_id = %s AND status = %s;',
-                (id_campaign, status))
+                (id_campaign, status_code))
             return cursor_dialer.fetchone()
 
 
@@ -585,13 +594,14 @@ class NaiveWorker(DialerWorker):
         #   if the contact's history and the incidence rule indicates that the
         #   contact must be called again, schedule a call according to the incidence rule
         cls.connect_redis_dialer()
+        status_code = NAME_TO_STATUS[status]
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             incidence_rule = cls.get_incidence_rule(id_campaign, status)
             if incidence_rule is not None:
                 retry_later, max_attempt = incidence_rule
                 contact_history = cls.REDIS_DIALER_CONNECTION.lrange(f'CONTACT:{contact_id}:CAMP:{id_campaign}:HISTORY', 0, -1)
-                if contact_history.count(str(status)) <= max_attempt:
+                if contact_history.count(str((status_code, PHONE_TYPE))) <= max_attempt:
                     contact = (contact_id, id_campaign, phone_number)
                     message = json.dumps({'contact_info': contact, 'delay': retry_later})
                     cursor_dialer.execute('UPDATE contact_in_campaign SET final_status = %s WHERE id_campaign = %s and id_contact = %s;',
@@ -642,12 +652,14 @@ class NaiveWorker(DialerWorker):
         if cls.is_final_event(ari_event_data):
             cls.remove_channel_to_campaign(id_campaign)
         if cls.is_answer_event(ari_event_data):
-            if cls.was_answered_pstn(ari_event_data):
+            if cls.is_answered_pstn(ari_event_data):
+                status = "ANSWERED_PSTN"
                 logger.debug('Receiving answer pstn')
-                cls.set_contact_status(id_campaign, contact_id, STATUS_ANSWERED_PSTN)
-            elif cls.was_answered_agent(ari_event_data):
+                cls.set_contact_status(id_campaign, contact_id, status)
+            elif cls.is_answered_agent(ari_event_data):
+                status = "ANSWERED_AGENT"
                 logger.debug('Receiving answer agent')
-                cls.set_contact_status(id_campaign, contact_id, STATUS_ANSWERED_AGENT)
+                cls.set_contact_status(id_campaign, contact_id, status)
                 cls.connect_redis_dialer()
                 with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
                     cursor_dialer = conn_dialer.cursor()
@@ -656,21 +668,25 @@ class NaiveWorker(DialerWorker):
                     cls.REDIS_DIALER_CONNECTION.hset(f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'STATUS', FINALIZED_SUCCESS)
                 logger.debug(f'Contact {contact_id} was succesfully called to phone {phone_number}'
                              f' in campaign {id_campaign}')
-        elif cls.is_busy_event(ari_event_data):
-            logger.debug('Receiving busy')
-            cls.set_contact_status(id_campaign, contact_id, STATUS_BUSY)
-            cls.handle_incidence_rules(STATUS_BUSY, id_campaign, contact_id, phone_number)
-        elif cls.is_noanswer_event(ari_event_data):
-            logger.debug('Receiving noanswer')
-            cls.set_contact_status(id_campaign, contact_id, STATUS_NOANSWER)
-            cls.handle_incidence_rules(STATUS_NOANSWER, id_campaign, contact_id, phone_number)
-        elif cls.is_congestion_event(ari_event_data):
-            logger.debug('Receiving congestion')
-            cls.set_contact_status(id_campaign, contact_id, STATUS_CONGESTION)
-            cls.handle_incidence_rules(STATUS_CONGESTION, id_campaign, contact_id, phone_number)
+        elif cls.is_fail_event(ari_event_data):
+            cls.handle_fail_event(ari_event_data, id_campaign, contact_id, phone_number)
         cls.GM_CLIENT.submit_job('send-reports', job.data, background=True)
         return b'Event was processed'
 
+
+    @classmethod
+    def is_fail_event(cls, ari_event_data):
+        dialstatus = ari_event_data.get('dialstatus')
+        type_event = ari_event_data.get('type')
+        return type_event == 'Dial' and dialstatus in FAIL_EVENTS
+
+
+    @classmethod
+    def handle_fail_event(cls, ari_event_data, id_campaign, contact_id, phone_number):
+        event = ari_event_data.get('dialstatus')
+        logger.debug(f'Receiving {event}')
+        cls.set_contact_status(id_campaign, contact_id, event)
+        cls.handle_incidence_rules(event, id_campaign, contact_id, phone_number)
 
     @classmethod
     def is_answer_event(cls, ari_event_data):
@@ -680,53 +696,33 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
-    def is_busy_event(cls, ari_event_data):
-        dialstatus = ari_event_data.get('dialstatus')
-        type_event = ari_event_data.get('type')
-        return type_event == 'Dial' and dialstatus == 'BUSY'
-
-
-    @classmethod
-    def is_noanswer_event(cls, ari_event_data):
-        dialstatus = ari_event_data.get('dialstatus')
-        type_event = ari_event_data.get('type')
-        return type_event == 'Dial' and dialstatus == 'NOANSWER'
-
-
-    @classmethod
-    def is_congestion_event(cls, ari_event_data):
-        dialstatus = ari_event_data.get('dialstatus')
-        type_event = ari_event_data.get('type')
-        return type_event == 'Dial' and dialstatus == 'CONGESTION'
-
-
-    @classmethod
     def get_contact_data(cls, ari_event_data):
         return ari_event_data['peer']['caller']['name'].split('_')
 
 
     @classmethod
-    def was_answered_pstn(cls, ari_event_data):
+    def is_answered_pstn(cls, ari_event_data):
         return ari_event_data['dialstring'].find('camp_') == -1
 
 
     @classmethod
-    def was_answered_agent(cls, ari_event_data):
+    def is_answered_agent(cls, ari_event_data):
         return ari_event_data['dialstring'].find('camp_') >= 0
 
 
     @classmethod
-    def set_contact_status(cls, id_campaign, contact_id, status):
+    def set_contact_status(cls, id_campaign, contact_id, status, type_status=PHONE_TYPE):
+        status_code = NAME_TO_STATUS[status]
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute(
-                'UPDATE contact_in_campaign SET status = %s, history = array_append(history,%s) WHERE id_campaign = %s AND id_contact = %s;',
-                (status, status, id_campaign, contact_id))
+                'UPDATE contact_in_campaign SET status = %s, history = array_append(history, %s) WHERE id_campaign = %s AND id_contact = %s;',
+                (status_code, str((status_code, type_status)), id_campaign, contact_id))
             cls.connect_redis_dialer()
-            cls.REDIS_DIALER_CONNECTION.rpush(f'CONTACT:{contact_id}:CAMP:{id_campaign}:HISTORY', status)
+            cls.REDIS_DIALER_CONNECTION.rpush(f'CONTACT:{contact_id}:CAMP:{id_campaign}:HISTORY', str((status_code, type_status)))
             cls.REDIS_DIALER_CONNECTION.hincrby(
                 f'CAMP:{id_campaign}:COUNTER',
-                STATUS_TO_NAME[status],
+                status
             )
 
 
