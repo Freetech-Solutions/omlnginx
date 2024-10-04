@@ -589,6 +589,40 @@ class NaiveWorker(DialerWorker):
 
 
     @classmethod
+    @timed_lru_cache(seconds=600, maxsize=128)
+    def get_incidence_rule_disposition(cls, id_campaign, disposition_option):
+        logger.debug(f'Campaign {id_campaign}: getting the incidence rule for disposition {disposition_option}')
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute(
+                'SELECT retry_later, max_attempt FROM ONLY incidence_rules_disposition WHERE campaign_id = %s AND disposition_option_id = %s;',
+                (id_campaign, disposition_option))
+            return cursor_dialer.fetchone()
+
+
+    @classmethod
+    def apply_incidence_rule(cls, cursor_dialer, incidence_rule, contact_id, id_campaign, status, status_type, phone_number):
+        if incidence_rule is not None:
+            retry_later, max_attempt = incidence_rule
+            contact_history = cls.REDIS_DIALER_CONNECTION.lrange(f'CONTACT:{contact_id}:CAMP:{id_campaign}:HISTORY', 0, -1)
+            if contact_history.count(str((status, status_type))) <= max_attempt:
+                contact = (contact_id, id_campaign, phone_number)
+                message = json.dumps({'contact_info': contact, 'delay': retry_later})
+                cursor_dialer.execute('UPDATE contact_in_campaign SET final_status = %s WHERE id_campaign = %s and id_contact = %s;',
+                                      (PENDING_ATTEMPTS, id_campaign, contact_id))
+                cls.REDIS_DIALER_CONNECTION.hset(f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'STATUS', PENDING_ATTEMPTS)
+                cls.GM_CLIENT.submit_job('schedule-contact', message)
+            else:
+                cursor_dialer.execute('UPDATE contact_in_campaign SET final_status = %s WHERE id_campaign = %s and id_contact = %s;',
+                                          (FINALIZED_NOCONTACT, id_campaign, contact_id))
+                cls.REDIS_DIALER_CONNECTION.hset(f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'STATUS', FINALIZED_NOCONTACT)
+        else:
+            cursor_dialer.execute('UPDATE contact_in_campaign SET final_status = %s WHERE id_campaign = %s and id_contact = %s;',
+                                  (FINALIZED_NOCONTACT, id_campaign, contact_id))
+            cls.REDIS_DIALER_CONNECTION.hset(f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'STATUS', FINALIZED_NOCONTACT)
+
+
+    @classmethod
     def handle_incidence_rules(cls, status, id_campaign, contact_id, phone_number):
         # if there is an incidence rule for the status:
         #   if the contact's history and the incidence rule indicates that the
@@ -598,25 +632,8 @@ class NaiveWorker(DialerWorker):
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             incidence_rule = cls.get_incidence_rule(id_campaign, status)
-            if incidence_rule is not None:
-                retry_later, max_attempt = incidence_rule
-                contact_history = cls.REDIS_DIALER_CONNECTION.lrange(f'CONTACT:{contact_id}:CAMP:{id_campaign}:HISTORY', 0, -1)
-                if contact_history.count(str((status_code, PHONE_TYPE))) <= max_attempt:
-                    contact = (contact_id, id_campaign, phone_number)
-                    message = json.dumps({'contact_info': contact, 'delay': retry_later})
-                    cursor_dialer.execute('UPDATE contact_in_campaign SET final_status = %s WHERE id_campaign = %s and id_contact = %s;',
-                                          (PENDING_ATTEMPTS, id_campaign, contact_id))
-                    cls.REDIS_DIALER_CONNECTION.hset(f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'STATUS', PENDING_ATTEMPTS)
-                    cls.GM_CLIENT.submit_job('schedule-contact', message)
-                else:
-                    cursor_dialer.execute('UPDATE contact_in_campaign SET final_status = %s WHERE id_campaign = %s and id_contact = %s;',
-                                          (FINALIZED_NOCONTACT, id_campaign, contact_id))
-                    cls.REDIS_DIALER_CONNECTION.hset(f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'STATUS', FINALIZED_NOCONTACT)
-            else:
-                cursor_dialer.execute('UPDATE contact_in_campaign SET final_status = %s WHERE id_campaign = %s and id_contact = %s;',
-                                      (FINALIZED_NOCONTACT, id_campaign, contact_id))
-                cls.REDIS_DIALER_CONNECTION.hset(f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'STATUS', FINALIZED_NOCONTACT)
-
+            cls.apply_incidence_rule(cursor_dialer, incidence_rule, contact_id, id_campaign, status_code,
+                                 PHONE_TYPE, phone_number)
 
     @classmethod
     def is_initial_event(cls, ari_event_data):
@@ -842,19 +859,25 @@ class NaiveWorker(DialerWorker):
         disposition_option = data['disposition_option']
         id_contact = data['id_contact']
         logger.debug(f'Adding disposition option {disposition_option} to contact {id_contact} in campaign {id_campaign}')
+        cls.connect_redis_dialer()
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute(
-                'UPDATE contact_in_campaign SET disposition_option = %s WHERE id_campaign = %s and id_contact = %s;',
-                (disposition_option, id_campaign, id_contact))
-        # TODO: below ...
-        # set contact history (redis and postgres)
-        # apply incidence rule
-        # # if the incidence rule apply and the campaign is finalized, reactivate(?) the campaign
-        # # update statistics
-        # # schedule call if applies
-        # # log workflow
-        return b'Incidence rule was added!'
+                """UPDATE contact_in_campaign as cc
+                SET disposition_option = %s, history = array_append(history, %s)
+                FROM contact AS co
+                WHERE cc.id_campaign = %s AND cc.id_contact = %s AND co.id = cc.id_contact
+                RETURNING co.phone;""",
+                (disposition_option, str((disposition_option, DISPOSITION_TYPE)), id_campaign, id_contact))
+            phone_number = cursor_dialer.fetchone()
+            cls.REDIS_DIALER_CONNECTION.rpush(f'CONTACT:{id_contact}:CAMP:{id_campaign}:HISTORY', str((disposition_option, DISPOSITION_TYPE)))
+            cls.connect_redis_dialer()
+            incidence_rule = cls.get_incidence_rule_disposition(id_campaign, disposition_option)
+            cls.apply_incidence_rule(cursor_dialer, incidence_rule, id_contact, id_campaign, disposition_option,
+                                     DISPOSITION_TYPE, phone_number)
+            # TODO: if the incidence rule apply and the campaign is finalized, reactivate(?) the campaign
+            # TODO: see 'Contacted' report
+            return b'Incidence rule was added!'
 
 
 class SingleCallWorker(NaiveWorker):
