@@ -869,7 +869,7 @@ class NaiveWorker(DialerWorker):
                 WHERE cc.id_campaign = %s AND cc.id_contact = %s AND co.id = cc.id_contact
                 RETURNING co.phone;""",
                 (disposition_option, str((disposition_option, DISPOSITION_TYPE)), id_campaign, id_contact))
-            phone_number = cursor_dialer.fetchone()
+            phone_number = cursor_dialer.fetchone()[0]
             cls.REDIS_DIALER_CONNECTION.rpush(f'CONTACT:{id_contact}:CAMP:{id_campaign}:HISTORY', str((disposition_option, DISPOSITION_TYPE)))
             cls.connect_redis_dialer()
             incidence_rule = cls.get_incidence_rule_disposition(id_campaign, disposition_option)
