@@ -10,4 +10,4 @@ docker exec -it dialer-postgres psql -U omnidialer -c "insert into incidence_rul
 
 docker exec -it dialer-postgres psql -U omnidialer -c "update campaign set hour_start = '00:00', hour_ends = '23:59', monday = True, tuesday = True, wednesday = True, thursday = True, friday = True, end_date = '2025-10-29' where id = 4;"
 
-docker exec -it dialer-postgres psql -U omnidialer -c "delete from only contact_in_campaign where id_campaign = 4 and id_contact > 20";
+docker exec -it dialer-postgres psql -U omnidialer -c "delete from only contact_in_campaign where id_campaign = 4 and id_contact > 10";
