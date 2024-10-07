@@ -5,7 +5,7 @@ select * from only campaign where id = 4;
 
 # for take a look at the statuses of the contacts
 #+begin_src sql :engine postgresql :dbhost localhost :dbuser omnidialer :dbpassword dialer456 :database omnidialer :dbport 5433
-select id, status, history from only contact_in_campaign where id_campaign = 4;
+select co.phone, cc.id_contact, cc.status, cc.history from only contact_in_campaign as cc inner join contact as co on cc.id_contact = co.id where cc.id_campaign = 4;
 #+end_src
 
 # inspect the incidence rules for the campaign
