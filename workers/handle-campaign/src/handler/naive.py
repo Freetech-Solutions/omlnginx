@@ -794,7 +794,7 @@ class NaiveWorker(DialerWorker):
                 if not contacts:
                     break
                 for contact in contacts:
-                    cursor_insert.execute('INSERT INTO contact_in_campaign_historic VALUES (%s, %s, %s, %s, %s, %s, %s, %s);', contact)
+                    cursor_insert.execute('INSERT INTO contact_in_campaign_historic VALUES (%s, %s, %s, %s, %s, %s, %s);', contact)
             # 4- remove original campaign data
             logger.debug('Removing original campaign data')
             cursor.execute('DELETE FROM ONLY campaign WHERE id = %s', (id_campaign,))
