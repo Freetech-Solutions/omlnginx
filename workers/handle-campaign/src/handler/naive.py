@@ -771,7 +771,9 @@ class NaiveWorker(DialerWorker):
             # 1- copy campaign table
             logger.debug('Copying campaign table data')
             cursor.execute('SELECT * FROM ONLY campaign WHERE id = %s;', (id_campaign,))
-            campaign_data = cursor.fetchone()
+            campaign_data_initial = cursor.fetchone()
+            statistics = json.dumps(campaign_data_initial[-1])
+            campaign_data = campaign_data_initial[:-1] + (statistics,)
             sql1 = 'INSERT INTO campaign_historic VALUES'
             sql2 = ' ({0} %s);'.format('%s, ' * 23)
             sql = sql1 + sql2
