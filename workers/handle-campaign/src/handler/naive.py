@@ -883,7 +883,6 @@ class NaiveWorker(DialerWorker):
             cls.apply_incidence_rule(cursor_dialer, incidence_rule, id_contact, id_campaign, disposition_option,
                                      DISPOSITION_TYPE, phone_number)
             # TODO: if the incidence rule apply and the campaign is finalized, reactivate(?) the campaign
-            # TODO: see 'Contacted' report
             return b'Incidence rule was added!'
 
 
