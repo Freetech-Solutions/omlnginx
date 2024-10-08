@@ -99,7 +99,8 @@ FINALIZED_SUCCESS = 3
 
 FINAL_STATUS_TO_NAME = {
     FINALIZED_NOCONTACT: "FINALIZED WITH NO CONTACT",
-    PENDING_ATTEMPTS: "NO CONTACTS WITH PENDING ATTEMPTS"
+    PENDING_ATTEMPTS: "NO CONTACTS WITH PENDING ATTEMPTS",
+    FINALIZED_SUCCESS: "CONTACTED SUCCESSFULLY"
 }
 
 NO_DISPOSITION_OPTION = -1
@@ -820,8 +821,8 @@ class NaiveWorker(DialerWorker):
             cursor_dialer.execute('SELECT COUNT(*) FROM ONLY contact_in_campaign WHERE id_campaign = %s and (status = %s or status = %s);',
                                   (id_campaign, STATUS_CREATED, STATUS_SELECTED_CALL))
             pending_for_call = cursor_dialer.fetchone()[0]
-            cursor_dialer.execute('SELECT final_status, COUNT(*) FROM ONLY contact_in_campaign WHERE id_campaign = %s and final_status <> %s and final_status <> %s GROUP BY final_status;',
-                                  (id_campaign, INITIAL, FINALIZED_SUCCESS))
+            cursor_dialer.execute('SELECT final_status, COUNT(*) FROM ONLY contact_in_campaign WHERE id_campaign = %s and final_status <> %s GROUP BY final_status;',
+                                  (id_campaign, INITIAL))
             cls.connect_redis_dialer()
             # cleaning previous values of final_status related reports
             cls.REDIS_DIALER_CONNECTION.hdel(
@@ -831,6 +832,10 @@ class NaiveWorker(DialerWorker):
             cls.REDIS_DIALER_CONNECTION.hdel(
                 f'CAMP:{id_campaign}:COUNTER',
                 FINAL_STATUS_TO_NAME[FINALIZED_NOCONTACT]
+            )
+            cls.REDIS_DIALER_CONNECTION.hdel(
+                f'CAMP:{id_campaign}:COUNTER',
+                FINAL_STATUS_TO_NAME[FINALIZED_SUCCESS]
             )
             for final_status_label, final_status_value in cursor_dialer.fetchall():
                 cls.REDIS_DIALER_CONNECTION.hset(
