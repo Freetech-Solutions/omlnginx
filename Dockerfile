@@ -8,8 +8,10 @@ RUN mkdir -p $INSTALL_PREFIX/asterisk \
 
 COPY source/conf/ /etc/nginx/
 COPY source/certs/* /etc/omnileads/certs/
-COPY source/set_environment.sh /docker-entrypoint.d/
+COPY source/set_environment.sh /docker-entrypoint.d/90-set-environment.sh
 
 RUN chown -R omnileads:omnileads $INSTALL_PREFIX && chmod g+s $INSTALL_PREFIX/asterisk
 
 EXPOSE 443/tcp
+
+COPY templates/ /etc/nginx/templates/

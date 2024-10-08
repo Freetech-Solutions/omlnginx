@@ -1,0 +1,4 @@
+location ^~ /webui-wallboard {
+  alias ${WALLBOARD_WEBUI_PATH};
+  try_files $uri $uri/ /webui-wallboard/index.html;
+}
