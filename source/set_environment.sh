@@ -66,17 +66,7 @@ location /consumers {
   proxy_read_timeout 7d;
 }
 
-location /grabaciones {
-  alias /opt/omnileads/asterisk/var/spool/asterisk/monitor/;
-  autoindex on;
-  allow all;
-}
-
-EOF
-
-if [ ${CALLREC_DEVICE} != "s3-aws" ]; then
-  cat >> /etc/nginx/conf.d/environment/oml_env.conf <<EOF
-location ~*  \.(mp3|wav|gsm|mp4)$ {
+location /grabacion {
   proxy_set_header X-Real-IP \$remote_addr;
   proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
   proxy_set_header X-Forwarded-Proto \$scheme;
@@ -91,8 +81,6 @@ location ~*  \.(mp3|wav|gsm|mp4)$ {
 }
 
 EOF
-fi
-
 
 echo "***[oml-nginx] Adding configuration of desired environment"
 if [ ${ENV} == "prodenv" ]; then
@@ -105,3 +93,12 @@ location /static/ {
 
 EOF
 fi
+
+(
+  cd /etc/nginx/conf.d/environment/ || exit
+  if [ "${WEBUI_MODE}" == "rproxy" ]; then
+    mv webui-rproxy.conf.disabled webui-rproxy.conf
+  elif [ "${WEBUI_MODE}" == "static" ]; then
+    mv webui-static.conf.disabled webui-static.conf
+  fi
+)
