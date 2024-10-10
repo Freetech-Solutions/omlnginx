@@ -663,6 +663,8 @@ class NaiveWorker(DialerWorker):
     @classmethod
     @exception_handler_decorator
     def process_event(cls, worker, job):
+        # TODO: clarify the event patterns, why there are NOANSWERs without PSTNs connect and NOANSWERs with it
+        # probable because of pstn_emulator ...
         ari_event_data = cls.decode_payload(job.data)
         id_campaign, contact_id, phone_number = cls.get_contact_data(ari_event_data)
         if cls.is_initial_event(ari_event_data):
