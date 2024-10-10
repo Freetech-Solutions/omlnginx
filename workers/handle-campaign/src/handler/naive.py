@@ -210,6 +210,12 @@ class AverageWorker(DialerWorker):
             INNER JOIN ominicontacto_app_opcioncalificacion AS opc ON ric.opcion_calificacion_id = opc.id
             AND opc.campana_id = %s;""", (id_campaign,))
         incidence_rules_disposition_data = cursor_oml.fetchall()
+        cursor_oml.execute(
+            """SELECT db.metadata FROM ominicontacto_app_basedatoscontacto as db
+            INNER JOIN ominicontacto_app_campana AS ca ON ca.bd_contacto_id = db.id
+            AND ca.id = %s;""", (id_campaign,))
+        metadata = json.dumps(cursor_oml.fetchone()[0])
+        campaign_id_data += (metadata,)
         return campaign_id_data, incidence_rules_data, incidence_rules_disposition_data
 
 
@@ -238,7 +244,7 @@ class AverageWorker(DialerWorker):
                         duplicates_control = %s, priority = %s, strategy = %s, wait = %s, initial_predictive_model = %s,
                         initial_boost_factor = %s, max_channels = %s, sunday = %s, monday = %s, tuesday = %s, wednesday = %s,
                         thursday = %s, friday = %s, saturday = %s, hour_start = %s, hour_ends = %s, contact_strategy = %s,
-                        dialer_status = %s WHERE id = %s;""", params)
+                        dialer_status = %s, metadata = %s WHERE id = %s;""", params)
                     # 2- update incidence rules
                     cursor_dialer.execute('DELETE FROM incidence_rules WHERE campaign_id = %s', (id_campaign,))
                     logger.debug('Inserting the incidence_rules into omnidialer')
@@ -272,7 +278,7 @@ class AverageWorker(DialerWorker):
                     campaign_id_data, incidence_rules_data, incidence_rules_disposition_data = cls.get_campaign_data(
                         id_campaign, cursor_oml, contact_strategy)
                     logger.debug('Inserting the campaign data into omnidialer')
-                    cursor_dialer.execute("INSERT INTO campaign (id, oml_status, name, start_date, end_date, duplicates_control, priority, strategy, wait, initial_predictive_model, initial_boost_factor, max_channels, sunday, monday, tuesday, wednesday, thursday, friday, saturday, hour_start, hour_ends, contact_strategy, dialer_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);", campaign_id_data)
+                    cursor_dialer.execute("INSERT INTO campaign (id, oml_status, name, start_date, end_date, duplicates_control, priority, strategy, wait, initial_predictive_model, initial_boost_factor, max_channels, sunday, monday, tuesday, wednesday, thursday, friday, saturday, hour_start, hour_ends, contact_strategy, dialer_status, metadata) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);", campaign_id_data)
                     logger.debug('Inserting the incidence_rules into omnidialer')
                     for incidence_rule in incidence_rules_data:
                         cursor_dialer.execute("INSERT INTO incidence_rules (id, status, status_custom, max_attempt, retry_later, in_mode, campaign_id) VALUES (%s, %s, %s, %s, %s, %s, %s);", incidence_rule)
@@ -281,7 +287,7 @@ class AverageWorker(DialerWorker):
                         cursor_dialer.execute("INSERT INTO incidence_rules_disposition (id, disposition_option_id, max_attempt, retry_later, in_mode, campaign_id) VALUES (%s, %s, %s, %s, %s, %s);", incidence_rule)
                     logger.debug('Retrieving the contacts')
                     sql = """SELECT co.id, co.telefono, co.datos, co.es_originario FROM ominicontacto_app_contacto AS co
-                    INNER JOIN ominicontacto_app_contacto AS db ON db.id = co.bd_contacto_id
+                    INNER JOIN ominicontacto_app_basedatoscontacto AS db ON db.id = co.bd_contacto_id
                     INNER JOIN ominicontacto_app_campana AS ca ON db.id = ca.bd_contacto_id AND ca.id = %s;"""
                     size = 1000
                     logger.debug('Copying the contacts')
@@ -779,7 +785,7 @@ class AverageWorker(DialerWorker):
             statistics = json.dumps(campaign_data_initial[-1])
             campaign_data = campaign_data_initial[:-1] + (statistics,)
             sql1 = 'INSERT INTO campaign_historic VALUES'
-            sql2 = ' ({0} %s);'.format('%s, ' * 23)
+            sql2 = ' ({0} %s);'.format('%s, ' * 24)
             sql = sql1 + sql2
             cursor.execute(sql, campaign_data)
             # 2- copy incidence rules
