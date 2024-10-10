@@ -48,7 +48,8 @@ CREATE TABLE public.campaign (
     hour_ends time without time zone NOT NULL,
     contact_strategy integer[],
     dialer_status integer NOT NULL,
-    statistics JSONB
+    statistics JSONB,
+    metadata JSONB
 );
 
 
@@ -134,7 +135,9 @@ CREATE TABLE public.contact_in_campaign (
     status integer NOT NULL,
     final_status integer NOT NULL,
     disposition_option integer,
-    history text[]
+    history text[],
+    phone_numbers_list text[],
+    phone_number_index integer
 );
 
 
