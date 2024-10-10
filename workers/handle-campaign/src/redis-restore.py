@@ -1,4 +1,4 @@
-from handler.naive import NaiveWorker
+from handler.naive import AverageWorker
 
 import os
 
@@ -18,8 +18,8 @@ logging.basicConfig(level=LOGLEVEL, format='%(asctime)s - %(name)s - %(levelname
 def restore_redis_from_postgres():
     """Restore history of the contact in campaign to Redis from the values saved in Postgres"""
     # this is useful in cases Redis failures
-    NaiveWorker.connect_redis_dialer()
-    with psycopg.connect(NaiveWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+    AverageWorker.connect_redis_dialer()
+    with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
         cursor_dialer = conn_dialer.cursor()
         size = 1000
         cursor_dialer.execute('select history, id_contact, id_campaign, status from only contact_in_campaign;')
@@ -30,12 +30,12 @@ def restore_redis_from_postgres():
             logger.debug('Importing {0} contacts from Postgres to Redis'.format(len(contacts)))
             for (history, id_contact, id_campaign, status) in contacts:
                 for status_item in history:
-                    NaiveWorker.REDIS_DIALER_CONNECTION.rpush(f'CONTACT:{id_contact}:CAMP:{id_campaign}:HISTORY', status_item)
-                NaiveWorker.REDIS_DIALER_CONNECTION.hset(f'CONTACT:{id_contact}:CAMP:{id_campaign}', 'STATUS', status)
+                    AverageWorker.REDIS_DIALER_CONNECTION.rpush(f'CONTACT:{id_contact}:CAMP:{id_campaign}:HISTORY', status_item)
+                AverageWorker.REDIS_DIALER_CONNECTION.hset(f'CONTACT:{id_contact}:CAMP:{id_campaign}', 'STATUS', status)
         cursor_dialer.execute('select id, statistics from only campaign;')
         for id_campaign, statistics in cursor_dialer.fetchall():
             for report, counter in statistics.items():
-                NaiveWorker.REDIS_DIALER_CONNECTION.hset(f'CAMP:{id_campaign}:COUNTER', report, counter)
+                AverageWorker.REDIS_DIALER_CONNECTION.hset(f'CAMP:{id_campaign}:COUNTER', report, counter)
 
 
 

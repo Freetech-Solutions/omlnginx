@@ -1,5 +1,5 @@
 from sys import argv
-from handler.naive import NaiveWorker
+from handler.naive import AverageWorker
 
 import os
 import json
@@ -18,4 +18,4 @@ if __name__ == '__main__':
     phone_number = argv[3]
     contact = (id_contact, id_campaign, phone_number)
     logger.debug(f'Attempting to call scheduled contact {id_contact} in campaign {id_campaign}')
-    NaiveWorker.attempt_contact(contact, id_campaign)
+    AverageWorker.attempt_contact(contact, id_campaign)

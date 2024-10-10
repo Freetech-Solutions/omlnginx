@@ -128,8 +128,8 @@ def exception_handler_decorator(method):
     return wrapper
 
 
-class NaiveWorker(DialerWorker):
-    """A worker flow with a simple strategy, call contacts according to the available agents, 1 call for for each agent"""
+class AverageWorker(DialerWorker):
+    """A worker flow with a dialing strategy, call contacts according to the available agents and the campaigns they are assigned to"""
 
 
     POSTGRES_OML_CONNECTION_STR = f'postgresql://{POSTGRES_OML_USER}:{POSTGRES_OML_PASSWORD}@{POSTGRES_OML_SERVER}:{POSTGRES_OML_PORT}/{POSTGRES_OML_DB}'
@@ -889,7 +889,7 @@ class NaiveWorker(DialerWorker):
             return b'Incidence rule was added!'
 
 
-class SingleCallWorker(NaiveWorker):
+class SingleCallWorker(AverageWorker):
     """Another naive dialer worker flow that makes only 1 call at a time, and after every call pauses the campaign,
     It will also remove the contacts one by one after the calls. Assumes the call was always answered."""
 
@@ -910,7 +910,7 @@ class SingleCallWorker(NaiveWorker):
         return 1
 
 
-class NoIncidenceRulesHandler(NaiveWorker):
+class NoIncidenceRulesHandler(AverageWorker):
 
     @classmethod
     def handle_incidence_rules(cls, status, id_campaign, contact_id, phone_number):

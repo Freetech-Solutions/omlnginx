@@ -1,5 +1,5 @@
 from sys import argv
-from handler.naive import NaiveWorker
+from handler.naive import AverageWorker
 
 import os
 import json
@@ -20,4 +20,4 @@ if __name__ == '__main__':
     contact = (id_contact, id_campaign, phone_number)
     message = json.dumps({'contact_info': contact, 'delay': retry_later})
     logger.debug(f'Scheduling from command line contact {id_contact} in campaign {id_campaign}')
-    NaiveWorker.GM_CLIENT.submit_job('schedule-contact', message)
+    AverageWorker.GM_CLIENT.submit_job('schedule-contact', message)

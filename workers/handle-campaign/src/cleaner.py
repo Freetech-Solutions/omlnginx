@@ -2,7 +2,7 @@
 
 # only for testing by hand
 
-from handler.naive import NaiveWorker
+from handler.naive import AverageWorker
 
 import logging
 
@@ -20,11 +20,11 @@ logging.basicConfig(level=LOGLEVEL, format='%(asctime)s - %(name)s - %(levelname
 def clean():
     """Clean Redis DB and contact_in_campaign table in Postgres for be able to test again the main process of
     a campaign from scratch"""
-    NaiveWorker.connect_redis_dialer()
-    NaiveWorker.REDIS_DIALER_CONNECTION.flushdb()
+    AverageWorker.connect_redis_dialer()
+    AverageWorker.REDIS_DIALER_CONNECTION.flushdb()
 
     # setting all contacts for campaign 4 in status == CREATED
-    with psycopg.connect(NaiveWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+    with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
         cursor_dialer = conn_dialer.cursor()
         cursor_dialer.execute("UPDATE contact_in_campaign SET status = 2, history = '{}' WHERE id_campaign = 4;")
 
