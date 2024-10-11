@@ -5,6 +5,7 @@ from .ari_manager import ARI
 from .utils import timed_lru_cache
 from time import sleep
 
+import pickle
 import json
 import sys
 import os
@@ -116,6 +117,11 @@ DISPOSITION_TYPE = 2
 # fail statuses
 # TODO: incorporate the names of the other fail events
 FAIL_EVENTS = ['BUSY', 'NOANSWER', 'CONGESTION']
+
+
+# incidence rules multinum behauviour
+FIXED = 1
+MULT = 2
 
 
 def exception_handler_decorator(method):
@@ -576,7 +582,7 @@ class AverageWorker(DialerWorker):
         data = cls.decode_payload(job.data)
         (contact_id, id_campaign, phone_number) = data['contact_info']
         delay = data['delay']
-        logger.debug(f'Attempting to schedule contact {contact_id} in campaign {id_campaign}')
+        logger.debug(f'Attempting to schedule contact {contact_id} with phone number {phone_number} in campaign {id_campaign}')
         process_contact_subcommand = f'python caller.py {contact_id} {id_campaign} {phone_number}'
         command = f'nohup sh -c "sleep {delay}; {process_contact_subcommand}" &'
         os.system(command)
@@ -591,7 +597,7 @@ class AverageWorker(DialerWorker):
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute(
-                'SELECT retry_later, max_attempt FROM ONLY incidence_rules WHERE campaign_id = %s AND status = %s;',
+                'SELECT retry_later, max_attempt, in_mode FROM ONLY incidence_rules WHERE campaign_id = %s AND status = %s;',
                 (id_campaign, status_code))
             return cursor_dialer.fetchone()
 
@@ -603,17 +609,57 @@ class AverageWorker(DialerWorker):
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute(
-                'SELECT retry_later, max_attempt FROM ONLY incidence_rules_disposition WHERE campaign_id = %s AND disposition_option_id = %s;',
+                'SELECT retry_later, max_attempt, in_mode FROM ONLY incidence_rules_disposition WHERE campaign_id = %s AND disposition_option_id = %s;',
                 (id_campaign, disposition_option))
             return cursor_dialer.fetchone()
 
 
     @classmethod
+    def get_next_phone_number(cls, cursor_dialer, id_campaign, contact_id, phone_number):
+        phone_number_index = cls.REDIS_DIALER_CONNECTION.hget(f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'PHONE_NUMBER_INDEX')
+        if phone_number_index is None:
+            # first time: the data is only encoded in Postgres (tables campaign & contact)
+            # proceding to decode it
+            cursor_dialer.execute('SELECT metadata FROM ONLY campaign WHERE id = %s', (id_campaign,))
+            metadata = json.loads(cursor_dialer.fetchone()[0])
+            phone_number_indexes = metadata['cols_telefono']
+            cursor_dialer.execute(
+                """SELECT co.data FROM ONLY contact_in_campaign AS cc
+                INNER JOIN contact AS co on cc.id_contact = co.id
+                WHERE cc.id_campaign = %s AND cc.id_contact = %s;""", (id_campaign, contact_id))
+            data = [phone_number] + json.loads(cursor_dialer.fetchone()[0])
+            phone_number_index = 0
+            phone_numbers = []
+            for i in phone_number_indexes:
+                phone_numbers.append(data[i])
+            cursor_dialer.execute(f'UPDATE contact_in_campaign SET phone_numbers_list = %s WHERE id_campaign = %s AND id_contact = %s;',
+                                  (phone_numbers, id_campaign, contact_id))
+            cls.REDIS_DIALER_CONNECTION.hset(f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'PHONE_NUMBER_LIST', pickle.dumps(phone_numbers))
+        else:
+            phone_numbers = pickle.loads(cls.REDIS_DIALER_CONNECTION.hget(f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'PHONE_NUMBER_LIST'))
+        phone_number_index = (phone_number_index + 1) % len(phone_numbers)
+        # update Postgres & Redis
+        cursor_dialer.execute(f'UPDATE contact_in_campaign SET phone_number_index = %s WHERE id_campaign = %s AND id_contact = %s;',
+                              (phone_number_index, id_campaign, contact_id))
+        cls.REDIS_DIALER_CONNECTION.hset(f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'PHONE_NUMBER_INDEX', phone_number_index)
+        return phone_numbers[phone_number_index]
+
+
+    @classmethod
+    def get_phone_number_incidence_rule(cls, cursor_dialer, id_campaign, contact_id, phone_number, type_incidence_rule):
+        if type_incidence_rule == FIXED:
+            return phone_number
+        # multinum handler MULT
+        return cls.get_next_phone_number(cursor_dialer, id_campaign, contact_id, phone_number)
+
+
+    @classmethod
     def apply_incidence_rule(cls, cursor_dialer, incidence_rule, contact_id, id_campaign, status, status_type, phone_number):
         if incidence_rule is not None:
-            retry_later, max_attempt = incidence_rule
+            retry_later, max_attempt, type_incidence_rule = incidence_rule
             contact_history = cls.REDIS_DIALER_CONNECTION.lrange(f'CONTACT:{contact_id}:CAMP:{id_campaign}:HISTORY', 0, -1)
             if contact_history.count(str((status, status_type))) <= max_attempt:
+                phone_number = cls.get_phone_number_incidence_rule(cursor_dialer, id_campaign, contact_id, phone_number, type_incidence_rule)
                 contact = (contact_id, id_campaign, phone_number)
                 message = json.dumps({'contact_info': contact, 'delay': retry_later})
                 cursor_dialer.execute('UPDATE contact_in_campaign SET final_status = %s WHERE id_campaign = %s and id_contact = %s;',
