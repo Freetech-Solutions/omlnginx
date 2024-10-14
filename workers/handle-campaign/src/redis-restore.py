@@ -33,9 +33,10 @@ def restore_redis_from_postgres():
             for (history, id_contact, id_campaign, status, phone_numbers, phone_number_index) in contacts:
                 for status_item in history:
                     AverageWorker.REDIS_DIALER_CONNECTION.rpush(f'CONTACT:{id_contact}:CAMP:{id_campaign}:HISTORY', status_item)
-                AverageWorker.REDIS_DIALER_CONNECTION.hset(f'CONTACT:{id_contact}:CAMP:{id_campaign}', 'PHONE_NUMBER_LIST', pickle.dumps(phone_numbers))
-                AverageWorker.REDIS_DIALER_CONNECTION.hset(f'CONTACT:{id_contact}:CAMP:{id_campaign}', 'PHONE_NUMBER_INDEX', phone_number_index)
                 AverageWorker.REDIS_DIALER_CONNECTION.hset(f'CONTACT:{id_contact}:CAMP:{id_campaign}', 'STATUS', status)
+                if phone_number_index is not None:
+                    AverageWorker.REDIS_DIALER_CONNECTION.hset(f'CONTACT:{id_contact}:CAMP:{id_campaign}', 'PHONE_NUMBER_LIST', pickle.dumps(phone_numbers))
+                    AverageWorker.REDIS_DIALER_CONNECTION.hset(f'CONTACT:{id_contact}:CAMP:{id_campaign}', 'PHONE_NUMBER_INDEX', phone_number_index)
         cursor_dialer.execute('select id, statistics from only campaign;')
         for id_campaign, statistics in cursor_dialer.fetchall():
             for report, counter in statistics.items():
