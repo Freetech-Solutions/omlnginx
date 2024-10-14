@@ -13,6 +13,8 @@ select co.phone, cc.phone_numbers_list, cc.phone_number_index, cc.id_contact, cc
 delete from only contact_in_campaign where id_campaign = 4 and id_contact > 30;
 #+end_src
 
+
+# set congestion incidence rule to use multinum workflow
 #+begin_src sql :engine postgresql :dbhost localhost :dbuser omnidialer :dbpassword dialer456 :database omnidialer :dbport 5433
 update incidence_rules set in_mode = 2 where id = 2;
 #+end_src
