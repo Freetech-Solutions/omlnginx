@@ -340,12 +340,16 @@ class AverageWorker(DialerWorker):
 
 
     @classmethod
+    def get_campaign_status(cls, id_campaign, dialer_cursor):
+        dialer_cursor.execute('SELECT dialer_status FROM ONLY campaign WHERE id = %s', (id_campaign,))
+        return dialer_cursor.fetchone()[0]
+
+
+    @classmethod
     def campaign_is_active(cls, id_campaign):
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
-            cursor_dialer.execute('SELECT dialer_status FROM ONLY campaign WHERE id = %s', (id_campaign,))
-            status = cursor_dialer.fetchone()[0]
-
+            status = cls.get_campaign_status(id_campaign, cursor_dialer)
             # notify to OML if the campaign is outdated and pause the campaign
             cursor_dialer.execute(
                 """SELECT id
@@ -360,7 +364,6 @@ class AverageWorker(DialerWorker):
                 cls.connect_redis_oml()
                 cls.REDIS_OML_CONNECTION.publish(f'omnidialer-campaign-{id_campaign}',
                                                  'Campaign expired')
-                cls.finalize_campaign(id_campaign)
                 return False
 
             # notify to OML if there are no more contacts for call and pause the campaign
@@ -375,7 +378,6 @@ class AverageWorker(DialerWorker):
                 cls.connect_redis_oml()
                 cls.REDIS_OML_CONNECTION.publish(f'omnidialer-campaign-{id_campaign}',
                                                  'No more contacts pending for call')
-                cls.finalize_campaign(id_campaign)
                 return False
 
             # notify to OML if there are less than PERCENTAGE_PENDING_CALL_THRESHOLD% of contacts pending for call
@@ -666,6 +668,7 @@ class AverageWorker(DialerWorker):
                                       (PENDING_ATTEMPTS, id_campaign, contact_id))
                 cls.REDIS_DIALER_CONNECTION.hset(f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'STATUS', PENDING_ATTEMPTS)
                 cls.GM_CLIENT.submit_job('schedule-contact', message)
+                return True
             else:
                 cursor_dialer.execute('UPDATE contact_in_campaign SET final_status = %s WHERE id_campaign = %s and id_contact = %s;',
                                           (FINALIZED_NOCONTACT, id_campaign, contact_id))
@@ -674,6 +677,7 @@ class AverageWorker(DialerWorker):
             cursor_dialer.execute('UPDATE contact_in_campaign SET final_status = %s WHERE id_campaign = %s and id_contact = %s;',
                                   (FINALIZED_NOCONTACT, id_campaign, contact_id))
             cls.REDIS_DIALER_CONNECTION.hset(f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'STATUS', FINALIZED_NOCONTACT)
+        return False
 
 
     @classmethod
@@ -935,9 +939,14 @@ class AverageWorker(DialerWorker):
             cls.REDIS_DIALER_CONNECTION.rpush(f'CONTACT:{id_contact}:CAMP:{id_campaign}:HISTORY', str((disposition_option, DISPOSITION_TYPE)))
             cls.connect_redis_dialer()
             incidence_rule = cls.get_incidence_rule_disposition(id_campaign, disposition_option)
-            cls.apply_incidence_rule(cursor_dialer, incidence_rule, id_contact, id_campaign, disposition_option,
-                                     DISPOSITION_TYPE, phone_number)
-            # TODO: if the incidence rule apply and the campaign is finalized, reactivate(?) the campaign
+            incidence_rule_applied = cls.apply_incidence_rule(cursor_dialer, incidence_rule, id_contact, id_campaign, disposition_option,
+                                                              DISPOSITION_TYPE, phone_number)
+            # if the incidence rule was applied and the campaign is paused, reactivate the campaign
+            if incidence_rule_applied:
+                status = cls.get_campaign_status(id_campaign, cursor_dialer)
+                if status == PAUSED:
+                    cls.set_campaign_status(id_campaign, RESUMED)
+                    cls.process_campaign(id_campaign)
             return b'Incidence rule was added!'
 
 
