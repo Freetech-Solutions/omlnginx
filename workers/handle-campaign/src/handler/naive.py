@@ -445,8 +445,8 @@ class AverageWorker(DialerWorker):
 
     @classmethod
     def get_active_channels(cls, id_campaign):
-        cls.connect_redis_dialer()
-        return cls.REDIS_DIALER_CONNECTION.hget(f'CAMP:{id_campaign}:COUNTER', 'ACTIVE_CHANNELS') or 0
+        cls.connect_redis_oml()
+        return cls.REDIS_OML_CONNECTION.get('pstn_active_channels_count') or 0
 
 
     @classmethod
@@ -694,18 +694,6 @@ class AverageWorker(DialerWorker):
                                  PHONE_TYPE, phone_number)
 
     @classmethod
-    def is_initial_event(cls, ari_event_data):
-        # TODO: implement
-        return False
-
-
-    @classmethod
-    def is_final_event(cls, ari_event_data):
-        # TODO: implement
-        return False
-
-
-    @classmethod
     def add_channel_to_campaign(cls, id_campaign):
         cls.connect_redis_dialer()
         return cls.REDIS_DIALER_CONNECTION.hincrby(f'CAMP:{id_campaign}:COUNTER', 'ACTIVE_CHANNELS', 1)
@@ -724,10 +712,6 @@ class AverageWorker(DialerWorker):
         # probable because of pstn_emulator ...
         ari_event_data = cls.decode_payload(job.data)
         id_campaign, contact_id, phone_number = cls.get_contact_data(ari_event_data)
-        if cls.is_initial_event(ari_event_data):
-            cls.add_channel_to_campaign(id_campaign)
-        if cls.is_final_event(ari_event_data):
-            cls.remove_channel_to_campaign(id_campaign)
         if cls.is_answer_event(ari_event_data):
             if cls.is_answered_pstn(ari_event_data):
                 status = "ANSWERED_PSTN"
