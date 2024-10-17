@@ -234,10 +234,11 @@ class AverageWorker(DialerWorker):
         logger.debug(f'Editing the campaign {id_campaign}')
         contact_strategy = data['contact_strategy']
         # 0- pause campaign
-        cls.set_campaign_status(id_campaign, PAUSED)
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             with conn_dialer.transaction() as dialer_tx_outer:
                 cursor_dialer = conn_dialer.cursor()
+                orig_status_campaign = cls.get_campaign_status(id_campaign, cursor_dialer)
+                cls.set_campaign_status(id_campaign, PAUSED, cursor_dialer)
                 with psycopg.connect(cls.POSTGRES_OML_CONNECTION_STR) as conn_oml:
                     cursor_oml = conn_oml.cursor()
                     campaign_id_data, incidence_rules_data, incidence_rules_disposition_data = cls.get_campaign_data(
@@ -260,7 +261,9 @@ class AverageWorker(DialerWorker):
                     logger.debug('Inserting the incidence_rules for disposition into omnidialer')
                     for incidence_rule in incidence_rules_disposition_data:
                         cursor_dialer.execute("INSERT INTO incidence_rules_disposition (id, disposition_option_id, max_attempt, retry_later, in_mode, campaign_id) VALUES (%s, %s, %s, %s, %s, %s);", incidence_rule)
-
+                if orig_status_campaign in [ACTIVE, RESUMED]:
+                    cls.set_campaign_status(id_campaign, RESUMED, cursor_dialer)
+                    cls.process_campaign(id_campaign)
 
         response = f'Campaign {id_campaign} with strategy {contact_strategy} succesfully updated!!!'
 
@@ -799,9 +802,12 @@ class AverageWorker(DialerWorker):
 
 
     @classmethod
-    def set_campaign_status(cls, id_campaign, new_status):
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
-            cursor = conn.cursor()
+    def set_campaign_status(cls, id_campaign, new_status, cursor=None):
+        if cursor is None:
+            with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+                cursor = conn.cursor()
+                cursor.execute('UPDATE campaign SET dialer_status = %s WHERE id = %s;', (new_status, id_campaign))
+        else:
             cursor.execute('UPDATE campaign SET dialer_status = %s WHERE id = %s;', (new_status, id_campaign))
 
 
