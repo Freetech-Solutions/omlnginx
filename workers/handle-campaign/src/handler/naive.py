@@ -449,7 +449,7 @@ class AverageWorker(DialerWorker):
     @classmethod
     def get_active_channels(cls, id_campaign):
         cls.connect_redis_oml()
-        return cls.REDIS_OML_CONNECTION.get('dialer_pstn_calls') or 0
+        return int(cls.REDIS_OML_CONNECTION.get('dialer_pstn_calls')) or 0
 
 
     @classmethod
