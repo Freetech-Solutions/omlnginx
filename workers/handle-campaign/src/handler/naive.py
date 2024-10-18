@@ -358,7 +358,7 @@ class AverageWorker(DialerWorker):
                 """SELECT id
                 FROM ONLY campaign
                 WHERE end_date >= now()::date
-                AND start_date < now()::date
+                AND start_date <= now()::date
                 AND id = %s;""", (id_campaign,))
             campaign_in_range = cursor_dialer.fetchone()
             if not campaign_in_range:
