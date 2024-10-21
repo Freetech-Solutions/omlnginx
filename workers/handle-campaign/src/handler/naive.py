@@ -488,7 +488,10 @@ class AverageWorker(DialerWorker):
     @classmethod
     def get_active_channels(cls, id_campaign):
         cls.connect_redis_oml()
-        return int(cls.REDIS_OML_CONNECTION.get('dialer_pstn_calls')) or 0
+        active_channels = cls.REDIS_OML_CONNECTION.get('dialer_pstn_calls')
+        if active_channels is None:
+            return 0
+        return int(active_channels)
 
     @classmethod
     def get_campaign_max_available_channels(cls, id_campaign):
@@ -875,8 +878,8 @@ class AverageWorker(DialerWorker):
             logger.debug('Copying campaign table data')
             cursor.execute('SELECT * FROM ONLY campaign WHERE id = %s;', (id_campaign,))
             campaign_data_initial = cursor.fetchone()
-            statistics = json.dumps(campaign_data_initial[-1])
-            campaign_data = campaign_data_initial[:-1] + (statistics,)
+            statistics = json.dumps(campaign_data_initial[-2])
+            campaign_data = campaign_data_initial[:-2] + (statistics, campaign_data_initial[-1])
             sql1 = 'INSERT INTO campaign_historic VALUES'
             sql2 = ' ({0} %s);'.format('%s, ' * 24)
             sql = sql1 + sql2
@@ -907,7 +910,7 @@ class AverageWorker(DialerWorker):
                     break
                 for contact in contacts:
                     cursor_insert.execute('INSERT INTO contact_in_campaign_historic VALUES'
-                                          ' (%s, %s, %s, %s, %s, %s, %s);', contact)
+                                          ' (%s, %s, %s, %s, %s, %s, %s, %s, %s);', contact)
             # 4- remove original campaign data
             logger.debug('Removing original campaign data')
             cursor.execute('DELETE FROM ONLY campaign WHERE id = %s', (id_campaign,))

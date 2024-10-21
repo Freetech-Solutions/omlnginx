@@ -1,0 +1,33 @@
+* Curls for endpoints
+** Create campaign
+*** Parameters: <id> of the campaign in OML (in the URL) and "contact-strategy" in the Json POST
+Example:
+curl -d '{"contact-strategy": [1, 3, 4]}' -H "Content-Type: application/json" -X POST http://localhost:1440/create-campaign/4
+** Edit campaign
+*** Parameters: <id> of the campaign (in the URL) and "contact-strategy" in the Json POST
+Example:
+curl -d '{"contact-strategy": [1, 3]}' -H "Content-Type: application/json" -X POST http://localhost:1440/edit-campaign/4
+** Start campaign
+*** Parameters: <id> of the campaign (in the URL)
+Example:
+curl -d '{}' -H "Content-Type: application/json" -X POST http://localhost:1440/start-campaign/4
+** Pause campaign
+*** Parameters: <id> of the campaign (in the URL)
+Example:
+curl -d '{}' -H "Content-Type: application/json" -X POST http://localhost:1440/pause-campaign/4
+** Resume campaign
+*** Parameters: <id> of the campaign (in the URL)
+Example:
+curl -d '{}' -H "Content-Type: application/json" -X POST http://localhost:1440/resume-campaign/4
+** Finalize(stop) campaign
+*** Parameters: <id> of the campaign (in the URL)
+Example:
+curl -d '{}' -H "Content-Type: application/json" -X POST http://localhost:1440/stop-campaign/4
+** Delete campaign
+*** Parameters: <id> of the campaign (in the URL)
+Example:
+curl -d '{}' -H "Content-Type: application/json" -X POST http://localhost:1440/delete-campaign/4
+** Add disposition for incidence rule
+*** Parameters: <id> of the campaign (in the URL), id of disposition option in OML <disposition_option> in OML and <id_contact>
+Example:
+curl -d '{"id_contact": 3, "disposition_option": 7}' -H "Content-Type: application/json" -X POST http://localhost:1440/add-incidence-rule-disposition/4
