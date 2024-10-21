@@ -2,7 +2,6 @@ from sys import argv
 from handler.naive import AverageWorker
 
 import os
-import json
 import logging
 
 LOGLEVEL = os.environ.get('PYTHON_LOGLEVEL', 'INFO').upper()

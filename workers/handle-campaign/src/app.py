@@ -3,7 +3,7 @@ from settings.default import GEARMAN_JOB_SERVERS, GEARMAN_JOBS
 from handler.naive import AverageWorker
 
 import gearman
-import os
+
 
 WORKER = AverageWorker
 

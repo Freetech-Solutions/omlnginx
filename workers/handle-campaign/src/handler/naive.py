@@ -3,19 +3,15 @@
 from .basic import DialerWorker
 from .ari_manager import ARI
 from .utils import timed_lru_cache
-from time import sleep
 
 import pickle
 import json
-import sys
 import os
 import redis
 import psycopg
 import gearman.client
 
-from datetime import datetime, timezone
 from decimal import Decimal
-from time import sleep
 
 from settings.default import REDIS_DIALER_PORT, REDIS_DIALER_SERVER, GEARMAN_JOB_SERVERS
 
@@ -63,7 +59,7 @@ POSTGRES_DIALER_DB = 'omnidialer'
 
 POSTGRES_DIALER_PASSWORD = os.getenv('POSTGRES_DIALER_PASSWORD')
 
-DIALER_ACD_HOST=os.getenv('DIALER_ACD_HOST', 'omlacd')
+DIALER_ACD_HOST = os.getenv('DIALER_ACD_HOST', 'omlacd')
 
 WEEK_DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
 
@@ -135,11 +131,14 @@ def exception_handler_decorator(method):
 
 
 class AverageWorker(DialerWorker):
-    """A worker flow with a dialing strategy, call contacts according to the available agents and the campaigns they are assigned to"""
+    """A worker flow with a dialing strategy, call contacts according to the available agents and
+    the campaigns they are assigned to"""
 
-
-    POSTGRES_OML_CONNECTION_STR = f'postgresql://{POSTGRES_OML_USER}:{POSTGRES_OML_PASSWORD}@{POSTGRES_OML_SERVER}:{POSTGRES_OML_PORT}/{POSTGRES_OML_DB}'
-    POSTGRES_DIALER_CONNECTION_STR = f'postgresql://{POSTGRES_DIALER_USER}:{POSTGRES_DIALER_PASSWORD}@{POSTGRES_DIALER_SERVER}:{POSTGRES_DIALER_PORT}/{POSTGRES_DIALER_DB}'
+    POSTGRES_OML_CONNECTION_STR = (f'postgresql://{POSTGRES_OML_USER}:{POSTGRES_OML_PASSWORD}'
+                                   f'@{POSTGRES_OML_SERVER}:{POSTGRES_OML_PORT}/{POSTGRES_OML_DB}')
+    POSTGRES_DIALER_CONNECTION_STR = (f'postgresql://{POSTGRES_DIALER_USER}:'
+                                      f'{POSTGRES_DIALER_PASSWORD}@{POSTGRES_DIALER_SERVER}:'
+                                      f'{POSTGRES_DIALER_PORT}/{POSTGRES_DIALER_DB}')
     REDIS_OML_CONNECTION = None
     REDIS_DIALER_CONNECTION = None
     GM_CLIENT = gearman.GearmanClient(GEARMAN_JOB_SERVERS)
@@ -163,19 +162,17 @@ class AverageWorker(DialerWorker):
                     # sleep(1)
                     cls.attempt_contact(contact, id_campaign)
 
-
     @classmethod
     def connect_redis_oml(cls):
         if cls.REDIS_OML_CONNECTION is None:
-            cls.REDIS_OML_CONNECTION = redis.Redis(host=REDIS_OML_SERVER, port=REDIS_OML_PORT, decode_responses=True)
-
+            cls.REDIS_OML_CONNECTION = redis.Redis(
+                host=REDIS_OML_SERVER, port=REDIS_OML_PORT, decode_responses=True)
 
     @classmethod
     def connect_redis_dialer(cls):
         if cls.REDIS_DIALER_CONNECTION is None:
-            cls.REDIS_DIALER_CONNECTION = redis.Redis(host=REDIS_DIALER_SERVER, port=REDIS_DIALER_PORT, decode_responses=True)
-
-
+            cls.REDIS_DIALER_CONNECTION = redis.Redis(
+                host=REDIS_DIALER_SERVER, port=REDIS_DIALER_PORT, decode_responses=True)
 
     @classmethod
     def is_allowed_to_call(cls, id_campaign):
@@ -187,33 +184,39 @@ class AverageWorker(DialerWorker):
             return cls.opening_hours_match(cursor_dialer, id_campaign)
         return False
 
-
     @classmethod
     def get_campaign_data(cls, id_campaign, cursor_oml, contact_strategy):
         # import campaign configuration from tables of OML
         logger.debug(f'Retrieving data from OML campaign with id={id_campaign}')
         logger.debug('From ominicontacto_app_campana')
-        cursor_oml.execute('SELECT id,estado,nombre,fecha_inicio,fecha_fin,control_de_duplicados,prioridad '
-                           ' FROM ominicontacto_app_campana WHERE id = %s;', (id_campaign,))
+        cursor_oml.execute(
+            'SELECT id,estado,nombre,fecha_inicio,fecha_fin,control_de_duplicados,prioridad '
+            ' FROM ominicontacto_app_campana WHERE id = %s;', (id_campaign,))
         campaign_id_data = cursor_oml.fetchone()
         logger.debug('From queue_table')
-        cursor_oml.execute('SELECT strategy,wait,initial_predictive_model,initial_boost_factor,maxlen '
-                           ' FROM queue_table WHERE campana_id = %s;', (id_campaign,))
+        cursor_oml.execute(
+            'SELECT strategy,wait,initial_predictive_model,initial_boost_factor,maxlen '
+            ' FROM queue_table WHERE campana_id = %s;', (id_campaign,))
         campaign_id_data += cursor_oml.fetchone()
         logger.debug('From ominicontacto_app_actuacionvigente')
-        cursor_oml.execute('SELECT domingo,lunes,martes,miercoles,jueves,viernes,sabado,hora_desde,hora_hasta'
-                           ' FROM ominicontacto_app_actuacionvigente WHERE campana_id = %s;', (id_campaign,))
+        cursor_oml.execute('SELECT domingo,lunes,martes,miercoles,jueves,viernes,sabado,hora_desde,'
+                           'hora_hasta FROM ominicontacto_app_actuacionvigente'
+                           ' WHERE campana_id = %s;', (id_campaign,))
         campaign_id_data += cursor_oml.fetchone()
         logger.debug('Setting dialer specific options')
         campaign_id_data += (contact_strategy, CREATED)
         logger.debug('From incidence rules')
-        cursor_oml.execute('SELECT * FROM ominicontacto_app_reglasincidencia WHERE campana_id = %s;', (id_campaign,))
+        cursor_oml.execute(
+            'SELECT * FROM ominicontacto_app_reglasincidencia WHERE campana_id = %s;',
+            (id_campaign,))
         incidence_rules_data = cursor_oml.fetchall()
         logger.debug('From incidence rules for disposition options')
         cursor_oml.execute(
-            """SELECT ric.id,ric.opcion_calificacion_id,ric.intento_max,ric.reintentar_tarde,ric.en_modo,opc.campana_id
+            """SELECT ric.id,ric.opcion_calificacion_id,ric.intento_max,ric.reintentar_tarde,
+            ric.en_modo,opc.campana_id
             FROM ominicontacto_app_reglaincidenciaporcalificacion AS ric
-            INNER JOIN ominicontacto_app_opcioncalificacion AS opc ON ric.opcion_calificacion_id = opc.id
+            INNER JOIN ominicontacto_app_opcioncalificacion AS opc ON
+            ric.opcion_calificacion_id = opc.id
             AND opc.campana_id = %s;""", (id_campaign,))
         incidence_rules_disposition_data = cursor_oml.fetchall()
         cursor_oml.execute(
@@ -223,7 +226,6 @@ class AverageWorker(DialerWorker):
         metadata = json.dumps(cursor_oml.fetchone()[0])
         campaign_id_data += (metadata,)
         return campaign_id_data, incidence_rules_data, incidence_rules_disposition_data
-
 
     @classmethod
     @exception_handler_decorator
@@ -235,32 +237,41 @@ class AverageWorker(DialerWorker):
         contact_strategy = data['contact_strategy']
         # 0- pause campaign
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
-            with conn_dialer.transaction() as dialer_tx_outer:
+            with conn_dialer.transaction():
                 cursor_dialer = conn_dialer.cursor()
                 orig_status_campaign = cls.get_campaign_status(id_campaign, cursor_dialer)
                 cls.set_campaign_status(id_campaign, PAUSED, cursor_dialer)
                 with psycopg.connect(cls.POSTGRES_OML_CONNECTION_STR) as conn_oml:
                     cursor_oml = conn_oml.cursor()
-                    campaign_id_data, incidence_rules_data, incidence_rules_disposition_data = cls.get_campaign_data(
+                    (campaign_id_data, incidence_rules_data,
+                     incidence_rules_disposition_data) = cls.get_campaign_data(
                         id_campaign, cursor_oml, contact_strategy)
                     # 1- update campaign table
                     logger.debug('Inserting the campaign data into omnidialer')
                     params = campaign_id_data[1:] + (id_campaign,)
                     cursor_dialer.execute(
-                        """UPDATE campaign SET oml_status = %s, name = %s, start_date = %s, end_date = %s,
-                        duplicates_control = %s, priority = %s, strategy = %s, wait = %s, initial_predictive_model = %s,
-                        initial_boost_factor = %s, max_channels = %s, sunday = %s, monday = %s, tuesday = %s, wednesday = %s,
-                        thursday = %s, friday = %s, saturday = %s, hour_start = %s, hour_ends = %s, contact_strategy = %s,
-                        dialer_status = %s, metadata = %s WHERE id = %s;""", params)
+                        """UPDATE campaign SET oml_status = %s, name = %s, start_date = %s,
+                         end_date = %s, duplicates_control = %s, priority = %s, strategy = %s,
+                         wait = %s, initial_predictive_model = %s, initial_boost_factor = %s,
+                         max_channels = %s, sunday = %s, monday = %s, tuesday = %s, wednesday = %s,
+                         thursday = %s, friday = %s, saturday = %s, hour_start = %s, hour_ends = %s,
+                         contact_strategy = %s, dialer_status = %s, metadata = %s
+                         WHERE id = %s;""", params)
                     # 2- update incidence rules
-                    cursor_dialer.execute('DELETE FROM incidence_rules WHERE campaign_id = %s', (id_campaign,))
+                    cursor_dialer.execute('DELETE FROM incidence_rules WHERE campaign_id = %s',
+                                          (id_campaign,))
                     logger.debug('Inserting the incidence_rules into omnidialer')
                     for incidence_rule in incidence_rules_data:
-                        cursor_dialer.execute("INSERT INTO incidence_rules (id, status, status_custom, max_attempt, retry_later, in_mode, campaign_id) VALUES (%s, %s, %s, %s, %s, %s);", incidence_rule)
-                    cursor_dialer.execute('DELETE FROM incidence_rules_disposition WHERE campaign_id = %s', (id_campaign,))
+                        cursor_dialer.execute("""INSERT INTO incidence_rules
+                         (id, status, status_custom, max_attempt, retry_later, in_mode, campaign_id)
+                         VALUES (%s, %s, %s, %s, %s, %s);""", incidence_rule)
+                    cursor_dialer.execute("""DELETE FROM incidence_rules_disposition
+                    WHERE campaign_id = %s""", (id_campaign,))
                     logger.debug('Inserting the incidence_rules for disposition into omnidialer')
                     for incidence_rule in incidence_rules_disposition_data:
-                        cursor_dialer.execute("INSERT INTO incidence_rules_disposition (id, disposition_option_id, max_attempt, retry_later, in_mode, campaign_id) VALUES (%s, %s, %s, %s, %s, %s);", incidence_rule)
+                        cursor_dialer.execute("""INSERT INTO incidence_rules_disposition
+                        (id, disposition_option_id, max_attempt, retry_later, in_mode, campaign_id)
+                        VALUES (%s, %s, %s, %s, %s, %s);""", incidence_rule)
                 if orig_status_campaign in [ACTIVE, RESUMED]:
                     cls.set_campaign_status(id_campaign, RESUMED, cursor_dialer)
                     cls.process_campaign(id_campaign)
@@ -269,7 +280,6 @@ class AverageWorker(DialerWorker):
 
         response = json.dumps({'msg': response})
         return bytes(response, encoding='UTF8')
-
 
     @classmethod
     @exception_handler_decorator
@@ -280,24 +290,41 @@ class AverageWorker(DialerWorker):
         logger.debug(f'Creating the campaign {id_campaign}')
         contact_strategy = data['contact_strategy']
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
-            with conn_dialer.transaction() as dialer_tx_outer:
+            with conn_dialer.transaction():
                 cursor_dialer = conn_dialer.cursor()
                 with psycopg.connect(cls.POSTGRES_OML_CONNECTION_STR) as conn_oml:
                     cursor_oml = conn_oml.cursor()
-                    campaign_id_data, incidence_rules_data, incidence_rules_disposition_data = cls.get_campaign_data(
+                    (campaign_id_data, incidence_rules_data,
+                     incidence_rules_disposition_data) = cls.get_campaign_data(
                         id_campaign, cursor_oml, contact_strategy)
                     logger.debug('Inserting the campaign data into omnidialer')
-                    cursor_dialer.execute("INSERT INTO campaign (id, oml_status, name, start_date, end_date, duplicates_control, priority, strategy, wait, initial_predictive_model, initial_boost_factor, max_channels, sunday, monday, tuesday, wednesday, thursday, friday, saturday, hour_start, hour_ends, contact_strategy, dialer_status, metadata) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);", campaign_id_data)
+                    cursor_dialer.execute(
+                        """INSERT INTO campaign (id, oml_status, name, start_date, end_date,
+                        duplicates_control, priority, strategy, wait, initial_predictive_model,
+                        initial_boost_factor, max_channels, sunday, monday, tuesday, wednesday,
+                        thursday, friday, saturday, hour_start, hour_ends, contact_strategy,
+                        dialer_status, metadata) VALUES
+                         (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s);""", campaign_id_data)
                     logger.debug('Inserting the incidence_rules into omnidialer')
                     for incidence_rule in incidence_rules_data:
-                        cursor_dialer.execute("INSERT INTO incidence_rules (id, status, status_custom, max_attempt, retry_later, in_mode, campaign_id) VALUES (%s, %s, %s, %s, %s, %s, %s);", incidence_rule)
-                    logger.debug('Inserting the incidence_rules for disposition option into omnidialer')
+                        cursor_dialer.execute(
+                            """INSERT INTO incidence_rules
+                            (id, status, status_custom, max_attempt, retry_later, in_mode,
+                            campaign_id) VALUES (%s, %s, %s, %s, %s, %s, %s);""", incidence_rule)
+                    logger.debug('Inserting the incidence_rules for disposition option'
+                                 ' into omnidialer')
                     for incidence_rule in incidence_rules_disposition_data:
-                        cursor_dialer.execute("INSERT INTO incidence_rules_disposition (id, disposition_option_id, max_attempt, retry_later, in_mode, campaign_id) VALUES (%s, %s, %s, %s, %s, %s);", incidence_rule)
+                        cursor_dialer.execute(
+                            """INSERT INTO incidence_rules_disposition
+                            (id, disposition_option_id, max_attempt, retry_later, in_mode,
+                            campaign_id) VALUES (%s, %s, %s, %s, %s, %s);""", incidence_rule)
                     logger.debug('Retrieving the contacts')
-                    sql = """SELECT co.id, co.telefono, co.datos, co.es_originario FROM ominicontacto_app_contacto AS co
-                    INNER JOIN ominicontacto_app_basedatoscontacto AS db ON db.id = co.bd_contacto_id
-                    INNER JOIN ominicontacto_app_campana AS ca ON db.id = ca.bd_contacto_id AND ca.id = %s;"""
+                    sql = """SELECT co.id, co.telefono, co.datos, co.es_originario
+                    FROM ominicontacto_app_contacto AS co
+                    INNER JOIN ominicontacto_app_basedatoscontacto AS db ON
+                    db.id = co.bd_contacto_id INNER JOIN ominicontacto_app_campana
+                    AS ca ON db.id = ca.bd_contacto_id AND ca.id = %s;"""
                     size = 1000
                     logger.debug('Copying the contacts')
                     cursor_oml.execute(sql, (id_campaign,))
@@ -306,16 +333,21 @@ class AverageWorker(DialerWorker):
                         if not contacts:
                             break
                         for (id_contact, phone, data, is_original) in contacts:
-                            cursor_dialer.execute('INSERT INTO contact (id, phone, data, is_original) VALUES (%s, %s, %s, %s)'
-                                                  'ON CONFLICT (id) DO NOTHING;', (id_contact, phone, data, is_original))
-                            cursor_dialer.execute('INSERT INTO contact_in_campaign (id_campaign, id_contact, status, final_status, disposition_option) VALUES (%s, %s, %s, %s, %s);',
-                                                  (id_campaign, id_contact, STATUS_CREATED, INITIAL, NO_DISPOSITION_OPTION))
+                            cursor_dialer.execute(
+                                'INSERT INTO contact '
+                                '(id, phone, data, is_original) VALUES (%s, %s, %s, %s)'
+                                'ON CONFLICT (id) DO NOTHING;',
+                                (id_contact, phone, data, is_original))
+                            cursor_dialer.execute(
+                                """INSERT INTO contact_in_campaign (id_campaign, id_contact, status,
+                                final_status, disposition_option) VALUES (%s, %s, %s, %s, %s);""",
+                                (id_campaign, id_contact, STATUS_CREATED, INITIAL,
+                                 NO_DISPOSITION_OPTION))
 
         response = f'Campaign {id_campaign} with strategy {contact_strategy} created!!!'
 
         response = json.dumps({'msg': response})
         return bytes(response, encoding='UTF8')
-
 
     @classmethod
     @exception_handler_decorator
@@ -326,14 +358,14 @@ class AverageWorker(DialerWorker):
         cls.process_campaign(id_campaign)
         return b'Campaign started!'
 
-
     @classmethod
     def opening_hours_match(cls, cursor, id_campaign):
         cursor.execute('SELECT EXTRACT(DOW FROM CURRENT_DATE) AS day_of_week;')
         day_of_week = WEEK_DAYS[int(cursor.fetchone()[0])]
         cursor.execute(f'SELECT {day_of_week} FROM ONLY campaign WHERE id = %s;', (id_campaign,))
         day_of_week_allowed = cursor.fetchone()[0]
-        cursor.execute('SELECT * FROM ONLY campaign WHERE id = %s AND CURRENT_TIME BETWEEN hour_start AND hour_ends;', (id_campaign,))
+        cursor.execute('SELECT * FROM ONLY campaign WHERE id = %s AND CURRENT_TIME BETWEEN'
+                       ' hour_start AND hour_ends;', (id_campaign,))
         hour_match = cursor.fetchone()
         if not day_of_week_allowed:
             logger.debug(f'Campaign {id_campaign}: day week not allowed to call')
@@ -341,12 +373,11 @@ class AverageWorker(DialerWorker):
             logger.debug(f'Campaign {id_campaign}: in the current time is not allowed to call')
         return day_of_week_allowed and hour_match
 
-
     @classmethod
     def get_campaign_status(cls, id_campaign, dialer_cursor):
-        dialer_cursor.execute('SELECT dialer_status FROM ONLY campaign WHERE id = %s', (id_campaign,))
+        dialer_cursor.execute(
+            'SELECT dialer_status FROM ONLY campaign WHERE id = %s', (id_campaign,))
         return dialer_cursor.fetchone()[0]
-
 
     @classmethod
     def campaign_is_active(cls, id_campaign):
@@ -370,10 +401,12 @@ class AverageWorker(DialerWorker):
                 return False
 
             # notify to OML if there are no more contacts for call and pause the campaign
-            # TODO: clarify if contacts with failed statuses that completed the incidence rules should be taken in consideration for these
+            # TODO: clarify if contacts with failed statuses that completed the incidence
+            # rules should be taken in consideration for these
             # notifications
-            cursor_dialer.execute ('SELECT id FROM ONLY contact_in_campaign WHERE id_campaign = %s AND status <> %s limit 1;',
-                                   (id_campaign, STATUS_ANSWERED_AGENT))
+            cursor_dialer.execute('SELECT id FROM ONLY contact_in_campaign WHERE id_campaign = %s'
+                                  ' AND status <> %s limit 1;',
+                                  (id_campaign, STATUS_ANSWERED_AGENT))
             contacts_not_called_exists = cursor_dialer.fetchone()
             if not contacts_not_called_exists:
                 logger.debug(f'Campaign {id_campaign}: no more contacts pending for call')
@@ -383,7 +416,8 @@ class AverageWorker(DialerWorker):
                                                  'No more contacts pending for call')
                 return False
 
-            # notify to OML if there are less than PERCENTAGE_PENDING_CALL_THRESHOLD% of contacts pending for call
+            # notify to OML if there are less than PERCENTAGE_PENDING_CALL_THRESHOLD%
+            # of contacts pending for call
             # TODO: not sure about the frequency of this notification
             cursor_dialer.execute(
                 """SELECT status, count(*) * 100.0 / (SELECT count(*) FROM contact_in_campaign)
@@ -394,23 +428,25 @@ class AverageWorker(DialerWorker):
             percentage_called = percentage_called[1] if percentage_called is not None else 0
             percentage_pending_call = 100 - percentage_called
             if percentage_pending_call <= PERCENTAGE_PENDING_CALL_THRESHOLD:
-                logger.debug(f'Campaign {id_campaign}: less than {PERCENTAGE_PENDING_CALL_THRESHOLD}% contacts pending for call')
+                logger.debug(f'Campaign {id_campaign}: less than '
+                             f'{PERCENTAGE_PENDING_CALL_THRESHOLD}% contacts pending for call')
                 cls.connect_redis_oml()
                 cls.REDIS_OML_CONNECTION.publish(f'omnidialer-campaign-{id_campaign}',
-                                                 f'Less than {PERCENTAGE_PENDING_CALL_THRESHOLD}% of contacts pending for call')
+                                                 f'Less than {PERCENTAGE_PENDING_CALL_THRESHOLD}%'
+                                                 ' of contacts pending for call')
 
         return (status in [ACTIVE, RESUMED])
-
 
     @classmethod
     def get_number_active_campaigns(cls):
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
             cursor = conn.cursor()
-            cursor.execute('SELECT Count(*) FROM ONLY campaign WHERE dialer_status = %s OR dialer_status = %s;',
-                           (ACTIVE, RESUMED))
+            cursor.execute(
+                """SELECT Count(*) FROM ONLY campaign WHERE dialer_status = %s
+                OR dialer_status = %s;""",
+                (ACTIVE, RESUMED))
             active_campaigns = cursor.fetchone()[0]
         return active_campaigns
-
 
     @classmethod
     def get_agent_ids_campaign(cls, id_campaign):
@@ -418,17 +454,21 @@ class AverageWorker(DialerWorker):
         with psycopg.connect(cls.POSTGRES_OML_CONNECTION_STR) as conn_oml:
             cursor_oml = conn_oml.cursor()
             cursor_oml.execute(
-                """SELECT ominicontacto_app_agenteprofile.id, COUNT(queue_table.campana_id) AS queue__campana__count
-                FROM ominicontacto_app_agenteprofile LEFT OUTER JOIN queue_member_table ON (ominicontacto_app_agenteprofile.id = queue_member_table.member_id)
-                LEFT OUTER JOIN queue_table ON (queue_member_table.queue_name = queue_table.name) WHERE ominicontacto_app_agenteprofile.id in
+                """SELECT ominicontacto_app_agenteprofile.id, COUNT(queue_table.campana_id)
+                AS queue__campana__count
+                FROM ominicontacto_app_agenteprofile LEFT OUTER JOIN queue_member_table ON
+                (ominicontacto_app_agenteprofile.id = queue_member_table.member_id)
+                LEFT OUTER JOIN queue_table ON (queue_member_table.queue_name = queue_table.name)
+                WHERE ominicontacto_app_agenteprofile.id in
                 (
                 SELECT ominicontacto_app_agenteprofile.id FROM ominicontacto_app_agenteprofile
-                INNER JOIN queue_member_table ON (ominicontacto_app_agenteprofile.id = queue_member_table.member_id)
-                INNER JOIN queue_table ON (queue_member_table.queue_name = queue_table.name) WHERE queue_table.campana_id = %s
+                INNER JOIN queue_member_table ON
+                (ominicontacto_app_agenteprofile.id = queue_member_table.member_id)
+                INNER JOIN queue_table ON (queue_member_table.queue_name = queue_table.name)
+                WHERE queue_table.campana_id = %s
                 ) GROUP BY ominicontacto_app_agenteprofile.id;""",
                 (id_campaign,))
             return dict(cursor_oml.fetchall())
-
 
     @classmethod
     def get_number_available_agents(cls, id_campaign):
@@ -445,21 +485,19 @@ class AverageWorker(DialerWorker):
             return 1
         return int(agents_available)
 
-
     @classmethod
     def get_active_channels(cls, id_campaign):
         cls.connect_redis_oml()
         return int(cls.REDIS_OML_CONNECTION.get('dialer_pstn_calls')) or 0
-
 
     @classmethod
     def get_campaign_max_available_channels(cls, id_campaign):
         # TODO: consider some caching here?
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
-            cursor_dialer.execute('SELECT max_channels FROM ONLY campaign WHERE id = %s;', (id_campaign,))
+            cursor_dialer.execute('SELECT max_channels FROM ONLY campaign WHERE id = %s;',
+                                  (id_campaign,))
             return cursor_dialer.fetchone()[0]
-
 
     @classmethod
     def get_allowed_attempts_according_agents(cls, id_campaign):
@@ -471,21 +509,22 @@ class AverageWorker(DialerWorker):
             return available_agents / active_campaigns
         return 0
 
-
     @classmethod
     def allowed_parallel_contact_attempts(cls, id_campaign):
         active_channels = cls.get_active_channels(id_campaign)
         campaign_max_available_channels = cls.get_campaign_max_available_channels(id_campaign)
         num_available_channels = campaign_max_available_channels - active_channels
         logger.debug("var active_channels={0}".format(active_channels))
-        logger.debug("Campaign {0}: campaign_max_available_channels={1}".format(id_campaign, campaign_max_available_channels))
+        logger.debug("Campaign {0}: campaign_max_available_channels={1}".format(
+            id_campaign, campaign_max_available_channels))
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
-            cursor_dialer.execute('SELECT initial_boost_factor FROM ONLY campaign WHERE id = %s', (id_campaign,))
+            cursor_dialer.execute('SELECT initial_boost_factor FROM ONLY campaign WHERE id = %s',
+                                  (id_campaign,))
             boost_factor = cursor_dialer.fetchone()[0]
-            allowed_parallel_attempts_acc_agents = int(Decimal(cls.get_allowed_attempts_according_agents(id_campaign)) * boost_factor)
+            allowed_parallel_attempts_acc_agents = int(Decimal(
+                cls.get_allowed_attempts_according_agents(id_campaign)) * boost_factor)
             return min(num_available_channels, allowed_parallel_attempts_acc_agents)
-
 
     @classmethod
     def take_contacts(cls, contacts_attempts_number, id_campaign):
@@ -500,17 +539,16 @@ class AverageWorker(DialerWorker):
                                      WHERE id_campaign = %s and status = %s
                                      LIMIT %s) AND co.id = cc.id_contact
                                      RETURNING cc.id_contact, cc.id_campaign, co.phone;""",
-                                  (STATUS_SELECTED_CALL, id_campaign, STATUS_CREATED, contacts_attempts_number))
+                                  (STATUS_SELECTED_CALL, id_campaign, STATUS_CREATED,
+                                   contacts_attempts_number))
             contacts = cursor_dialer.fetchall()
             logger.debug("Selected {0} contacts".format(len(contacts)))
             return contacts
-
 
     @classmethod
     def attempt_contact(cls, contact, id_campaign):
         message = json.dumps({'contact': contact, 'id_campaign': id_campaign})
         cls.GM_CLIENT.submit_job('process-contact', message)
-
 
     @classmethod
     @exception_handler_decorator
@@ -527,14 +565,12 @@ class AverageWorker(DialerWorker):
             return b'Contact was called'
         return b'Aborted call, campaign is not active'
 
-
     @classmethod
     def attempt_contact_asterisk(cls, contact_info, id_campaign):
         logger.debug('Trying to call the contact')
         id_customer = contact_info[0]
         phone_number = contact_info[2]
         queue_timeout = 20
-        dial_timeout = 30
         channel_type = 'to_omlacd_dialout'
         caller_id = f'{id_campaign}_{id_customer}_{phone_number}'
         variables = {
@@ -544,9 +580,12 @@ class AverageWorker(DialerWorker):
         }
         call_type = 2
         endpoint = f'PJSIP/{phone_number}@{DIALER_ACD_HOST}'
-        appArgs = f'id_camp: {id_campaign}, id_customer: {id_customer}, tel_customer: {phone_number}, queue_timeout: {queue_timeout}, channel_type: {channel_type}, call_type: {call_type}'
+        appArgs = f"""id_camp: {id_campaign}, id_customer: {id_customer},
+        tel_customer: {phone_number}, queue_timeout: {queue_timeout},
+        channel_type: {channel_type}, call_type: {call_type}"""
 
-        logger.debug(f'Calling contact {id_customer} with phone {phone_number} in campaign {id_campaign}')
+        logger.debug(f"""Calling contact {id_customer} with phone {phone_number}
+        in campaign {id_campaign}""")
 
         response = cls.ari.originate_channel(
             endpoint=endpoint,
@@ -557,7 +596,6 @@ class AverageWorker(DialerWorker):
         )
         logger.debug(response)
 
-
     @classmethod
     @exception_handler_decorator
     def pause_campaign(cls, worker, job):
@@ -567,7 +605,6 @@ class AverageWorker(DialerWorker):
         response = f'Campaign {id_campaign} was paused!'
         response = json.dumps({'msg': response})
         return bytes(response, encoding='UTF8')
-
 
     @classmethod
     @exception_handler_decorator
@@ -580,19 +617,18 @@ class AverageWorker(DialerWorker):
         response = json.dumps({'msg': response})
         return bytes(response, encoding='UTF8')
 
-
     @classmethod
     @exception_handler_decorator
     def schedule_contact(cls, worker, job):
         data = cls.decode_payload(job.data)
         (contact_id, id_campaign, phone_number) = data['contact_info']
         delay = data['delay']
-        logger.debug(f'Attempting to schedule contact {contact_id} with phone number {phone_number} in campaign {id_campaign}')
+        logger.debug(f'Attempting to schedule contact {contact_id} with phone number {phone_number}'
+                     f' in campaign {id_campaign}')
         process_contact_subcommand = f'python caller.py {contact_id} {id_campaign} {phone_number}'
         command = f'nohup sh -c "sleep {delay}; {process_contact_subcommand}" &'
         os.system(command)
         return b'The contact was scheduled'
-
 
     @classmethod
     @timed_lru_cache(seconds=600, maxsize=128)
@@ -602,30 +638,33 @@ class AverageWorker(DialerWorker):
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute(
-                'SELECT retry_later, max_attempt, in_mode FROM ONLY incidence_rules WHERE campaign_id = %s AND status = %s;',
+                'SELECT retry_later, max_attempt, in_mode FROM ONLY incidence_rules WHERE'
+                ' campaign_id = %s AND status = %s;',
                 (id_campaign, status_code))
             return cursor_dialer.fetchone()
-
 
     @classmethod
     @timed_lru_cache(seconds=600, maxsize=128)
     def get_incidence_rule_disposition(cls, id_campaign, disposition_option):
-        logger.debug(f'Campaign {id_campaign}: getting the incidence rule for disposition {disposition_option}')
+        logger.debug(f'Campaign {id_campaign}: getting the incidence rule for '
+                     f'disposition {disposition_option}')
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute(
-                'SELECT retry_later, max_attempt, in_mode FROM ONLY incidence_rules_disposition WHERE campaign_id = %s AND disposition_option_id = %s;',
+                'SELECT retry_later, max_attempt, in_mode FROM ONLY incidence_rules_disposition'
+                ' WHERE campaign_id = %s AND disposition_option_id = %s;',
                 (id_campaign, disposition_option))
             return cursor_dialer.fetchone()
 
-
     @classmethod
     def get_next_phone_number(cls, cursor_dialer, id_campaign, contact_id, phone_number):
-        phone_number_index = cls.REDIS_DIALER_CONNECTION.hget(f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'PHONE_NUMBER_INDEX')
+        phone_number_index = cls.REDIS_DIALER_CONNECTION.hget(
+            f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'PHONE_NUMBER_INDEX')
         if phone_number_index is None:
             # first time: the data is only encoded in Postgres (tables campaign & contact)
             # proceding to decode it
-            cursor_dialer.execute('SELECT metadata FROM ONLY campaign WHERE id = %s', (id_campaign,))
+            cursor_dialer.execute('SELECT metadata FROM ONLY campaign WHERE id = %s',
+                                  (id_campaign,))
             metadata = json.loads(cursor_dialer.fetchone()[0])
             phone_number_indexes = metadata['cols_telefono']
             cursor_dialer.execute(
@@ -637,51 +676,65 @@ class AverageWorker(DialerWorker):
             phone_numbers = []
             for i in phone_number_indexes:
                 phone_numbers.append(data[i])
-            cursor_dialer.execute(f'UPDATE contact_in_campaign SET phone_numbers_list = %s WHERE id_campaign = %s AND id_contact = %s;',
+            cursor_dialer.execute('UPDATE contact_in_campaign SET phone_numbers_list = %s WHERE'
+                                  ' id_campaign = %s AND id_contact = %s;',
                                   (phone_numbers, id_campaign, contact_id))
-            cls.REDIS_DIALER_CONNECTION.hset(f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'PHONE_NUMBER_LIST', pickle.dumps(phone_numbers))
+            cls.REDIS_DIALER_CONNECTION.hset(
+                f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'PHONE_NUMBER_LIST',
+                pickle.dumps(phone_numbers))
         else:
-            phone_numbers = pickle.loads(cls.REDIS_DIALER_CONNECTION.hget(f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'PHONE_NUMBER_LIST'))
+            phone_numbers = pickle.loads(cls.REDIS_DIALER_CONNECTION.hget(
+                f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'PHONE_NUMBER_LIST'))
         phone_number_index = (phone_number_index + 1) % len(phone_numbers)
         # update Postgres & Redis
-        cursor_dialer.execute(f'UPDATE contact_in_campaign SET phone_number_index = %s WHERE id_campaign = %s AND id_contact = %s;',
+        cursor_dialer.execute('UPDATE contact_in_campaign SET phone_number_index = %s'
+                              ' WHERE id_campaign = %s AND id_contact = %s;',
                               (phone_number_index, id_campaign, contact_id))
-        cls.REDIS_DIALER_CONNECTION.hset(f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'PHONE_NUMBER_INDEX', phone_number_index)
+        cls.REDIS_DIALER_CONNECTION.hset(
+            f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'PHONE_NUMBER_INDEX', phone_number_index)
         return phone_numbers[phone_number_index]
 
-
     @classmethod
-    def get_phone_number_incidence_rule(cls, cursor_dialer, id_campaign, contact_id, phone_number, type_incidence_rule):
+    def get_phone_number_incidence_rule(
+            cls, cursor_dialer, id_campaign, contact_id, phone_number, type_incidence_rule):
         if type_incidence_rule == FIXED:
             return phone_number
         # multinum handler MULT
         return cls.get_next_phone_number(cursor_dialer, id_campaign, contact_id, phone_number)
 
-
     @classmethod
-    def apply_incidence_rule(cls, cursor_dialer, incidence_rule, contact_id, id_campaign, status, status_type, phone_number):
+    def apply_incidence_rule(
+            cls, cursor_dialer, incidence_rule, contact_id, id_campaign, status, status_type,
+            phone_number):
         if incidence_rule is not None:
             retry_later, max_attempt, type_incidence_rule = incidence_rule
-            contact_history = cls.REDIS_DIALER_CONNECTION.lrange(f'CONTACT:{contact_id}:CAMP:{id_campaign}:HISTORY', 0, -1)
+            contact_history = cls.REDIS_DIALER_CONNECTION.lrange(
+                f'CONTACT:{contact_id}:CAMP:{id_campaign}:HISTORY', 0, -1)
             if contact_history.count(str((status, status_type))) <= max_attempt:
-                phone_number = cls.get_phone_number_incidence_rule(cursor_dialer, id_campaign, contact_id, phone_number, type_incidence_rule)
+                phone_number = cls.get_phone_number_incidence_rule(
+                    cursor_dialer, id_campaign, contact_id, phone_number, type_incidence_rule)
                 contact = (contact_id, id_campaign, phone_number)
                 message = json.dumps({'contact_info': contact, 'delay': retry_later})
-                cursor_dialer.execute('UPDATE contact_in_campaign SET final_status = %s WHERE id_campaign = %s and id_contact = %s;',
+                cursor_dialer.execute('UPDATE contact_in_campaign SET final_status = %s WHERE'
+                                      ' id_campaign = %s and id_contact = %s;',
                                       (PENDING_ATTEMPTS, id_campaign, contact_id))
-                cls.REDIS_DIALER_CONNECTION.hset(f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'STATUS', PENDING_ATTEMPTS)
+                cls.REDIS_DIALER_CONNECTION.hset(
+                    f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'STATUS', PENDING_ATTEMPTS)
                 cls.GM_CLIENT.submit_job('schedule-contact', message)
                 return True
             else:
-                cursor_dialer.execute('UPDATE contact_in_campaign SET final_status = %s WHERE id_campaign = %s and id_contact = %s;',
-                                          (FINALIZED_NOCONTACT, id_campaign, contact_id))
-                cls.REDIS_DIALER_CONNECTION.hset(f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'STATUS', FINALIZED_NOCONTACT)
+                cursor_dialer.execute('UPDATE contact_in_campaign SET final_status = %s'
+                                      ' WHERE id_campaign = %s and id_contact = %s;',
+                                      (FINALIZED_NOCONTACT, id_campaign, contact_id))
+                cls.REDIS_DIALER_CONNECTION.hset(
+                    f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'STATUS', FINALIZED_NOCONTACT)
         else:
-            cursor_dialer.execute('UPDATE contact_in_campaign SET final_status = %s WHERE id_campaign = %s and id_contact = %s;',
+            cursor_dialer.execute('UPDATE contact_in_campaign SET final_status = %s WHERE'
+                                  ' id_campaign = %s and id_contact = %s;',
                                   (FINALIZED_NOCONTACT, id_campaign, contact_id))
-            cls.REDIS_DIALER_CONNECTION.hset(f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'STATUS', FINALIZED_NOCONTACT)
+            cls.REDIS_DIALER_CONNECTION.hset(
+                f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'STATUS', FINALIZED_NOCONTACT)
         return False
-
 
     @classmethod
     def handle_incidence_rules(cls, status, id_campaign, contact_id, phone_number):
@@ -693,25 +746,27 @@ class AverageWorker(DialerWorker):
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             incidence_rule = cls.get_incidence_rule(id_campaign, status)
-            cls.apply_incidence_rule(cursor_dialer, incidence_rule, contact_id, id_campaign, status_code,
-                                 PHONE_TYPE, phone_number)
+            cls.apply_incidence_rule(
+                cursor_dialer, incidence_rule, contact_id, id_campaign, status_code,
+                PHONE_TYPE, phone_number)
 
     @classmethod
     def add_channel_to_campaign(cls, id_campaign):
         cls.connect_redis_dialer()
-        return cls.REDIS_DIALER_CONNECTION.hincrby(f'CAMP:{id_campaign}:COUNTER', 'ACTIVE_CHANNELS', 1)
-
+        return cls.REDIS_DIALER_CONNECTION.hincrby(
+            f'CAMP:{id_campaign}:COUNTER', 'ACTIVE_CHANNELS', 1)
 
     @classmethod
     def remove_channel_to_campaign(cls, id_campaign):
         cls.connect_redis_dialer()
-        return cls.REDIS_DIALER_CONNECTION.hincrby(f'CAMP:{id_campaign}:COUNTER', 'ACTIVE_CHANNELS', -1)
-
+        return cls.REDIS_DIALER_CONNECTION.hincrby(
+            f'CAMP:{id_campaign}:COUNTER', 'ACTIVE_CHANNELS', -1)
 
     @classmethod
     @exception_handler_decorator
     def process_event(cls, worker, job):
-        # TODO: clarify the event patterns, why there are NOANSWERs without PSTNs connect and NOANSWERs with it
+        # TODO: clarify the event patterns, why there are NOANSWERs without
+        # PSTNs connect and NOANSWERs with it
         # probable because of pstn_emulator ...
         ari_event_data = cls.decode_payload(job.data)
         id_campaign, contact_id, phone_number = cls.get_contact_data(ari_event_data)
@@ -727,9 +782,11 @@ class AverageWorker(DialerWorker):
                 cls.connect_redis_dialer()
                 with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
                     cursor_dialer = conn_dialer.cursor()
-                    cursor_dialer.execute('UPDATE contact_in_campaign SET final_status = %s WHERE id_campaign = %s and id_contact = %s;',
+                    cursor_dialer.execute('UPDATE contact_in_campaign SET final_status = %s WHERE'
+                                          ' id_campaign = %s and id_contact = %s;',
                                           (FINALIZED_SUCCESS, id_campaign, contact_id))
-                    cls.REDIS_DIALER_CONNECTION.hset(f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'STATUS', FINALIZED_SUCCESS)
+                    cls.REDIS_DIALER_CONNECTION.hset(
+                        f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'STATUS', FINALIZED_SUCCESS)
                 logger.debug(f'Contact {contact_id} was succesfully called to phone {phone_number}'
                              f' in campaign {id_campaign}')
         elif cls.is_fail_event(ari_event_data):
@@ -737,13 +794,11 @@ class AverageWorker(DialerWorker):
         cls.GM_CLIENT.submit_job('send-reports', job.data, background=True)
         return b'Event was processed'
 
-
     @classmethod
     def is_fail_event(cls, ari_event_data):
         dialstatus = ari_event_data.get('dialstatus')
         type_event = ari_event_data.get('type')
         return type_event == 'Dial' and dialstatus in FAIL_EVENTS
-
 
     @classmethod
     def handle_fail_event(cls, ari_event_data, id_campaign, contact_id, phone_number):
@@ -758,21 +813,17 @@ class AverageWorker(DialerWorker):
         type_event = ari_event_data.get('type')
         return type_event == 'Dial' and dialstatus == 'ANSWER'
 
-
     @classmethod
     def get_contact_data(cls, ari_event_data):
         return ari_event_data['peer']['caller']['name'].split('_')
-
 
     @classmethod
     def is_answered_pstn(cls, ari_event_data):
         return ari_event_data['dialstring'].find('camp_') == -1
 
-
     @classmethod
     def is_answered_agent(cls, ari_event_data):
         return ari_event_data['dialstring'].find('camp_') >= 0
-
 
     @classmethod
     def set_contact_status(cls, id_campaign, contact_id, status, type_status=PHONE_TYPE):
@@ -780,15 +831,16 @@ class AverageWorker(DialerWorker):
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute(
-                'UPDATE contact_in_campaign SET status = %s, history = array_append(history, %s) WHERE id_campaign = %s AND id_contact = %s;',
+                'UPDATE contact_in_campaign SET status = %s, history = array_append(history, %s)'
+                ' WHERE id_campaign = %s AND id_contact = %s;',
                 (status_code, str((status_code, type_status)), id_campaign, contact_id))
             cls.connect_redis_dialer()
-            cls.REDIS_DIALER_CONNECTION.rpush(f'CONTACT:{contact_id}:CAMP:{id_campaign}:HISTORY', str((status_code, type_status)))
+            cls.REDIS_DIALER_CONNECTION.rpush(
+                f'CONTACT:{contact_id}:CAMP:{id_campaign}:HISTORY', str((status_code, type_status)))
             cls.REDIS_DIALER_CONNECTION.hincrby(
                 f'CAMP:{id_campaign}:COUNTER',
                 status
             )
-
 
     @classmethod
     @exception_handler_decorator
@@ -800,16 +852,17 @@ class AverageWorker(DialerWorker):
             cursor.execute('DELETE FROM campaign WHERE id = %s;', (id_campaign,))
         return b'Campaign was deleted'
 
-
     @classmethod
     def set_campaign_status(cls, id_campaign, new_status, cursor=None):
         if cursor is None:
             with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
                 cursor = conn.cursor()
-                cursor.execute('UPDATE campaign SET dialer_status = %s WHERE id = %s;', (new_status, id_campaign))
+                cursor.execute(
+                    'UPDATE campaign SET dialer_status = %s WHERE id = %s;',
+                    (new_status, id_campaign))
         else:
-            cursor.execute('UPDATE campaign SET dialer_status = %s WHERE id = %s;', (new_status, id_campaign))
-
+            cursor.execute(
+                'UPDATE campaign SET dialer_status = %s WHERE id = %s;', (new_status, id_campaign))
 
     @classmethod
     def finalize_campaign(cls, id_campaign):
@@ -830,27 +883,34 @@ class AverageWorker(DialerWorker):
             cursor.execute(sql, campaign_data)
             # 2- copy incidence rules
             logger.debug('Copying incidence rules data')
-            cursor.execute('SELECT * FROM ONLY incidence_rules WHERE campaign_id = %s;', (id_campaign,))
+            cursor.execute(
+                'SELECT * FROM ONLY incidence_rules WHERE campaign_id = %s;', (id_campaign,))
             for incidence_rule in cursor.fetchall():
-                cursor.execute('INSERT INTO incidence_rules_historic VALUES (%s, %s, %s, %s, %s, %s, %s);', incidence_rule)
-            cursor.execute('SELECT * FROM ONLY incidence_rules_disposition WHERE campaign_id = %s;', (id_campaign,))
+                cursor.execute(
+                    'INSERT INTO incidence_rules_historic VALUES (%s, %s, %s, %s, %s, %s, %s);',
+                    incidence_rule)
+            cursor.execute(
+                'SELECT * FROM ONLY incidence_rules_disposition WHERE campaign_id = %s;',
+                (id_campaign,))
             for incidence_rule in cursor.fetchall():
-                cursor.execute('INSERT INTO incidence_rules_disposition_historic VALUES (%s, %s, %s, %s, %s, %s);', incidence_rule)
+                cursor.execute('INSERT INTO incidence_rules_disposition_historic VALUES'
+                               ' (%s, %s, %s, %s, %s, %s);', incidence_rule)
             # 3- copy contacts
             logger.debug('Copying contacts data')
             size = 1000
-            cursor.execute('SELECT * FROM ONLY contact_in_campaign WHERE id_campaign = %s', (id_campaign,))
+            cursor.execute('SELECT * FROM ONLY contact_in_campaign WHERE id_campaign = %s',
+                           (id_campaign,))
             while True:
                 cursor_insert = conn.cursor()
                 contacts = cursor.fetchmany(size=size)
                 if not contacts:
                     break
                 for contact in contacts:
-                    cursor_insert.execute('INSERT INTO contact_in_campaign_historic VALUES (%s, %s, %s, %s, %s, %s, %s);', contact)
+                    cursor_insert.execute('INSERT INTO contact_in_campaign_historic VALUES'
+                                          ' (%s, %s, %s, %s, %s, %s, %s);', contact)
             # 4- remove original campaign data
             logger.debug('Removing original campaign data')
             cursor.execute('DELETE FROM ONLY campaign WHERE id = %s', (id_campaign,))
-
 
     @classmethod
     @exception_handler_decorator
@@ -859,7 +919,6 @@ class AverageWorker(DialerWorker):
         cls.finalize_campaign(id_campaign)
         return b'Campaign was finalized'
 
-
     @classmethod
     @exception_handler_decorator
     def send_reports(cls, worker, job):
@@ -867,10 +926,13 @@ class AverageWorker(DialerWorker):
         id_campaign, contact_id, phone_number = cls.get_contact_data(ari_event_data)
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
-            cursor_dialer.execute('SELECT COUNT(*) FROM ONLY contact_in_campaign WHERE id_campaign = %s and (status = %s or status = %s);',
-                                  (id_campaign, STATUS_CREATED, STATUS_SELECTED_CALL))
+            cursor_dialer.execute(
+                """SELECT COUNT(*) FROM ONLY contact_in_campaign WHERE id_campaign = %s
+                and (status = %s or status = %s);""",
+                (id_campaign, STATUS_CREATED, STATUS_SELECTED_CALL))
             pending_for_call = cursor_dialer.fetchone()[0]
-            cursor_dialer.execute('SELECT final_status, COUNT(*) FROM ONLY contact_in_campaign WHERE id_campaign = %s and final_status <> %s GROUP BY final_status;',
+            cursor_dialer.execute("""SELECT final_status, COUNT(*) FROM ONLY contact_in_campaign
+            WHERE id_campaign = %s and final_status <> %s GROUP BY final_status;""",
                                   (id_campaign, INITIAL))
             cls.connect_redis_dialer()
             # cleaning previous values of final_status related reports
@@ -894,18 +956,20 @@ class AverageWorker(DialerWorker):
                 )
             cls.REDIS_DIALER_CONNECTION.hset(
                 f'CAMP:{id_campaign}:COUNTER',
-                'PENDING_INITIAL_CONTACT_ATTEMPTS', # pending to be contacted for the first time
+                'PENDING_INITIAL_CONTACT_ATTEMPTS',  # pending to be contacted for the first time
                 pending_for_call
             )
             stats = cls.REDIS_DIALER_CONNECTION.hgetall(f'CAMP:{id_campaign}:COUNTER')
             stats_json = json.dumps(stats)
             logger.debug(f'Report for campaign {id_campaign}: {stats}')
             cls.connect_redis_oml()
-            cls.REDIS_OML_CONNECTION.publish(f'OML:CHANNEL:DIALEREVENTS:CAMP:{id_campaign}:EVENTS', job.data)
-            cls.REDIS_OML_CONNECTION.publish(f'OML:CHANNEL:DIALEREVENTS:CAMP:{id_campaign}', stats_json)
-            cursor_dialer.execute('UPDATE campaign SET statistics = %s WHERE id = %s;', (stats_json, id_campaign))
+            cls.REDIS_OML_CONNECTION.publish(
+                f'OML:CHANNEL:DIALEREVENTS:CAMP:{id_campaign}:EVENTS', job.data)
+            cls.REDIS_OML_CONNECTION.publish(
+                f'OML:CHANNEL:DIALEREVENTS:CAMP:{id_campaign}', stats_json)
+            cursor_dialer.execute(
+                'UPDATE campaign SET statistics = %s WHERE id = %s;', (stats_json, id_campaign))
             return b'Success!'
-
 
     @classmethod
     @exception_handler_decorator
@@ -914,7 +978,8 @@ class AverageWorker(DialerWorker):
         id_campaign = data['id_campaign']
         disposition_option = data['disposition_option']
         id_contact = data['id_contact']
-        logger.debug(f'Adding disposition option {disposition_option} to contact {id_contact} in campaign {id_campaign}')
+        logger.debug(f'Adding disposition option {disposition_option} to contact {id_contact}'
+                     f' in campaign {id_campaign}')
         cls.connect_redis_dialer()
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
@@ -924,13 +989,17 @@ class AverageWorker(DialerWorker):
                 FROM contact AS co
                 WHERE cc.id_campaign = %s AND cc.id_contact = %s AND co.id = cc.id_contact
                 RETURNING co.phone;""",
-                (disposition_option, str((disposition_option, DISPOSITION_TYPE)), id_campaign, id_contact))
+                (disposition_option, str((disposition_option, DISPOSITION_TYPE)),
+                 id_campaign, id_contact))
             phone_number = cursor_dialer.fetchone()[0]
-            cls.REDIS_DIALER_CONNECTION.rpush(f'CONTACT:{id_contact}:CAMP:{id_campaign}:HISTORY', str((disposition_option, DISPOSITION_TYPE)))
+            cls.REDIS_DIALER_CONNECTION.rpush(
+                f'CONTACT:{id_contact}:CAMP:{id_campaign}:HISTORY',
+                str((disposition_option, DISPOSITION_TYPE)))
             cls.connect_redis_dialer()
             incidence_rule = cls.get_incidence_rule_disposition(id_campaign, disposition_option)
-            incidence_rule_applied = cls.apply_incidence_rule(cursor_dialer, incidence_rule, id_contact, id_campaign, disposition_option,
-                                                              DISPOSITION_TYPE, phone_number)
+            incidence_rule_applied = cls.apply_incidence_rule(
+                cursor_dialer, incidence_rule, id_contact, id_campaign, disposition_option,
+                DISPOSITION_TYPE, phone_number)
             # if the incidence rule was applied and the campaign is paused, reactivate the campaign
             if incidence_rule_applied:
                 status = cls.get_campaign_status(id_campaign, cursor_dialer)
@@ -941,8 +1010,9 @@ class AverageWorker(DialerWorker):
 
 
 class SingleCallWorker(AverageWorker):
-    """Another naive dialer worker flow that makes only 1 call at a time, and after every call pauses the campaign,
-    It will also remove the contacts one by one after the calls. Assumes the call was always answered."""
+    """Another naive dialer worker flow that makes only 1 call at a time, and after every call
+    pauses the campaign, It will also remove the contacts one by one after the calls.
+    Assumes the call was always answered."""
 
     @classmethod
     @exception_handler_decorator

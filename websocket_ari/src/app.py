@@ -30,7 +30,6 @@ class CallManager:
 
     GM_CLIENT = gearman.GearmanClient(GEARMAN_JOB_SERVERS)
 
-
     def __init__(self):
         """
         Initializes the CallManager with necessary components like
@@ -38,41 +37,33 @@ class CallManager:
         and sets up ARI for interaction with Asterisk.
         """
 
-        self.ari_host =  os.getenv('ASTERISK_HOST', 'dialer_acd')
-        self.ari_port =  os.getenv('ASTERISK_PORT', '8888')
-        self.ari_user =  os.getenv('ASTERISK_USER', 'omnileads')
-        self.ari_password =  os.getenv('ASTERISK_PASS', '5_MeO_DMT')
-
+        self.ari_host = os.getenv('ASTERISK_HOST', 'dialer_acd')
+        self.ari_port = os.getenv('ASTERISK_PORT', '8888')
+        self.ari_user = os.getenv('ASTERISK_USER', 'omnileads')
+        self.ari_password = os.getenv('ASTERISK_PASS', '5_MeO_DMT')
 
     def subscribe_to_events(self):
         # subscribes the app 'call_manager_dialer' to the events of the OML dialplan for
         # dialer calls
         logging.info('Subscribing to the events ...')
-        headers = {
-        }
-
         json_data = {
             'eventSource': 'endpoint:PJSIP',
         }
-
         response = requests.post(
-            f'http://{self.ari_host}:{self.ari_port}/ari/applications/{ASTERISK_APP_DIALER}/subscription',
+            f'http://{self.ari_host}:{self.ari_port}/ari/applications/{ASTERISK_APP_DIALER}/'
+            f'subscription',
             headers={},
             json=json_data,
             auth=(self.ari_user, self.ari_password),
         )
         logging.info(response.json())
 
-
     def filter_incoming_events(self):
         logging.info('Filtering events ...')
-        headers = {
-        }
-
-        json_data = {'allowed': [ { 'type': 'Dial' } ] }
-
+        json_data = {'allowed': [{'type': 'Dial'}]}
         response = requests.put(
-            f'http://{self.ari_host}:{self.ari_port}/ari/applications/{ASTERISK_APP_DIALER}/eventFilter',
+            f'http://{self.ari_host}:{self.ari_port}/ari/applications/{ASTERISK_APP_DIALER}/'
+            'eventFilter',
             headers={},
             json=json_data,
             auth=(self.ari_user, self.ari_password),
@@ -111,7 +102,6 @@ class CallManager:
             message (str): The received message.
         """
         event_dict = json.loads(message)
-        event_type = event_dict.get('type', 'default')
 
         # Logging for debugging
         logging.info('Received event: %s', pformat(event_dict))
@@ -119,7 +109,6 @@ class CallManager:
             'process-event', bytes(message, encoding='utf8'), background=True
         )
         logging.info('Event was sent to Gearman job')
-
 
     def on_error(self, ws, error):
         """
@@ -130,7 +119,6 @@ class CallManager:
             error (str): The error message.
         """
         logging.error("WebSocket Error: %s", error)
-
 
     def on_close(self, ws, close_status_code, close_msg):
         """
@@ -143,7 +131,6 @@ class CallManager:
         """
         logging.info("WebSocket closed connection")
 
-
     def on_open(self, ws):
         """
         Handles the opening of the WebSocket connection.
@@ -154,7 +141,6 @@ class CallManager:
         logging.info("WebSocket connection opened")
         self.subscribe_to_events()
         self.filter_incoming_events()
-
 
 
 if __name__ == "__main__":
