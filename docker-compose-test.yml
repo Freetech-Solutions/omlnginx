@@ -1,0 +1,138 @@
+services:
+  api:
+    build:
+      context: ./interface/src
+    container_name: omnidialer-api
+    volumes:
+      - ./interface/src:/app
+    ports:
+      - '1440:1440'
+    networks:
+      - network1
+    stop_signal: SIGINT
+    tty: true
+    stdin_open: true
+    depends_on:
+      - job_server
+      - redis
+      - postgresql
+    environment:
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
+
+  job_server:
+    image: artefactual/gearmand:1.1.18-alpine
+    container_name: gearman_job_server_1
+    ports:
+      - '4730:4730'
+    networks:
+      - network1
+    command: gearmand -t 1
+
+  worker:
+    image: omnidialer_worker
+    build:
+      context: ./workers/handle-campaign/src
+    networks:
+      - network1
+    tty: true
+    stdin_open: true
+    environment:
+      - ASTERISK_HOST=${ASTERISK_HOST}
+      - ASTERISK_PORT=${ASTERISK_PORT}
+      - ASTERISK_USER=${ASTERISK_USER}
+      - ASTERISK_PASS=${ASTERISK_PASS}
+      - ASTERISK_APP=${ASTERISK_APP}
+      - REDIS_OML_SERVER=${REDIS_OML_SERVER}
+      - REDIS_OML_PORT=${REDIS_OML_PORT}
+      - REDIS_DIALER_SERVER=${REDIS_DIALER_SERVER}
+      - REDIS_DIALER_PORT=${REDIS_DIALER_PORT}
+      - POSTGRES_OML_PASSWORD=${POSTGRES_OML_PASSWORD}
+      - POSTGRES_OML_SERVER=${POSTGRES_OML_SERVER}
+      - POSTGRES_OML_PORT=${POSTGRES_OML_PORT}
+      - POSTGRES_DIALER_PASSWORD=${POSTGRES_DIALER_PASSWORD}
+      - POSTGRES_DIALER_SERVER=${POSTGRES_DIALER_SERVER}
+      - POSTGRES_DIALER_PORT=${POSTGRES_DIALER_PORT}
+      - TZ=${TZ}
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
+      - GEARMAN_JOBS=start-campaign
+      - PYTHON_LOGLEVEL=${PYTHON_LOGLEVEL}
+      - DIALER_ACD_HOST=${DIALER_ACD_HOST}
+    depends_on:
+      - job_server
+      - postgresql
+      - redis
+
+
+  redis:
+    container_name: omnidialer-redis-tests
+    dns: 8.8.8.8
+    environment:
+      - BIND_IP=0.0.0.0
+    networks:
+      - network1
+    ports:
+      - '6380:6380'
+    expose:
+      - '6380'
+    image: redis:7.2.5-alpine
+    volumes:
+      - redis_omnidialer:/data
+    command: redis-server --port 6380
+
+
+  postgresql:
+    container_name: dialer-postgres-tests
+    dns: 8.8.8.8
+    environment:
+      - TZ=${TZ}
+      - POSTGRES_USER=${POSTGRES_DIALER_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_DIALER_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DIALER_DB}
+      - PGPORT=5433
+    image: postgres:14.9-bullseye
+    networks:
+      - network1
+    expose:
+      - "5433"
+    ports:
+      - ${POSTGRES_DIALER_PORT}:5433
+    privileged: true
+    restart: on-failure
+    stop_grace_period: 1m30s
+    volumes:
+      - omnidialer-postgresql:/var/lib/postgresql/data
+      - ./omnidialer.sql:/docker-entrypoint-initdb.d/init.sql
+
+
+  websocket_ari:
+    container_name: omnidialer_websocket_ari
+    build:
+      context: ./websocket_ari/src
+    volumes:
+      - ./websocket_ari/src:/app
+    networks:
+      - network1
+    tty: true
+    stdin_open: true
+    environment:
+      - ASTERISK_HOST=${ASTERISK_HOST}
+      - ASTERISK_PORT=${ASTERISK_PORT}
+      - ASTERISK_USER=${ASTERISK_USER}
+      - ASTERISK_PASS=${ASTERISK_PASS}
+      - ASTERISK_APP=${ASTERISK_APP}
+      - ASTERISK_APP_DIALER=${ASTERISK_APP_DIALER}
+      - TZ=${TZ}
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
+    depends_on:
+      - job_server
+      - postgresql
+      - worker
+
+networks:
+  network1:
+    name: omnileads_omnileads
+    external: true
+
+volumes:
+  omnidialer-postgresql:
+  redis_omnidialer:
