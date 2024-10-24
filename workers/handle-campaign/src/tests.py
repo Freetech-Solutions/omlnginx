@@ -1,19 +1,29 @@
 # -*- coding: utf-8 -*-
 
+import datetime
+
 import unittest
 
+from unittest.mock import MagicMock
+
+from decimal import Decimal
+
 import psycopg
+
+from gearman.job import GearmanJob
+from gearman.worker import GearmanWorker
 
 from handler.naive import AverageWorker
 
 
 class MyTestSuite(unittest.TestCase):
 
+    ORIGINAL_PSYCOPG_CONNECT = psycopg.connect
+
+    def setUp(self):
+        self.fetchmany_counter = 0
+
     def tearDown(self):
-        """
-        This method runs after each test.
-        It's used to clean up the environment, such as closing files, connections, etc.
-        """
         self.clean_databases()
 
     def clean_databases(self):
@@ -25,8 +35,41 @@ class MyTestSuite(unittest.TestCase):
             cursor_dialer.execute('DELETE FROM campaign_historic;')
             cursor_dialer.execute('DELETE FROM contact;')
 
+    def mocked_psycopg_fetchmany(self, size):
+        if self.fetchmany_counter == 0:
+            self.fetchmany_counter += 1
+            return [(1, '6093017590',
+                     '["Amanda Jenkins", "Gregory Henson", "7147034", "4067530816", "5273724517"]',
+                     True),
+                    (2, '5143016455',
+                     '["Ashley Barrett", "Edward Townsend", "8718745", "5618936401", "1075763364"]',
+                     True)]
+        return []
+
+    def mocked_psycopg_connect(self, connection_str):
+        if connection_str == AverageWorker.POSTGRES_OML_CONNECTION_STR:
+            conn_oml_mock = MagicMock()
+            conn_oml_mock.cursor.return_value.fetchmany.return_value = [1,2,3]
+            return conn_oml_mock
+        return self.ORIGINAL_PSYCOPG_CONNECT(connection_str)
+
     def test_create_campaign(self):
-        return True
+        # mocking Postgres connection to OML
+        psycopg.connect = MagicMock(side_effect=self.mocked_psycopg_connect)
+        # mocking get_campaign_data
+        campaign_id_data = (4, 2, 'test_dialer_01', datetime.date(2024, 8, 21), datetime.date(2024, 8, 21), 2, 10, 'rrmemory', 10, False, Decimal('1.0'), 1, False, True, False, False, False, False, False, datetime.time(15, 51), datetime.time(15, 51), [1, 3, 4], 1, '"{\\"prim_fila_enc\\": false, \\"cant_col\\": 6, \\"nombres_de_columnas\\": [\\"telefono\\", \\"nombre\\", \\"apellido\\", \\"dni\\", \\"telefono2\\", \\"telefono3\\"], \\"cols_telefono\\": [0, 4, 5]}"')
+        incidence_rules_data = [(1, 1, 'busy', 4, 20, 1, 4), (2, 4, 'congestion', 3, 40, 1, 4)]
+        incidence_rules_disposition_data = [(1, 7, 3, 17, 1, 4), (2, 8, 5, 7, 1, 4)]
+        campaign_mocked_data = (campaign_id_data, incidence_rules_data,
+                                incidence_rules_disposition_data)
+        AverageWorker.get_campaign_data = MagicMock(
+            return_value=campaign_mocked_data)
+        worker = GearmanWorker()
+        job = GearmanJob(None, None, None, None,
+                         b'{"id_campaign": "4", "contact_strategy": [1, 3, 4]}')
+        print('Creating campaign')
+        AverageWorker.create_campaign(worker, job)
+        print('Campaign created! GD!!!')
 
 
 if __name__ == '__main__':
