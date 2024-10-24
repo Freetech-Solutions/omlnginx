@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-docker exec -it omnidialer_worker_1 python -m unittest tests.py
+docker exec -it omnidialer-worker-test python -m unittest tests.py

@@ -30,6 +30,7 @@ services:
 
   worker:
     image: omnidialer_worker
+    container_name: omnidialer-worker-test
     build:
       context: ./workers/handle-campaign/src
     networks:
@@ -102,31 +103,6 @@ services:
     volumes:
       - omnidialer-postgresql:/var/lib/postgresql/data
       - ./omnidialer.sql:/docker-entrypoint-initdb.d/init.sql
-
-
-  websocket_ari:
-    container_name: omnidialer_websocket_ari
-    build:
-      context: ./websocket_ari/src
-    volumes:
-      - ./websocket_ari/src:/app
-    networks:
-      - network1
-    tty: true
-    stdin_open: true
-    environment:
-      - ASTERISK_HOST=${ASTERISK_HOST}
-      - ASTERISK_PORT=${ASTERISK_PORT}
-      - ASTERISK_USER=${ASTERISK_USER}
-      - ASTERISK_PASS=${ASTERISK_PASS}
-      - ASTERISK_APP=${ASTERISK_APP}
-      - ASTERISK_APP_DIALER=${ASTERISK_APP_DIALER}
-      - TZ=${TZ}
-      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
-    depends_on:
-      - job_server
-      - postgresql
-      - worker
 
 networks:
   network1:
