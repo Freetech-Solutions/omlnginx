@@ -2,11 +2,10 @@
 
 import unittest
 
-import requests
-
 import psycopg
 
 from handler.naive import AverageWorker
+
 
 class MyTestSuite(unittest.TestCase):
 
@@ -28,6 +27,7 @@ class MyTestSuite(unittest.TestCase):
 
     def test_create_campaign(self):
         return True
+
 
 if __name__ == '__main__':
     unittest.main()
