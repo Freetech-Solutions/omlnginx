@@ -72,13 +72,13 @@ services:
     networks:
       - network1
     ports:
-      - '6380:6380'
+      - '6381:6381'
     expose:
-      - '6380'
+      - '6381'
     image: redis:7.2.5-alpine
     volumes:
       - redis_omnidialer:/data
-    command: redis-server --port 6380
+    command: redis-server --port 6381
 
 
   postgresql:
