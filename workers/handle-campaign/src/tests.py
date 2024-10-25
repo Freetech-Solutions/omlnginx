@@ -35,7 +35,7 @@ class MyTestSuite(unittest.TestCase):
             cursor_dialer.execute('DELETE FROM campaign_historic;')
             cursor_dialer.execute('DELETE FROM contact;')
 
-    def mocked_psycopg_fetchmany(self, size):
+    def mocked_psycopg_fetchmany(self, cursor, size):
         if self.fetchmany_counter == 0:
             self.fetchmany_counter += 1
             return [(1, '6093017590',
@@ -48,9 +48,7 @@ class MyTestSuite(unittest.TestCase):
 
     def mocked_psycopg_connect(self, connection_str):
         if connection_str == AverageWorker.POSTGRES_OML_CONNECTION_STR:
-            conn_oml_mock = MagicMock()
-            conn_oml_mock.cursor.return_value.fetchmany.return_value = [1,2,3]
-            return conn_oml_mock
+            return MagicMock()
         return self.ORIGINAL_PSYCOPG_CONNECT(connection_str)
 
     def test_create_campaign(self):
@@ -64,12 +62,11 @@ class MyTestSuite(unittest.TestCase):
                                 incidence_rules_disposition_data)
         AverageWorker.get_campaign_data = MagicMock(
             return_value=campaign_mocked_data)
+        AverageWorker.get_contacts_campaign = MagicMock(side_effect=self.mocked_psycopg_fetchmany)
         worker = GearmanWorker()
         job = GearmanJob(None, None, None, None,
                          b'{"id_campaign": "4", "contact_strategy": [1, 3, 4]}')
-        print('Creating campaign')
         AverageWorker.create_campaign(worker, job)
-        print('Campaign created! GD!!!')
 
 
 if __name__ == '__main__':

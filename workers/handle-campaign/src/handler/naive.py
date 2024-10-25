@@ -282,6 +282,10 @@ class AverageWorker(DialerWorker):
         return bytes(response, encoding='UTF8')
 
     @classmethod
+    def get_contacts_campaign(cls, cursor, size):
+        return cursor.fetchmany(size=size)
+
+    @classmethod
     @exception_handler_decorator
     def create_campaign(cls, worker, job):
         # assumes the dialer campaign exists in OML with all the required tables and fields created
@@ -329,7 +333,7 @@ class AverageWorker(DialerWorker):
                     logger.debug('Copying the contacts')
                     cursor_oml.execute(sql, (id_campaign,))
                     while True:
-                        contacts = cursor_oml.fetchmany(size=size)
+                        contacts = cls.get_contacts_campaign(cursor_oml, size)
                         if not contacts:
                             break
                         for (id_contact, phone, data, is_original) in contacts:
