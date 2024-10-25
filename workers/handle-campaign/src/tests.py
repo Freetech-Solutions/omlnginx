@@ -55,7 +55,14 @@ class MyTestSuite(unittest.TestCase):
         # mocking Postgres connection to OML
         psycopg.connect = MagicMock(side_effect=self.mocked_psycopg_connect)
         # mocking get_campaign_data
-        campaign_id_data = (4, 2, 'test_dialer_01', datetime.date(2024, 8, 21), datetime.date(2024, 8, 21), 2, 10, 'rrmemory', 10, False, Decimal('1.0'), 1, False, True, False, False, False, False, False, datetime.time(15, 51), datetime.time(15, 51), [1, 3, 4], 1, '"{\\"prim_fila_enc\\": false, \\"cant_col\\": 6, \\"nombres_de_columnas\\": [\\"telefono\\", \\"nombre\\", \\"apellido\\", \\"dni\\", \\"telefono2\\", \\"telefono3\\"], \\"cols_telefono\\": [0, 4, 5]}"')
+        campaign_id_data = (
+            4, 2, 'test_dialer_01', datetime.date(2024, 8, 21),
+            datetime.date(2024, 8, 21), 2, 10, 'rrmemory', 10, False, Decimal('1.0'), 1, False,
+            True, False, False, False, False, False, datetime.time(15, 51), datetime.time(15, 51),
+            [1, 3, 4], 1,
+            '"{\\"prim_fila_enc\\": false, \\"cant_col\\": 6, \\"nombres_de_columnas\\": '
+            '[\\"telefono\\", \\"nombre\\", \\"apellido\\", \\"dni\\", \\"telefono2\\", '
+            '\\"telefono3\\"], \\"cols_telefono\\": [0, 4, 5]}"')
         incidence_rules_data = [(1, 1, 'busy', 4, 20, 1, 4), (2, 4, 'congestion', 3, 40, 1, 4)]
         incidence_rules_disposition_data = [(1, 7, 3, 17, 1, 4), (2, 8, 5, 7, 1, 4)]
         campaign_mocked_data = (campaign_id_data, incidence_rules_data,
