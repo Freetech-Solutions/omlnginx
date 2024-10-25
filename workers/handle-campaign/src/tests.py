@@ -74,6 +74,19 @@ class MyTestSuite(unittest.TestCase):
         job = GearmanJob(None, None, None, None,
                          b'{"id_campaign": "4", "contact_strategy": [1, 3, 4]}')
         AverageWorker.create_campaign(worker, job)
+        # check campaign entry creation and related tables too
+        with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute('SELECT COUNT(*) FROM ONLY campaign;')
+            self.assertEqual(cursor_dialer.fetchone()[0], 1)
+            cursor_dialer.execute('SELECT COUNT(*) FROM ONLY incidence_rules;')
+            self.assertEqual(cursor_dialer.fetchone()[0], 2)
+            cursor_dialer.execute('SELECT COUNT(*) FROM ONLY incidence_rules_disposition;')
+            self.assertEqual(cursor_dialer.fetchone()[0], 2)
+            cursor_dialer.execute('SELECT COUNT(*) FROM ONLY contact_in_campaign;')
+            self.assertEqual(cursor_dialer.fetchone()[0], 2)
+            cursor_dialer.execute('SELECT COUNT(*) FROM ONLY contact;')
+            self.assertEqual(cursor_dialer.fetchone()[0], 2)
 
 
 if __name__ == '__main__':
