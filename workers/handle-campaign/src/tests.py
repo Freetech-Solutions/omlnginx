@@ -88,6 +88,16 @@ class MyTestSuite(unittest.TestCase):
             cursor_dialer.execute('SELECT COUNT(*) FROM ONLY contact;')
             self.assertEqual(cursor_dialer.fetchone()[0], 2)
 
+        # let's edit the campaign now
+        job = GearmanJob(None, None, None, None,
+                         b'{"id_campaign": "4", "contact_strategy": [1, 4]}')
+        import pdb; pdb.set_trace()
+        AverageWorker.edit_campaign(worker, job)
+        with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute('SELECT contact_strategy ONLY campaign;')
+            self.assertEqual(cursor_dialer.fetchone()[0], [1, 4])
+
 
 if __name__ == '__main__':
     unittest.main()
