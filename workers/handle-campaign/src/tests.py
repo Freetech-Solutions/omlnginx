@@ -115,6 +115,12 @@ class MyTestSuite(unittest.TestCase):
             status_campaign = AverageWorker.get_campaign_status(campaign_id_data[0], cursor_dialer)
             self.assertEqual(status_campaign, PAUSED)
 
+            # testing resume-campaign
+            job = GearmanJob(None, None, None, None, b'4')
+            AverageWorker.resume_campaign(worker, job)
+            status_campaign = AverageWorker.get_campaign_status(campaign_id_data[0], cursor_dialer)
+            self.assertEqual(status_campaign, RESUMED)
+
 
 if __name__ == '__main__':
     unittest.main()
