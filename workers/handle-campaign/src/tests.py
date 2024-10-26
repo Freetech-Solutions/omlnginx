@@ -13,7 +13,7 @@ import psycopg
 from gearman.job import GearmanJob
 from gearman.worker import GearmanWorker
 
-from handler.naive import AverageWorker
+from handler.naive import AverageWorker, ACTIVE, PAUSED, RESUMED
 
 
 class MyTestSuite(unittest.TestCase):
@@ -51,7 +51,7 @@ class MyTestSuite(unittest.TestCase):
             return MagicMock()
         return self.ORIGINAL_PSYCOPG_CONNECT(connection_str)
 
-    def test_create_campaign(self):
+    def test_handle_campaign(self):
         # mocking Postgres connection to OML
         psycopg.connect = MagicMock(side_effect=self.mocked_psycopg_connect)
         # mocking get_campaign_data
@@ -101,6 +101,19 @@ class MyTestSuite(unittest.TestCase):
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute('SELECT contact_strategy FROM ONLY campaign;')
             self.assertEqual(cursor_dialer.fetchone()[0], [1, 4])
+
+            # testing start-campaign
+            AverageWorker.process_campaign = MagicMock()
+            job = GearmanJob(None, None, None, None, b'4')
+            AverageWorker.start_campaign(worker, job)
+            status_campaign = AverageWorker.get_campaign_status(campaign_id_data[0], cursor_dialer)
+            self.assertEqual(status_campaign, ACTIVE)
+
+            # testing pause-campaign
+            job = GearmanJob(None, None, None, None, b'4')
+            AverageWorker.pause_campaign(worker, job)
+            status_campaign = AverageWorker.get_campaign_status(campaign_id_data[0], cursor_dialer)
+            self.assertEqual(status_campaign, PAUSED)
 
 
 if __name__ == '__main__':
