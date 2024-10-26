@@ -91,11 +91,15 @@ class MyTestSuite(unittest.TestCase):
         # let's edit the campaign now
         job = GearmanJob(None, None, None, None,
                          b'{"id_campaign": "4", "contact_strategy": [1, 4]}')
-        import pdb; pdb.set_trace()
+        campaign_id_data = campaign_id_data[:-3] + ([1, 4],) + campaign_id_data[-2:]
+        campaign_mocked_data = (campaign_id_data, incidence_rules_data,
+                                incidence_rules_disposition_data)
+        AverageWorker.get_campaign_data = MagicMock(
+            return_value=campaign_mocked_data)
         AverageWorker.edit_campaign(worker, job)
         with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
-            cursor_dialer.execute('SELECT contact_strategy ONLY campaign;')
+            cursor_dialer.execute('SELECT contact_strategy FROM ONLY campaign;')
             self.assertEqual(cursor_dialer.fetchone()[0], [1, 4])
 
 

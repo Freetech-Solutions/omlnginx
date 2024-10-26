@@ -264,7 +264,7 @@ class AverageWorker(DialerWorker):
                     for incidence_rule in incidence_rules_data:
                         cursor_dialer.execute("""INSERT INTO incidence_rules
                          (id, status, status_custom, max_attempt, retry_later, in_mode, campaign_id)
-                         VALUES (%s, %s, %s, %s, %s, %s);""", incidence_rule)
+                         VALUES (%s, %s, %s, %s, %s, %s, %s);""", incidence_rule)
                     cursor_dialer.execute("""DELETE FROM incidence_rules_disposition
                     WHERE campaign_id = %s""", (id_campaign,))
                     logger.debug('Inserting the incidence_rules for disposition into omnidialer')
