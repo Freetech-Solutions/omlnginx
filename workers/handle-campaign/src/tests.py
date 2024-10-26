@@ -101,25 +101,59 @@ class MyTestSuite(unittest.TestCase):
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute('SELECT contact_strategy FROM ONLY campaign;')
             self.assertEqual(cursor_dialer.fetchone()[0], [1, 4])
-
+            id_campaign = campaign_id_data[0]
             # testing start-campaign
             AverageWorker.process_campaign = MagicMock()
             job = GearmanJob(None, None, None, None, b'4')
             AverageWorker.start_campaign(worker, job)
-            status_campaign = AverageWorker.get_campaign_status(campaign_id_data[0], cursor_dialer)
+            status_campaign = AverageWorker.get_campaign_status(id_campaign, cursor_dialer)
             self.assertEqual(status_campaign, ACTIVE)
 
             # testing pause-campaign
             job = GearmanJob(None, None, None, None, b'4')
             AverageWorker.pause_campaign(worker, job)
-            status_campaign = AverageWorker.get_campaign_status(campaign_id_data[0], cursor_dialer)
+            status_campaign = AverageWorker.get_campaign_status(id_campaign, cursor_dialer)
             self.assertEqual(status_campaign, PAUSED)
 
             # testing resume-campaign
             job = GearmanJob(None, None, None, None, b'4')
             AverageWorker.resume_campaign(worker, job)
-            status_campaign = AverageWorker.get_campaign_status(campaign_id_data[0], cursor_dialer)
+            status_campaign = AverageWorker.get_campaign_status(id_campaign, cursor_dialer)
             self.assertEqual(status_campaign, RESUMED)
+
+            # testing stop-campaign
+            job = GearmanJob(None, None, None, None, b'4')
+            AverageWorker.stop_campaign(worker, job)
+            cursor_dialer.execute('SELECT * FROM ONLY campaign WHERE id = %s', (id_campaign,))
+            self.assertEqual(cursor_dialer.fetchone(), None)
+            cursor_dialer.execute(
+                'SELECT * FROM ONLY incidence_rules WHERE campaign_id = %s', (id_campaign,))
+            self.assertEqual(cursor_dialer.fetchone(), None)
+            cursor_dialer.execute(
+                'SELECT * FROM ONLY incidence_rules_disposition WHERE campaign_id = %s',
+                (id_campaign,))
+            self.assertEqual(cursor_dialer.fetchone(), None)
+            cursor_dialer.execute(
+                'SELECT * FROM ONLY contact_in_campaign WHERE id_campaign = %s',
+                (id_campaign,))
+            self.assertEqual(cursor_dialer.fetchone(), None)
+            cursor_dialer.execute('SELECT COUNT(*) FROM ONLY campaign_historic WHERE id = %s',
+                                  (id_campaign,))
+            self.assertEqual(cursor_dialer.fetchone()[0], 1)
+            cursor_dialer.execute(
+                'SELECT COUNT(*) FROM ONLY incidence_rules_historic WHERE campaign_id = %s',
+                (id_campaign,))
+            self.assertEqual(cursor_dialer.fetchone()[0], 2)
+            cursor_dialer.execute(
+                'SELECT COUNT(*) FROM ONLY incidence_rules_disposition_historic WHERE'
+                ' campaign_id = %s',
+                (id_campaign,))
+            self.assertEqual(cursor_dialer.fetchone()[0], 2)
+            cursor_dialer.execute(
+                'SELECT COUNT(*) FROM ONLY contact_in_campaign_historic WHERE'
+                ' id_campaign = %s',
+                (id_campaign,))
+            self.assertEqual(cursor_dialer.fetchone()[0], 2)
 
 
 if __name__ == '__main__':
