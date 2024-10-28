@@ -45,6 +45,31 @@ Edit campaign
 ---------------
 
 
+Start campaign
+---------------
+
+
+Pause campaign
+---------------
+
+
+Resume campaign
+---------------
+
+
+Stop campaign
+---------------
+
+
+Delete campaign
+---------------
+
+
+Add disposition for contact
+---------------------------
+
+
+
 Arquitecture
 ============
 
