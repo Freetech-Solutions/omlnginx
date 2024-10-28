@@ -37,6 +37,12 @@ After this you can hit the differents endpoints to interact with the system. Tak
 Endpoints explanation
 =====================
 
+Create campaign
+---------------
+
+
+Edit campaign
+---------------
 
 
 Arquitecture
