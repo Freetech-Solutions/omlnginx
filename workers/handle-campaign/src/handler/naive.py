@@ -688,11 +688,11 @@ class AverageWorker(DialerWorker):
                                   (phone_numbers, id_campaign, contact_id))
             cls.REDIS_DIALER_CONNECTION.hset(
                 f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'PHONE_NUMBER_LIST',
-                pickle.dumps(phone_numbers))
+                json.dumps(phone_numbers))
         else:
-            phone_numbers = pickle.loads(cls.REDIS_DIALER_CONNECTION.hget(
+            phone_numbers = json.loads(cls.REDIS_DIALER_CONNECTION.hget(
                 f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'PHONE_NUMBER_LIST'))
-        phone_number_index = (phone_number_index + 1) % len(phone_numbers)
+        phone_number_index = (int(phone_number_index) + 1) % len(phone_numbers)
         # update Postgres & Redis
         cursor_dialer.execute('UPDATE contact_in_campaign SET phone_number_index = %s'
                               ' WHERE id_campaign = %s AND id_contact = %s;',
@@ -1013,7 +1013,7 @@ class AverageWorker(DialerWorker):
                 if status == PAUSED:
                     cls.set_campaign_status(id_campaign, RESUMED)
                     cls.process_campaign(id_campaign)
-            return b'Incidence rule was added!'
+            return b'Disposition for incidence rule was added!'
 
 
 class SingleCallWorker(AverageWorker):

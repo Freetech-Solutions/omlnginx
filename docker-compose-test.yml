@@ -1,24 +1,4 @@
 services:
-  api:
-    build:
-      context: ./interface/src
-    container_name: omnidialer-api
-    volumes:
-      - ./interface/src:/app
-    ports:
-      - '1440:1440'
-    networks:
-      - network1
-    stop_signal: SIGINT
-    tty: true
-    stdin_open: true
-    depends_on:
-      - job_server
-      - redis
-      - postgresql
-    environment:
-      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
-
   job_server:
     image: artefactual/gearmand:1.1.18-alpine
     container_name: gearman_job_server_1
@@ -62,7 +42,6 @@ services:
       - job_server
       - postgresql
       - redis
-
 
   redis:
     container_name: omnidialer-redis-tests

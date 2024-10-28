@@ -64,7 +64,7 @@ class MyTestSuite(unittest.TestCase):
             '[\\"telefono\\", \\"nombre\\", \\"apellido\\", \\"dni\\", \\"telefono2\\", '
             '\\"telefono3\\"], \\"cols_telefono\\": [0, 4, 5]}"')
         incidence_rules_data = [(1, 1, 'busy', 4, 20, 1, 4), (2, 4, 'congestion', 3, 40, 1, 4)]
-        incidence_rules_disposition_data = [(1, 7, 3, 17, 1, 4), (2, 8, 5, 7, 1, 4)]
+        incidence_rules_disposition_data = [(1, 7, 3, 17, 1, 4), (2, 8, 5, 7, 2, 4)]
         campaign_mocked_data = (campaign_id_data, incidence_rules_data,
                                 incidence_rules_disposition_data)
         AverageWorker.get_campaign_data = MagicMock(
@@ -121,6 +121,19 @@ class MyTestSuite(unittest.TestCase):
             status_campaign = AverageWorker.get_campaign_status(id_campaign, cursor_dialer)
             self.assertEqual(status_campaign, RESUMED)
 
+            # testing endpoint add disposition for incidence rule
+            AverageWorker.GM_CLIENT.submit_job = MagicMock()
+            job = GearmanJob(
+                None, None, None, None,
+                b'{"id_campaign": "4", "disposition_option": 8, "id_contact": 1}')
+            for i in range(5):
+                AverageWorker.add_incidence_rule_disposition(worker, job)
+                self.assertTrue(AverageWorker.GM_CLIENT.submit_job.called)
+                AverageWorker.GM_CLIENT.submit_job.reset_mock()
+            AverageWorker.add_incidence_rule_disposition(worker, job)
+            self.assertFalse(AverageWorker.GM_CLIENT.submit_job.called)
+            AverageWorker.GM_CLIENT.submit_job.reset_mock()
+
             # testing stop-campaign
             job = GearmanJob(None, None, None, None, b'4')
             AverageWorker.stop_campaign(worker, job)
@@ -154,7 +167,6 @@ class MyTestSuite(unittest.TestCase):
                 ' id_campaign = %s',
                 (id_campaign,))
             self.assertEqual(cursor_dialer.fetchone()[0], 2)
-
 
 if __name__ == '__main__':
     unittest.main()
