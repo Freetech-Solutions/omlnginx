@@ -49,5 +49,7 @@ Troubleshooting:
 
 
 For run the unit tests just do:
+
 $ bash rebuild-testing-truncated.bash # for rebuild the code for new changes
+
 $ bash run-tests.bash # for run the tests
