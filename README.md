@@ -1,4 +1,6 @@
-The OmniDialer for Omnileads
+The OmniDialer for Omnileads (OML), a dialer designed to be integrated to OML and to be a FLOSS option to Wombat.
+
+Usage:
 
 $ cp env .env
 
@@ -11,9 +13,9 @@ A flask server would be running at 0.0.0.0:1440 with a Gearman job server and th
 
 Do:
 
-$ docker run --rm -itd -p 4731:4731 --network=omnileads_omnileads --name=gearman_job_server_1 artefactual/gearmand:1.1.19.1-alpine
+$ docker run --rm -itd -p 4731:4731 --network=omnileads_omnileads --name=gearman_job_server_1 artefactual/gearmand:1.1.18-alpine
 
-changing the ports and container name to add Gearman job servers, you will need to add it to the settings as well
+changing the ports and container name to add Gearman job servers, you will need to add it to the settings as well by modifying the environment variable GEARMAN_JOB_SERVERS
 
 You can also add more workers in the same host by doing:
 
@@ -25,25 +27,17 @@ docker-compose -f docker-compose-single-worker.yml up -d
 
 It is also possible to customize the jobs that will be accepted inside the worker instances by modifying the .env setting GEARMAN_JOBS
 
-Partially implemented endpoints:
-
-create-campaign
-pause-campaign
-resume-campaign
-start-campaign
-
-See the files at 'testing/restclient'
+See the files at 'testing/restclient' & 'testing/curls'
 
 The workflow would be for now:
 - Hit create campaign endpoint
 - Hit start campaign
 and
-- Hi pause campaign and resume campaign endpoints according to your needs.
-
+- Hit pause campaign and resume campaign endpoints according to your needs.
 
 Troubleshooting:
 
-- If artefactual/gearmand:1.1.19.1-alpine does not run in Mac M1, but you can build the image from their repository manually and use it directly (https://github.com/artefactual-labs/docker-gearmand)
+- If artefactual/gearmand:1.1.18-alpine does not run in Mac M1, but you can build the image from their repository manually and use it directly (https://github.com/artefactual-labs/docker-gearmand)
 
 - If you are on another machine (but in the same network of OML development environment) you need to modify the settings ASTERISK_HOST, REDIS_OML_SERVER and POSTGRES_OML_SERVER to point to the IP of OML's host. You will need to create by hand the network 'omnileads_omnileads'. Also, you need to modify the 'ari.conf' in the container 'oml-asterisk_dialer' to add your machine IP to the 'allowed_origins' in the [general] configuration section. After that, run 'reload' in the Asterisk console.
 
