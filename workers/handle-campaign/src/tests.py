@@ -168,5 +168,6 @@ class MyTestSuite(unittest.TestCase):
                 (id_campaign,))
             self.assertEqual(cursor_dialer.fetchone()[0], 2)
 
+
 if __name__ == '__main__':
     unittest.main()

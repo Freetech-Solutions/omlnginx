@@ -4,7 +4,6 @@ from .basic import DialerWorker
 from .ari_manager import ARI
 from .utils import timed_lru_cache
 
-import pickle
 import json
 import os
 import redis
