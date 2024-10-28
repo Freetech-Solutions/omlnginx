@@ -52,6 +52,8 @@ class MyTestSuite(unittest.TestCase):
         return self.ORIGINAL_PSYCOPG_CONNECT(connection_str)
 
     def test_handle_campaign(self):
+        # TODO1: isolate it to a multiple unit tests
+        # TODO2: add more unit tests
         # mocking Postgres connection to OML
         psycopg.connect = MagicMock(side_effect=self.mocked_psycopg_connect)
         # mocking get_campaign_data
