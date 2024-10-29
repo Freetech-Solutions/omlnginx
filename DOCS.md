@@ -92,10 +92,29 @@ Start campaign
 Pause campaign
 ---------------
 
+### Endpoint: `[POST] /pause-campaign/<id_campaign>`
+
+#### Description
+The pause-campaign endpoint pause the process of campaign in OMD by modifying the field _dialer_status_ of the campaign entry to the value _PAUSED_.
+
+The value <id_campaign> correspond to the id of a campaign in OML and OMD.
+
+#### Method
+- **HTTP Method:** `POST`
+
 
 Resume campaign
 ---------------
 
+### Endpoint: `[POST] /resume-campaign/<id_campaign>`
+
+#### Description
+The resume-campaign endpoint resumes the process of campaign in OMD by modifying the field _dialer_status_ of the campaign entry to the value _RESUMED_ and will restart the campaign process.
+
+The value <id_campaign> correspond to the id of a campaign in OML and OMD.
+
+#### Method
+- **HTTP Method:** `POST`
 
 Stop campaign
 ---------------
