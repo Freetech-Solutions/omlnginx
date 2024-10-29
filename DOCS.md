@@ -47,7 +47,9 @@ The create-campaign endpoint creates a campaign inside OMD by importing the rela
 
 The value <id_campaign> correspond to the id of a campaign from OML, it will be also the id of the new campaign in OMD.
 
-The other values imported from OML are the fields estado,nombre,fecha_inicio,fecha_fin,control_de_duplicados and prioridad from the table _ominicontacto_app_campana_ that will be copied to the table _campaign_
+The other values imported from OML are the fields _estado_,_nombre_,_fecha_inicio_,_fecha_fin_,_control_de_duplicados_ and _prioridad_ from the table _ominicontacto_app_campana_ that will be copied to the table _campaign_. Aditionally the entries realtives to incidence rules and contacts are also imported to the tables _incidence_rules_, _incidence_rules_disposition_, contact_in_campaign & contact respectively.
+
+The contact_strategy JSON parameter is also added as a field of the table _campaign_. This will be used in future to customize the way the dialer calls more than one time to a contact in the current campaign.
 
 #### Method
 - **HTTP Method:** `POST`
