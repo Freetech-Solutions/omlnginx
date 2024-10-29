@@ -485,7 +485,10 @@ class AverageWorker(DialerWorker):
                 if status == 'READY':
                     agents_available += (1 / agents_distribution[id_agent])
         if agents_available < 1:
-            return 1
+            if agents_available > 0:
+                # there is at least one agent active
+                return 1
+            return 0
         return int(agents_available)
 
     @classmethod
