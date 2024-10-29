@@ -141,6 +141,25 @@ The value <id_campaign> correspond to the id of a campaign in OML and OMD.
 Add disposition for contact
 ---------------------------
 
+### Endpoint: `[POST] /add-incidence-rule-disposition/<id_campaign>`
+
+#### Description
+The add-incidence-rule-disposition endpoint is meant to be used by OML to signal that a disposition option was added to a contact in the campaign and that an incidence rule should be analyzed in this case. OMD will add the information about the disposition to the contact history in the campaign and if the linked incidence rule matches it will schedule a call for the contact.
+
+The value <id_campaign> correspond to the id of a campaign in OML and OMD.
+
+The tables _campaign_, _incidence_rules_ and _incidence_rules_disposition_ could be modified according to the existent data in OML.
+
+#### Method
+- **HTTP Method:** `POST`
+
+### Request Body
+```json
+{
+        "id_contact": <id_contact>,
+        "disposition_option": <id_disposition_option>
+}
+```
 
 
 Arquitecture
