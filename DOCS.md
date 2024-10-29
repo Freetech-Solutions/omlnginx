@@ -65,6 +65,25 @@ The contact_strategy JSON parameter is also added as a field of the table _campa
 Edit campaign
 ---------------
 
+### Endpoint: `[POST] /edit-campaign/<id_campaign>`
+
+#### Description
+The create-campaign endpoint edits a campaign inside OMD by modifying the related data with the current values of the campaign with the same id in OML.
+
+The value <id_campaign> correspond to the id of a campaign in OML and OMD.
+
+The tables _campaign_, _incidence_rules_ and _incidence_rules_disposition_ could be modified according to the existent data in OML.
+
+#### Method
+- **HTTP Method:** `POST`
+
+### Request Body
+```json
+{
+  "contact-strategy": "[<id_strategy1>, <id_strategy2>, ... ,<id_strategy_n>]"
+}
+```
+
 
 Start campaign
 ---------------
