@@ -118,6 +118,10 @@ The value <id_campaign> correspond to the id of a campaign in OML and OMD.
 
 Stop campaign
 ---------------
+### Endpoint: `[POST] /post-campaign/<id_campaign>`
+
+#### Description
+The post-campaign endpoint stops a running campaign by first set the _dialer_status_ field to status FINALIZED and after that it will copy all the entries related to the campaign to the historic tables. Entries are moved to tables _campaign_historic_, _contact_in_campaign_historic_, _incidence_rules_historic_ and _incidence_rules_disposition_historic_ . Finally the original campaign and the related tables are removed from the DB as if it were using the endpoint delete-campaign.
 
 
 Delete campaign
