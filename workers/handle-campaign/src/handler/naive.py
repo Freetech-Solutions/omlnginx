@@ -496,7 +496,8 @@ class AverageWorker(DialerWorker):
         cls.connect_redis_oml()
         active_channels = cls.REDIS_OML_CONNECTION.get('dialer_pstn_calls')
         if active_channels is None:
-            return 0
+            logger.debug('dialer_pstn_calls key not available, check your OML installation')
+            return -1
         return int(active_channels)
 
     @classmethod
@@ -521,6 +522,8 @@ class AverageWorker(DialerWorker):
     @classmethod
     def allowed_parallel_contact_attempts(cls, id_campaign):
         active_channels = cls.get_active_channels(id_campaign)
+        if active_channels == -1:
+            return 0
         campaign_max_available_channels = cls.get_campaign_max_available_channels(id_campaign)
         num_available_channels = campaign_max_available_channels - active_channels
         logger.debug("var active_channels={0}".format(active_channels))
