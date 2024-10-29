@@ -40,18 +40,16 @@ Endpoints explanation
 Create campaign
 ---------------
 
-# Description
+### Endpoint: `[POST] /create-campaign/<id_campaign>`
 
-## Endpoint: `[POST] /create-campaign/<id_campaign>`
-
-### Description
+#### Description
 The create-campaign endpoint creates a campaign inside OMD by importing the related data from a campaing of OML.
 
 The value <id_campaign> correspond to the id of a campaign from OML, it will be also the id of the new campaign in OMD.
 
 The other values imported from OML are the fields estado,nombre,fecha_inicio,fecha_fin,control_de_duplicados and prioridad from the table _ominicontacto_app_campana_ that will be copied to the table _campaign_
 
-### Method
+#### Method
 - **HTTP Method:** `POST`
 
 ### Request Body
