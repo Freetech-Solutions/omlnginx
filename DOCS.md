@@ -123,6 +123,16 @@ Stop campaign
 Delete campaign
 ---------------
 
+### Endpoint: `[POST] /delete-campaign/<id_campaign>`
+
+#### Description
+The delete-campaign endpoint first pauses a campaign and then remove it completely from the DB; the tables _campaign_, _incidence_rules_, _incidence_rules_disposition_ and _contact_in_campaign_ can be affected with this endpoint.
+
+The value <id_campaign> correspond to the id of a campaign in OML and OMD.
+
+#### Method
+- **HTTP Method:** `POST`
+
 
 Add disposition for contact
 ---------------------------
@@ -136,3 +146,7 @@ Arquitecture
 
 Horizontal scalability
 ======================
+
+
+Tests
+=====
