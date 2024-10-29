@@ -59,7 +59,7 @@ The other values imported from OML are the fields estado,nombre,fecha_inicio,fec
 {
   "contact-strategy": "[<id_strategy1>, <id_strategy2>, ... ,<id_strategy_n>]"
 }
-
+```
 
 
 Edit campaign
