@@ -176,6 +176,18 @@ The tables _campaign_, _incidence_rules_ and _incidence_rules_disposition_ could
 Arquitecture
 ============
 
+The arquitecture of the system is show in the following diagram:
+
+
+The system serves the endpoint with a Flask server that, in turn redirects the tasks to the running Gearman workers.
+
+There is also a websocket server that will receive the ARI events linked to the calls and will redirect the task to a Gearman worker.
+
+The data of the system is persisted in a Postgres instance and some data are replicated on a Redis instance.
+
+The data saved in Redis is related with contact history in a campaign and reports of the campaign.
+
+The system also publish in PUBSUB channels information about reports and status of the campaigns.
 
 Horizontal scalability
 ======================
@@ -186,6 +198,6 @@ Tests
 
 For run the unit tests just do:
 
-$ bash rebuild-testing-truncated.bash # for rebuild the code for new changes
+$ bash rebuild-testing-truncated.bash
 
-$ bash run-tests.bash # for run the tests
+$ bash run-tests.bash
