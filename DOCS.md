@@ -180,7 +180,7 @@ The arquitecture of the system is shown in the following diagram:
 
 ![alt text](images/omnidialer-arquitecture.svg "Omnidialer arquitecture")
 
-The system serves the endpoint with a Flask server that, in turn redirects the tasks to the running Gearman workers.
+The system serves the endpoints with a Flask server that, in turn redirects the tasks to the running Gearman workers.
 
 There is also a websocket server that will receive the ARI events linked to the calls and will redirect the task to a Gearman worker.
 
