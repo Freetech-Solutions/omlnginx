@@ -217,3 +217,8 @@ For run the unit tests just do:
 $ bash rebuild-testing-truncated.bash
 
 $ bash run-tests.bash
+
+Logging
+=======
+
+If you want to see debug logs on every single worker you need to change the environment variable PYTHON_LOGLEVEL from _warning_ to _debug_
