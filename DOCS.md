@@ -193,6 +193,21 @@ The system also publish in PUBSUB channels information about reports and status 
 Horizontal scalability
 ======================
 
+The system is designed with the ability to horizontal scale by simply creating more Gearman job servers and workers.
+
+To add more gearman job servers you will need to modify the environment variable GEARMAN_JOB_SERVERS and add a new job server in the following way:
+
+$ docker run --rm -itd -p 4731:4731 --network=omnileads_omnileads --name=gearman_job_server_2 artefactual/gearmand:1.1.18-alpine
+
+You can also add more workers in the same host by using the following way:
+
+$ bash add-worker-single-job.bash <name_of_the_gearman_job_to_serve> <new_container_name>
+
+for example:
+
+$ bash add-worker-single-job.bash process-contact process-contact-5
+
+If you are in other host you can run the docker-compose file _docker-compose-single-worker.yml_ after setting the relevant values in the .env file and after that you can more workers as needed
 
 Tests
 =====
