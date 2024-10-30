@@ -88,6 +88,17 @@ The tables _campaign_, _incidence_rules_ and _incidence_rules_disposition_ could
 Start campaign
 ---------------
 
+### Endpoint: `[POST] /start-campaign/<id_campaign>`
+
+#### Description
+The start-campaign endpoint initiates the main process of the campaign, it will set the field 'dialer_status' to status ACTIVE and will start a loop that will call contacts from the OMD database according to the configuration of the campaign and the agents available in OML.
+
+The value <id_campaign> correspond to the id of a campaign in OML and OMD.
+
+#### Method
+- **HTTP Method:** `POST`
+
+
 
 Pause campaign
 ---------------
