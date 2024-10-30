@@ -178,6 +178,7 @@ Arquitecture
 
 The arquitecture of the system is show in the following diagram:
 
+![alt text](images/omnidialer-arquitecture.svg "Omnidialer arquitecture")
 
 The system serves the endpoint with a Flask server that, in turn redirects the tasks to the running Gearman workers.
 
