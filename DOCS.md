@@ -176,7 +176,7 @@ The tables _campaign_, _incidence_rules_ and _incidence_rules_disposition_ could
 Arquitecture
 ============
 
-The arquitecture of the system is show in the following diagram:
+The arquitecture of the system is shown in the following diagram:
 
 ![alt text](images/omnidialer-arquitecture.svg "Omnidialer arquitecture")
 
