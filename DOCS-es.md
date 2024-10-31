@@ -139,36 +139,35 @@ Detener (finalizar) campaña
 
 El endpoint post-campaign detiene una campaña en ejecución estableciendo primero el campo dialer_status en estado FINALIZED y después copiará todas las entradas relacionadas con la campaña en las tablas históricas. Las entradas se mueven a las tablas campaign_historic, contact_in_campaign_historic, incidence_rules_historic e incidence_rules_disposition_historic. Finalmente, la campaña original y las tablas relacionadas se eliminan de la base de datos como si se estuviera usando el endpoint delete-campaign.
 
-Eliminar campaign
+Eliminar campaña
 ---------------
 
 ### Endpoint: `[POST] /delete-campaign/<id_campaign>`
 
-#### Description
-The delete-campaign endpoint first pauses a campaign and then remove it completely from the DB; the tables _campaign_, _incidence_rules_, _incidence_rules_disposition_ and _contact_in_campaign_ can be affected with this endpoint.
+#### Descripción
 
-The value <id_campaign> correspond to the id of a campaign in OML and OMD.
+El endpoint delete-campaign primero pausa una campaña y luego la elimina por completo de la base de datos; las tablas _campaign_, _incidence_rules_, _incidence_rules_disposition_ y _contact_in_campaign_ pueden verse afectadas con este endpoint.
 
-#### Method
-- **HTTP Method:** `POST`
+El valor <id_campaign> corresponde al id de una campaña en OML y OMD.
+
+#### Método
+- **Método HTTP:** `POST`
 
 
-Add disposition for contact
----------------------------
+Agregar calificación para el contacto
+-------------------------------------
 
 ### Endpoint: `[POST] /add-incidence-rule-disposition/<id_campaign>`
 
-#### Description
-The add-incidence-rule-disposition endpoint is meant to be used by OML to signal that a disposition option was added to a contact in the campaign and that an incidence rule should be analyzed in this case. OMD will add the information about the disposition to the contact history in the campaign and if the linked incidence rule matches it will schedule a call for the contact.
+#### Descripción
+El endpoint add-incidence-rule-disposition está diseñado para que OML indique que se ha agregado una opción de disposición a un contacto en la campaña y que debe analizarse una regla de incidencia en este caso. OMD agregará la información sobre la disposición al historial de contactos de la campaña y, si la regla de incidencia vinculada coincide, programará una llamada para el contacto.
 
-The value <id_campaign> correspond to the id of a campaign in OML and OMD.
+El valor <id_campaign> corresponde al id de una campaña en OML y OMD.
 
-The tables _campaign_, _incidence_rules_ and _incidence_rules_disposition_ could be modified according to the existent data in OML.
+#### Método
+- **Método HTTP:** `POST`
 
-#### Method
-- **HTTP Method:** `POST`
-
-### Request Body
+### Cuerpo de la petición
 ```json
 {
         "id_contact": <id_contact>,
@@ -177,52 +176,56 @@ The tables _campaign_, _incidence_rules_ and _incidence_rules_disposition_ could
 ```
 
 
-Arquitecture
+Arquitectura
 ============
 
-The arquitecture of the system is shown in the following diagram:
+La arquitectura del sistema se muestra en el siguiente diagrama:
 
 ![alt text](images/omnidialer-arquitecture.svg "Omnidialer arquitecture")
 
-The system serves the endpoints with a Flask server that, in turn redirects the tasks to the running Gearman workers.
+El sistema atiende los endpoints con un servidor Flask que, a su vez, redirige las tareas a los workers de Gearman en ejecución.
 
-There is also a websocket server that will receive the ARI events linked to the calls and will redirect the task to a Gearman worker.
+También hay un servidor de websocket que recibirá los eventos ARI vinculados a las llamadas y redirigirá la tarea a un trabajador de Gearman.
 
-The data of the system is persisted in a Postgres instance and some data are replicated on a Redis instance.
+Los datos del sistema se almacenan en una instancia de Postgres y algunos datos se replican en una instancia de Redis.
 
-The data saved in Redis is related with contact history in a campaign and reports of the campaign.
+Los datos guardados en Redis están relacionados con el historial de contactos en una campaña e informes de la campaña.
 
-The system also publish in PUBSUB channels information about reports and status of the campaigns.
+El sistema también publica en canales PUBSUB información sobre informes y estado de las campañas.
 
-Horizontal scalability
-======================
 
-The system is designed with the ability to horizontal scale by simply creating more Gearman job servers and workers.
+Escalabilidad horizontal
+========================
 
-To add more gearman job servers you will need to modify the environment variable GEARMAN_JOB_SERVERS and add a new job server in the following way:
+El sistema está diseñado para escalar horizontalmente simplemente creando más servidores de trabajos y trabajadores de Gearman.
+
+Para agregar más job servers de Gearman, se deberá modificar la variable de entorno GEARMAN_JOB_SERVERS y agregar un nuevo job server de la siguiente manera:
 
 $ docker run --rm -itd -p 4731:4731 --network=omnileads_omnileads --name=gearman_job_server_2 artefactual/gearmand:1.1.18-alpine
 
-You can also add more workers in the same host by using the following way:
+También puede agregar más trabajadores en el mismo host de la siguiente manera:
 
 $ bash add-worker-single-job.bash <name_of_the_gearman_job_to_serve> <new_container_name>
 
-for example:
+Por ejemplo:
 
 $ bash add-worker-single-job.bash process-contact process-contact-5
 
-If you are in other host you can run the docker-compose file _docker-compose-single-worker.yml_ after setting the relevant values in the .env file and after that you can more workers as needed
+
+Si estás en otro host, puedes ejecutar el archivo docker-compose docker-compose-single-worker.yml después de configurar los valores relevantes en el archivo .env y, después de eso, agregar más trabajadores según sea necesario.
+
 
 Tests
 =====
 
-For run the unit tests just do:
+Para ejecutar las pruebas unitarias, simplemente haz lo siguiente:
 
 $ bash rebuild-testing-truncated.bash
 
 $ bash run-tests.bash
 
+
 Logging
 =======
 
-If you want to see debug logs on every single worker you need to change the environment variable PYTHON_LOGLEVEL from _warning_ to _debug_
+Si deseas ver logs de depuración en cada trabajador, debes cambiar la variable de entorno PYTHON_LOGLEVEL de _warning_ a _debug_.
