@@ -763,18 +763,6 @@ class AverageWorker(DialerWorker):
                 PHONE_TYPE, phone_number)
 
     @classmethod
-    def add_channel_to_campaign(cls, id_campaign):
-        cls.connect_redis_dialer()
-        return cls.REDIS_DIALER_CONNECTION.hincrby(
-            f'CAMP:{id_campaign}:COUNTER', 'ACTIVE_CHANNELS', 1)
-
-    @classmethod
-    def remove_channel_to_campaign(cls, id_campaign):
-        cls.connect_redis_dialer()
-        return cls.REDIS_DIALER_CONNECTION.hincrby(
-            f'CAMP:{id_campaign}:COUNTER', 'ACTIVE_CHANNELS', -1)
-
-    @classmethod
     @exception_handler_decorator
     def process_event(cls, worker, job):
         # TODO: clarify the event patterns, why there are NOANSWERs without
