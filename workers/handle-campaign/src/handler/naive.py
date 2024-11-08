@@ -521,6 +521,8 @@ class AverageWorker(DialerWorker):
 
     @classmethod
     def allowed_parallel_contact_attempts(cls, id_campaign):
+        # TODO: add control num_active_channels can't be
+        # greater than num_active_agents
         active_channels = cls.get_active_channels(id_campaign)
         if active_channels == -1:
             return 0
