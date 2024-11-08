@@ -632,6 +632,8 @@ class AverageWorker(DialerWorker):
     @classmethod
     @exception_handler_decorator
     def schedule_contact(cls, worker, job):
+        # TODO: include checks to see if is possible to call according to agents
+        # and available channels
         data = cls.decode_payload(job.data)
         (contact_id, id_campaign, phone_number) = data['contact_info']
         delay = data['delay']
