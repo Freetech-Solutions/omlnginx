@@ -1013,6 +1013,7 @@ class AverageWorker(DialerWorker):
             return b'Disposition for incidence rule was added!'
 
     @classmethod
+    @exception_handler_decorator
     def create_incidence_rule(cls, worker, job):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
