@@ -1,4 +1,4 @@
-POST http://localhost:1440/add-incidence-rule-disposition/4
+POST http://localhost:1440/create-incidence-rule/4
 Content-Type: application/json
 
 {

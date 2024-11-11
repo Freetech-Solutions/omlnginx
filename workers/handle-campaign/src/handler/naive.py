@@ -1027,10 +1027,10 @@ class AverageWorker(DialerWorker):
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute(
                 """INSERT INTO incidence_rules (id, status, status_custom, max_attempt, retry_later,
-                mode, campaign_id) VALUES
+                in_mode, campaign_id) VALUES
                 (%s, %s, %s, %s, %s, %s, %s);""",
                 (id_rule, status, status_custom, max_attempt, retry_later, mode, id_campaign))
-        return b'Incidence rule was added'
+            return b'Incidence rule was added'
 
 
 class SingleCallWorker(AverageWorker):
