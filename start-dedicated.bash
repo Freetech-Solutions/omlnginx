@@ -8,6 +8,8 @@ for i in {1..3}; do
     bash add-worker-single-job.bash process-contact process-contact-$i
 done
 
+bash add-worker-single-job.bash process-campaign process-campaign-1
+
 bash add-worker-single-job.bash create-campaign create-campaign-1
 
 bash add-worker-single-job.bash resume-campaign resume-campaign-1

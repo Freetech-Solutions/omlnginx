@@ -150,7 +150,7 @@ class AverageWorker(DialerWorker):
     )
 
     @classmethod
-    def process_campaign(cls, id_campaign):
+    def process_campaign_inside(cls, id_campaign):
         while cls.campaign_is_active(id_campaign):
             logger.debug(f'\nCampaign {id_campaign} is active')
             if cls.is_allowed_to_call(id_campaign):
@@ -273,7 +273,8 @@ class AverageWorker(DialerWorker):
                         VALUES (%s, %s, %s, %s, %s, %s);""", incidence_rule)
                 if orig_status_campaign in [ACTIVE, RESUMED]:
                     cls.set_campaign_status(id_campaign, RESUMED, cursor_dialer)
-                    cls.process_campaign(id_campaign)
+                    message = json.dumps({'id_campaign': id_campaign})
+                    cls.GM_CLIENT.submit_job('process-campaign', message, background=True)
 
         response = f'Campaign {id_campaign} with strategy {contact_strategy} succesfully updated!!!'
 
@@ -358,7 +359,8 @@ class AverageWorker(DialerWorker):
         logger.debug('starting the campaign')
         id_campaign = int(job.data)
         cls.set_campaign_status(id_campaign, ACTIVE)
-        cls.process_campaign(id_campaign)
+        message = json.dumps({'id_campaign': id_campaign})
+        cls.GM_CLIENT.submit_job('process-campaign', message, background=True)
         return b'Campaign started!'
 
     @classmethod
@@ -626,8 +628,19 @@ class AverageWorker(DialerWorker):
         logger.debug('resuming the campaign')
         id_campaign = cls.decode_payload(job.data)
         cls.set_campaign_status(id_campaign, RESUMED)
-        cls.process_campaign(id_campaign)
+        message = json.dumps({'id_campaign': id_campaign})
+        cls.GM_CLIENT.submit_job('process-campaign', message, background=True)
         response = f'Campaign {id_campaign} was resumed!'
+        response = json.dumps({'msg': response})
+        return bytes(response, encoding='UTF8')
+
+    @classmethod
+    @exception_handler_decorator
+    def process_campaign(cls, worker, job):
+        id_campaign = cls.decode_payload(job.data)['id_campaign']
+        logger.debug(f'Campaign {id_campaign}: resuming the campaign')
+        cls.process_campaign_inside(id_campaign)
+        response = f'Campaign {id_campaign} process ended!'
         response = json.dumps({'msg': response})
         return bytes(response, encoding='UTF8')
 
@@ -1009,7 +1022,8 @@ class AverageWorker(DialerWorker):
                 status = cls.get_campaign_status(id_campaign, cursor_dialer)
                 if status == PAUSED:
                     cls.set_campaign_status(id_campaign, RESUMED)
-                    cls.process_campaign(id_campaign)
+                    message = json.dumps({'id_campaign': id_campaign})
+                    cls.GM_CLIENT.submit_job('process-campaign', message, background=True)
             return b'Disposition for incidence rule was added!'
 
     @classmethod
