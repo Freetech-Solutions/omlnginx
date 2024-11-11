@@ -31,3 +31,7 @@ curl -d '{}' -H "Content-Type: application/json" -X POST http://localhost:1440/d
 *** Parameters: <id> of the campaign (in the URL), id of disposition option in OML <disposition_option> in OML and <id_contact>
 Example:
 curl -d '{"id_contact": 3, "disposition_option": 7}' -H "Content-Type: application/json" -X POST http://localhost:1440/add-incidence-rule-disposition/4
+** Create incidence rule
+*** <id> of the campaign (in the URL), id of the incidenc rule <id_rule>, status <status>, name for the status <status_custom>, maximum number of attempts <max_attempt>, delay before attempt in seconds <retry_later>, mode (fixed o multi-number) <mode>
+Example:
+curl -d '{"id_rule": 3, "status": 3, "status_custom":"no answer", "max_attempt": 5, "retry_later": 5, "mode": 1}' -H "Content-Type: application/json" -X POST http://localhost:1440/create-incidence-rule/4

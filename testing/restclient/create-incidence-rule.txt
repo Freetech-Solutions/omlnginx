@@ -1,0 +1,11 @@
+POST http://localhost:1440/create-incidence-rule/4
+Content-Type: application/json
+
+{
+        "id_rule": 3,
+        "status": 3,
+        "status_custom": "no answer",
+        "max_attempt": 5,
+        "retry_later": 5,
+        "mode": 1
+}

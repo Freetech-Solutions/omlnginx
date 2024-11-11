@@ -84,4 +84,21 @@ class GearmanDialer(Dialer):
         }
         payload_bytes = cls.encode_payload(payload)
         cls.GM_CLIENT.submit_job('add-incidence-rule-disposition', payload_bytes)
-        return json.dumps({'msg': 'Incidence rule added'})
+        return json.dumps({'msg': 'Disposition added'})
+
+    @classmethod
+    def create_incidence_rule(
+            cls, id_campaign, id_rule, status, status_custom, max_attempt,
+            retry_later, mode):
+        payload = {
+            'id_campaign': id_campaign,
+            'id_rule': id_rule,
+            'status': status,
+            'status_custom': status_custom,
+            'max_attempt': max_attempt,
+            'retry_later': retry_later,
+            'mode': mode
+        }
+        payload_bytes = cls.encode_payload(payload)
+        cls.GM_CLIENT.submit_job('create-incidence-rule', payload_bytes)
+        return json.dumps({'msg': 'Incide rule added'})

@@ -61,5 +61,20 @@ def add_incidence_rule_disposition(id_campaign):
     return DIALER.add_incidence_rule_disposition(id_campaign, disposition_option, id_contact)
 
 
+@app.route('/create-incidence-rule/<id_campaign>', methods=['POST'])
+def create_incidence_rule(id_campaign):
+    json_value = request.get_json()
+    id_rule = json_value.get('id_rule', -1)
+    status = json_value.get('status', -1)
+    status_custom = json_value.get('status_custom', "")
+    max_attempt = json_value.get('max_attempt', -1)
+    retry_later = json_value.get('retry_later', -1)
+    mode = json_value.get('mode', -1)
+    return DIALER.create_incidence_rule(
+        id_campaign, id_rule, status, status_custom, max_attempt,
+        retry_later, mode
+    )
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=1440, debug=True)
