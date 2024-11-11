@@ -158,7 +158,7 @@ class AverageWorker(DialerWorker):
                 contacts_attempts_number = cls.allowed_parallel_contact_attempts(id_campaign)
                 for contact in cls.take_contacts(contacts_attempts_number, id_campaign):
                     # TODO: analyze if an sleep would improve the process here
-                    # sleep(1)
+                    # sleep(3)
                     cls.attempt_contact(contact, id_campaign)
 
     @classmethod
@@ -480,18 +480,20 @@ class AverageWorker(DialerWorker):
         cls.connect_redis_oml()
         agents_distribution = cls.get_agent_ids_campaign(id_campaign)
         agents_available = 0
+        total_agents_available = 0
         for key in cls.REDIS_OML_CONNECTION.scan_iter(match='OML:AGENT:*', count=1000):
             id_agent = int(key.split(':')[-1])
             if agents_distribution.get(id_agent):
                 status = cls.REDIS_OML_CONNECTION.hget(key, 'STATUS')
                 if status == 'READY':
                     agents_available += (1 / agents_distribution[id_agent])
+                    total_agents_available += 1
         if agents_available < 1:
             if agents_available > 0:
                 # there is at least one agent active
-                return 1
-            return 0
-        return int(agents_available)
+                return 1, total_agents_available
+            return 0, total_agents_available
+        return int(agents_available), total_agents_available
 
     @classmethod
     def get_active_channels(cls, id_campaign):
@@ -512,25 +514,28 @@ class AverageWorker(DialerWorker):
             return cursor_dialer.fetchone()[0]
 
     @classmethod
-    def get_allowed_attempts_according_agents(cls, id_campaign):
-        available_agents = cls.get_number_available_agents(id_campaign)
+    def get_allowed_attempts_according_agents(cls, id_campaign, active_channels):
+        available_agents, total_available_agents = cls.get_number_available_agents(id_campaign)
         active_campaigns = cls.get_number_active_campaigns()
         logger.debug("Campaign {0}: active_campaigns={1}".format(id_campaign, active_campaigns))
         logger.debug("Campaign {0}: available_agents={1}".format(id_campaign, available_agents))
-        if active_campaigns > 0:
-            return available_agents / active_campaigns
+        logger.debug("Campaign {0}: total_available_agents={1}".format(
+            id_campaign, total_available_agents))
+        if total_available_agents >= active_channels:
+            if active_campaigns > 0:
+                return available_agents / active_campaigns
+            return 0
+        logger.debug(f"Campaign {id_campaign}: too much calls for available agents")
         return 0
 
     @classmethod
     def allowed_parallel_contact_attempts(cls, id_campaign):
-        # TODO: add control num_active_channels can't be
-        # greater than num_active_agents
         active_channels = cls.get_active_channels(id_campaign)
         if active_channels == -1:
             return 0
         campaign_max_available_channels = cls.get_campaign_max_available_channels(id_campaign)
         num_available_channels = campaign_max_available_channels - active_channels
-        logger.debug("var active_channels={0}".format(active_channels))
+        logger.debug("Campaign {0}: active_channels={1}".format(id_campaign, active_channels))
         logger.debug("Campaign {0}: campaign_max_available_channels={1}".format(
             id_campaign, campaign_max_available_channels))
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
@@ -539,12 +544,14 @@ class AverageWorker(DialerWorker):
                                   (id_campaign,))
             boost_factor = cursor_dialer.fetchone()[0]
             allowed_parallel_attempts_acc_agents = int(Decimal(
-                cls.get_allowed_attempts_according_agents(id_campaign)) * boost_factor)
+                cls.get_allowed_attempts_according_agents(
+                    id_campaign, active_channels)) * boost_factor)
             return min(num_available_channels, allowed_parallel_attempts_acc_agents)
 
     @classmethod
     def take_contacts(cls, contacts_attempts_number, id_campaign):
-        logger.debug("var contacts_attempts_number={0}".format(contacts_attempts_number))
+        logger.debug("Campaign {0}: contacts_attempts_number={1}".format(
+            id_campaign, contacts_attempts_number))
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute("""UPDATE contact_in_campaign as cc
@@ -558,7 +565,7 @@ class AverageWorker(DialerWorker):
                                   (STATUS_SELECTED_CALL, id_campaign, STATUS_CREATED,
                                    contacts_attempts_number))
             contacts = cursor_dialer.fetchall()
-            logger.debug("Selected {0} contacts".format(len(contacts)))
+            logger.debug("Campaign {0}: selected {1} contacts".format(id_campaign, len(contacts)))
             return contacts
 
     @classmethod
