@@ -176,6 +176,39 @@ El valor <id_campaign> corresponde al id de una campaña en OML y OMD.
 ```
 
 
+Adicionar regla de incidencia
+-----------------------------
+
+### Endpoint: `[POST] /create-incidence-rule/<id_campaign>`
+
+#### Descripción
+El endpoint create-incidence-rule crea una regla de incidencia en una campaña.
+
+El valor <id_campaign> corresponde al id de una campaña en OML y OMD.
+Otros parámetros son:
+<id_rule> - el id de la regla de incidencia en OML
+<status> - id del status
+<status_custom> - nombre del status
+<max_attempt> - número máximo de intentos
+<retry_later> - delay (en segundos) antes de cada intento
+<mode> - modo: fijo o multinum
+
+#### Método
+- **Método HTTP:** `POST`
+
+### Cuerpo de la petición
+```json
+{
+        "id_rule": 3,
+        "status": 3,
+        "status_custom": "no answer",
+        "max_attempt": 5,
+        "retry_later": 5,
+        "mode": 1
+}
+```
+
+
 Arquitectura
 ============
 
