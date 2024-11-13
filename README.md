@@ -6,7 +6,7 @@ $ cp env .env
 
 Modify the .env file according to your needs and do:
 
-$ bash start-dedicated.bash
+$ bash start-dedicated.bash <oml-docker-network>
 
 A flask server would be running at 0.0.0.0:1440 with a Gearman job server and the required Gearman workers.
 
@@ -44,7 +44,7 @@ Troubleshooting:
 
 For run the unit tests just do:
 
-$ bash rebuild.bash
+$ bash rebuild.bash <oml-docker-network>
 
 $ docker-compose down
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-bash rebuild-clean.bash
+bash rebuild-clean.bash $1
 
 curl -d '{"contact-strategy": [1, 3, 4]}' -H "Content-Type: application/json" -X POST http://localhost:1440/create-campaign/4
 
