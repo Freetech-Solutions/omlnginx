@@ -1067,6 +1067,18 @@ class AverageWorker(DialerWorker):
                 (id_rule, status, status_custom, max_attempt, retry_later, mode, id_campaign))
             return b'Incidence rule was added'
 
+    @classmethod
+    @exception_handler_decorator
+    def delete_incidence_rule(cls, worker, job):
+        data = cls.decode_payload(job.data)
+        id_campaign = data['id_campaign']
+        id_rule = data['id_rule']
+        logger.debug(f'Removing incidence_rule {id_rule} in campaign with id = {id_campaign}')
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM incidence_rule WHERE id = %s;', (id_rule,))
+            return b'Incidence rule was deleted'
+
 
 class SingleCallWorker(AverageWorker):
     """Another naive dialer worker flow that makes only 1 call at a time, and after every call

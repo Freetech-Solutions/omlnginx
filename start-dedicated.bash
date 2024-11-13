@@ -31,3 +31,5 @@ bash add-worker-single-job.bash send-reports send-reports-1 $1
 bash add-worker-single-job.bash add-incidence-rule-disposition add-incidence-rule-disposition-1 $1
 
 bash add-worker-single-job.bash create-incidence-rule create-incidence-rule-1 $1
+
+bash add-worker-single-job.bash delete-incidence-rule delete-incidence-rule-1 $1
