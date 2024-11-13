@@ -93,7 +93,6 @@ class MyTestSuite(unittest.TestCase):
             self.assertEqual(cursor_dialer.fetchone()[0], 2)
 
         # let's edit the campaign now
-        print("GD!!!")
         job = GearmanJob(None, None, None, None,
                          b'{"id_campaign": "4", "contact_strategy": [1, 4]}')
         campaign_id_data = campaign_id_data[:-3] + ([1, 4],) + campaign_id_data[-2:]
