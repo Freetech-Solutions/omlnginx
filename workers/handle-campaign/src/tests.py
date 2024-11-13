@@ -34,6 +34,7 @@ class MyTestSuite(unittest.TestCase):
             cursor_dialer.execute('DELETE FROM campaign;')
             cursor_dialer.execute('DELETE FROM campaign_historic;')
             cursor_dialer.execute('DELETE FROM contact;')
+        AverageWorker.REDIS_DIALER_CONNECTION.close()
 
     def mocked_psycopg_fetchmany(self, cursor, size):
         if self.fetchmany_counter == 0:
@@ -71,6 +72,7 @@ class MyTestSuite(unittest.TestCase):
                                 incidence_rules_disposition_data)
         AverageWorker.get_campaign_data = MagicMock(
             return_value=campaign_mocked_data)
+        AverageWorker.process_campaign = MagicMock()
         AverageWorker.get_contacts_campaign = MagicMock(side_effect=self.mocked_psycopg_fetchmany)
         worker = GearmanWorker()
         job = GearmanJob(None, None, None, None,
@@ -91,6 +93,7 @@ class MyTestSuite(unittest.TestCase):
             self.assertEqual(cursor_dialer.fetchone()[0], 2)
 
         # let's edit the campaign now
+        print("GD!!!")
         job = GearmanJob(None, None, None, None,
                          b'{"id_campaign": "4", "contact_strategy": [1, 4]}')
         campaign_id_data = campaign_id_data[:-3] + ([1, 4],) + campaign_id_data[-2:]
@@ -99,8 +102,18 @@ class MyTestSuite(unittest.TestCase):
         AverageWorker.get_campaign_data = MagicMock(
             return_value=campaign_mocked_data)
         AverageWorker.edit_campaign(worker, job)
+        # let's add an incidence rule
+        job = GearmanJob(
+            None, None, None, None,
+            b'{"id_campaign": 4, "id_rule": 3, "status": 3, "status_custom":"no answer", '
+            b'"max_attempt": 5, "retry_later": 5, "mode": 1}')
+        AverageWorker.create_incidence_rule(worker, job)
+
         with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            AverageWorker.GM_CLIENT.submit_job = MagicMock()
             cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute('SELECT COUNT(*) FROM ONLY incidence_rules;')
+            self.assertEqual(cursor_dialer.fetchone()[0], 3)
             cursor_dialer.execute('SELECT contact_strategy FROM ONLY campaign;')
             self.assertEqual(cursor_dialer.fetchone()[0], [1, 4])
             id_campaign = campaign_id_data[0]
@@ -124,7 +137,6 @@ class MyTestSuite(unittest.TestCase):
             self.assertEqual(status_campaign, RESUMED)
 
             # testing endpoint add disposition for incidence rule
-            AverageWorker.GM_CLIENT.submit_job = MagicMock()
             job = GearmanJob(
                 None, None, None, None,
                 b'{"id_campaign": "4", "disposition_option": 8, "id_contact": 1}')
@@ -158,7 +170,7 @@ class MyTestSuite(unittest.TestCase):
             cursor_dialer.execute(
                 'SELECT COUNT(*) FROM ONLY incidence_rules_historic WHERE campaign_id = %s',
                 (id_campaign,))
-            self.assertEqual(cursor_dialer.fetchone()[0], 2)
+            self.assertEqual(cursor_dialer.fetchone()[0], 3)
             cursor_dialer.execute(
                 'SELECT COUNT(*) FROM ONLY incidence_rules_disposition_historic WHERE'
                 ' campaign_id = %s',

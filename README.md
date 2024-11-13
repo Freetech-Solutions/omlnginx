@@ -44,6 +44,12 @@ Troubleshooting:
 
 For run the unit tests just do:
 
-$ bash rebuild-testing-truncated.bash # for rebuild the code for new changes
+$ bash rebuild.bash
 
-$ bash run-tests.bash # for run the tests
+$ docker-compose down
+
+$ docker-compose --env-file .env-tests -f docker-compose-test.yml up -d
+
+$ bash run-tests.bash
+
+$ docker-compose --env-file .env-tests -f docker-compose-test.yml down
