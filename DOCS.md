@@ -170,6 +170,40 @@ The value <id_campaign> correspond to the id of a campaign in OML and OMD.
 }
 ```
 
+Create incidence rule
+---------------------
+
+### Endpoint: `[POST] /create-incidence-rule/<id_campaign>`
+
+#### Description
+The create-incidence-rule endpoint will add a new incidence rule to a campaign
+
+The value <id_campaign> correspond to the id of a campaign in OML and OMD.
+
+Other parameters are:
+<id_rule> - id of the incidence_rule in OML
+<status> - id of the status
+<status_custom> - name of the status
+<max_attempt> - maximum number of attempts
+<retry_later> - delay (in seconds) before any attempt
+<mode> - mode: fixed or multinum
+
+
+#### Method
+- **HTTP Method:** `POST`
+
+### Request Body
+```json
+{
+        "id_rule": 3,
+        "status": 3,
+        "status_custom": "no answer",
+        "max_attempt": 5,
+        "retry_later": 5,
+        "mode": 1
+}
+```
+
 
 Arquitecture
 ============
