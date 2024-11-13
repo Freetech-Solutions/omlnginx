@@ -24,7 +24,7 @@ bash add-worker-single-job.bash delete-campaign delete-campaign-1 $1
 
 bash add-worker-single-job.bash process-event process-event-1 $1
 
-bash add-worker-single-job.bash schedule-contact schedule-contact-1
+bash add-worker-single-job.bash schedule-contact schedule-contact-1 $1
 
 bash add-worker-single-job.bash send-reports send-reports-1 $1
 
