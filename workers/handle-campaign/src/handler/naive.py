@@ -455,7 +455,8 @@ class AverageWorker(DialerWorker):
 
     @classmethod
     def get_agent_ids_campaign(cls, id_campaign):
-        # TODO: should we check if the campaigns linked to the agents are active?
+        # TODO1: should we check if the campaigns linked to the agents are active?
+        # TODO2: only from dialer campaigns linked it to
         with psycopg.connect(cls.POSTGRES_OML_CONNECTION_STR) as conn_oml:
             cursor_oml = conn_oml.cursor()
             cursor_oml.execute(
@@ -514,18 +515,21 @@ class AverageWorker(DialerWorker):
             return cursor_dialer.fetchone()[0]
 
     @classmethod
-    def get_allowed_attempts_according_agents(cls, id_campaign, active_channels):
+    def get_allowed_attempts_according_agents(cls, id_campaign, active_channels, campaign_max_available_channels):
         available_agents, total_available_agents = cls.get_number_available_agents(id_campaign)
         active_campaigns = cls.get_number_active_campaigns()
         logger.debug("Campaign {0}: active_campaigns={1}".format(id_campaign, active_campaigns))
         logger.debug("Campaign {0}: available_agents={1}".format(id_campaign, available_agents))
         logger.debug("Campaign {0}: total_available_agents={1}".format(
             id_campaign, total_available_agents))
-        if total_available_agents >= active_channels:
-            if active_campaigns > 0:
-                return available_agents / active_campaigns
+        if active_channels < campaign_max_available_channels:
+            if total_available_agents >= active_channels:
+                # TODO: only if active_channels < max_channels
+                if active_campaigns > 0:
+                    return available_agents / active_campaigns
+                return 0
+            logger.debug(f"Campaign {id_campaign}: too much calls for available agents")
             return 0
-        logger.debug(f"Campaign {id_campaign}: too much calls for available agents")
         return 0
 
     @classmethod
@@ -545,7 +549,7 @@ class AverageWorker(DialerWorker):
             boost_factor = cursor_dialer.fetchone()[0]
             allowed_parallel_attempts_acc_agents = int(Decimal(
                 cls.get_allowed_attempts_according_agents(
-                    id_campaign, active_channels)) * boost_factor)
+                    id_campaign, active_channels, campaign_max_available_channels)) * boost_factor)
             return min(num_available_channels, allowed_parallel_attempts_acc_agents)
 
     @classmethod
