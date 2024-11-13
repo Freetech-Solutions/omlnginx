@@ -253,12 +253,12 @@ services:
     networks:
       - network1
 
-  process_campaign_worker:
+  create_incidence_rule_worker:
     image: omnidialer_worker
-    container_name: process-campaign-1
+    container_name: create-incidence-rule-1
     env_file: .env
     environment:
-      - GEARMAN_JOBS=process-contact
+      - GEARMAN_JOBS=create-incidence-rule
     networks:
       - network1
 
