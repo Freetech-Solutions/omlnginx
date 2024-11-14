@@ -515,7 +515,8 @@ class AverageWorker(DialerWorker):
             return cursor_dialer.fetchone()[0]
 
     @classmethod
-    def get_allowed_attempts_according_agents(cls, id_campaign, active_channels, campaign_max_available_channels):
+    def get_allowed_attempts_according_agents(cls, id_campaign, active_channels,
+                                              campaign_max_available_channels):
         available_agents, total_available_agents = cls.get_number_available_agents(id_campaign)
         active_campaigns = cls.get_number_active_campaigns()
         logger.debug("Campaign {0}: active_campaigns={1}".format(id_campaign, active_campaigns))
