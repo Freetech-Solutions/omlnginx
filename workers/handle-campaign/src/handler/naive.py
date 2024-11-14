@@ -525,7 +525,6 @@ class AverageWorker(DialerWorker):
             id_campaign, total_available_agents))
         if active_channels < campaign_max_available_channels:
             if total_available_agents >= active_channels:
-                # TODO: only if active_channels < max_channels
                 if active_campaigns > 0:
                     return available_agents / active_campaigns
                 return 0
