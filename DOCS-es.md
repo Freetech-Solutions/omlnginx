@@ -22,13 +22,13 @@ Luego, realiza lo siguiente:
 
 $ cp env .env
 
-Si estás en un host diferente al de OML:
-
-$ docker network create omnileads_omnileads
-
 En cualquier caso, ejecuta:
 
-$ bash start-dedicated.bash
+$ bash start-dedicated.bash <oml-docker-network>
+
+Otra option es ejecutar directamente:
+
+$ docker-compose -f docker-compose-full.yml up -d
 
 Un servidor Flask estará corriendo en 0.0.0.0:1440 con un job server de Gearman y los workers de Gearman necesarios.
 
@@ -238,11 +238,11 @@ $ docker run --rm -itd -p 4731:4731 --network=omnileads_omnileads --name=gearman
 
 También puede agregar más trabajadores en el mismo host de la siguiente manera:
 
-$ bash add-worker-single-job.bash <name_of_the_gearman_job_to_serve> <new_container_name>
+$ bash add-worker-single-job.bash <name_of_the_gearman_job_to_serve> <new_container_name> <oml-docker-network>
 
 Por ejemplo:
 
-$ bash add-worker-single-job.bash process-contact process-contact-5
+$ bash add-worker-single-job.bash process-contact process-contact-5 omnileads_omnileads
 
 
 Si estás en otro host, puedes ejecutar el archivo docker-compose docker-compose-single-worker.yml después de configurar los valores relevantes en el archivo .env y, después de eso, agregar más trabajadores según sea necesario.
@@ -253,7 +253,7 @@ Tests
 
 Para ejecutar las pruebas unitarias, simplemente haz lo siguiente:
 
-$ bash rebuild.bash
+$ bash rebuild.bash <oml-docker-network>
 
 $ docker-compose down
 

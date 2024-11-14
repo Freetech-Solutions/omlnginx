@@ -22,13 +22,13 @@ Then do:
 
 $ cp env .env
 
-If you are in a different host of OML:
-
-$ docker network create omnileads_omnileads
-
 In any case do:
 
 $ bash start-dedicated.bash <oml-docker-network>
+
+Another option is to run directly:
+
+$ docker-compose -f docker-compose-full.yml up -d
 
 A flask server would be running at 0.0.0.0:1440 with a Gearman job server and the required Gearman workers.
 
@@ -229,15 +229,15 @@ The system is designed with the ability to horizontal scale by simply creating m
 
 To add more gearman job servers you will need to modify the environment variable GEARMAN_JOB_SERVERS and add a new job server in the following way:
 
-$ docker run --rm -itd -p 4731:4731 --network=omnileads_omnileads --name=gearman_job_server_2 artefactual/gearmand:1.1.18-alpine
+$ docker run --rm -itd -p 4731:4731 --network=<oml-docker-network> --name=gearman_job_server_2 artefactual/gearmand:1.1.18-alpine
 
 You can also add more workers in the same host by using the following way:
 
-$ bash add-worker-single-job.bash <name_of_the_gearman_job_to_serve> <new_container_name>
+$ bash add-worker-single-job.bash <name_of_the_gearman_job_to_serve> <new_container_name> <oml-docker-network>
 
 for example:
 
-$ bash add-worker-single-job.bash process-contact process-contact-5
+$ bash add-worker-single-job.bash process-contact process-contact-5 omnileads_omnileads
 
 If you are in other host you can run the docker-compose file _docker-compose-single-worker.yml_ after setting the relevant values in the .env file and after that you can more workers as needed
 
