@@ -28,3 +28,7 @@ agent assigned to n campaigns active : 1/n
 sum (1/n_j) for agent i / num_active_campaigns
 ** Useful queries in OML
 INSERT INTO ominicontacto_app_actuacionvigente values (1, True, True, True, True, True, True, True, '00:00', '23:59',4);
+** Comand to see active channels in pstn emulator
+watch -n1 "docker exec -it oml-pstn-emulator asterisk -rx 'core show channels'"
+** Command to see the active channels number in Redis every 1 sec
+watch -n1 "docker exec -it oml-redis redis-cli --raw GET 'dialer_pstn_calls'"

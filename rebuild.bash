@@ -2,4 +2,4 @@
 
 docker-compose down
 
-bash start-dedicated.bash
+bash start-dedicated.bash $1

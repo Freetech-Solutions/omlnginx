@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-bash rebuild.bash
+bash rebuild.bash $1
 
 docker exec -it omnidialer-redis redis-cli -p 6380 flushdb
 

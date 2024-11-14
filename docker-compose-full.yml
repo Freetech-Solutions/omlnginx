@@ -30,7 +30,6 @@ services:
 
   worker:
     image: omnidialer_worker
-    container_name: start-campaign-1
     build:
       context: ./workers/handle-campaign/src
     networks:
@@ -62,7 +61,6 @@ services:
       - job_server
       - postgresql
       - redis
-
 
   redis:
     container_name: omnidialer-redis
@@ -122,7 +120,6 @@ services:
       - omnidialer-postgresql:/var/lib/postgresql/data
       - ./omnidialer.sql:/docker-entrypoint-initdb.d/init.sql
 
-
   websocket_ari:
     container_name: omnidialer_websocket_ari
     build:
@@ -146,6 +143,124 @@ services:
       - job_server
       - postgresql
       - worker
+
+  process_contact_worker:
+    image: omnidialer_worker
+    deploy:
+      replicas: 3
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=process-contact
+    networks:
+      - network1
+
+  process_campaign_worker:
+    image: omnidialer_worker
+    container_name: process-campaign-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=process-campaign
+    networks:
+      - network1
+
+  create_campaign_worker:
+    image: omnidialer_worker
+    container_name: create-campaign-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=create-campaign
+    networks:
+      - network1
+
+  resume_campaign_worker:
+    image: omnidialer_worker
+    container_name: resume-campaign-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=resume-campaign
+    networks:
+      - network1
+
+  edit_campaign_worker:
+    image: omnidialer_worker
+    container_name: edit-campaign-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=edit-campaign
+    networks:
+      - network1
+
+  stop_campaign_worker:
+    image: omnidialer_worker
+    container_name: stop-campaign-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=stop-campaign
+    networks:
+      - network1
+
+  pause_campaign_worker:
+    image: omnidialer_worker
+    container_name: pause-campaign-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=pause-campaign
+    networks:
+      - network1
+
+  delete_campaign_worker:
+    image: omnidialer_worker
+    container_name: delete-campaign-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=delete-campaign
+    networks:
+      - network1
+
+  process_event_worker:
+    image: omnidialer_worker
+    container_name: process-event-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=process-event
+    networks:
+      - network1
+
+  schedule_contact_worker:
+    image: omnidialer_worker
+    container_name: schedule-contact-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=schedule-contact
+    networks:
+      - network1
+
+  send_reports_worker:
+    image: omnidialer_worker
+    container_name: send-reports-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=send-reports
+    networks:
+      - network1
+
+  add_incidence_rule_disposition_worker:
+    image: omnidialer_worker
+    container_name: add-incidence-rule-disposition-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=add-incidence-rule-disposition
+    networks:
+      - network1
+
+  create_incidence_rule_worker:
+    image: omnidialer_worker
+    container_name: create-incidence-rule-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=create-incidence-rule
+    networks:
+      - network1
 
 networks:
   network1:
