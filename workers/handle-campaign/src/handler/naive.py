@@ -456,7 +456,6 @@ class AverageWorker(DialerWorker):
     @classmethod
     def get_agent_ids_campaign(cls, id_campaign):
         # TODO1: should we check if the campaigns linked to the agents are active?
-        # TODO2: only from dialer campaigns linked it to
         with psycopg.connect(cls.POSTGRES_OML_CONNECTION_STR) as conn_oml:
             cursor_oml = conn_oml.cursor()
             cursor_oml.execute(
@@ -465,6 +464,9 @@ class AverageWorker(DialerWorker):
                 FROM ominicontacto_app_agenteprofile LEFT OUTER JOIN queue_member_table ON
                 (ominicontacto_app_agenteprofile.id = queue_member_table.member_id)
                 LEFT OUTER JOIN queue_table ON (queue_member_table.queue_name = queue_table.name)
+                LEFT OUTER JOIN ominicontacto_app_campana ON
+                (queue_table.campana_id = ominicontacto_app_campana.id
+                and ominicontacto_app_campana.type = 2)
                 WHERE ominicontacto_app_agenteprofile.id in
                 (
                 SELECT ominicontacto_app_agenteprofile.id FROM ominicontacto_app_agenteprofile
