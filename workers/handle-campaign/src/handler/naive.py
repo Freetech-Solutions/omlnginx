@@ -455,9 +455,10 @@ class AverageWorker(DialerWorker):
 
     @classmethod
     def get_agent_ids_campaign(cls, id_campaign):
-        # TODO1: should we check if the campaigns linked to the agents are active?
         with psycopg.connect(cls.POSTGRES_OML_CONNECTION_STR) as conn_oml:
             cursor_oml = conn_oml.cursor()
+            TYPE_DIALER = 2
+            STATUS_ACTIVE = 2
             cursor_oml.execute(
                 """SELECT ominicontacto_app_agenteprofile.id, COUNT(queue_table.campana_id)
                 AS queue__campana__count
@@ -465,8 +466,7 @@ class AverageWorker(DialerWorker):
                 (ominicontacto_app_agenteprofile.id = queue_member_table.member_id)
                 LEFT OUTER JOIN queue_table ON (queue_member_table.queue_name = queue_table.name)
                 LEFT OUTER JOIN ominicontacto_app_campana ON
-                (queue_table.campana_id = ominicontacto_app_campana.id
-                and ominicontacto_app_campana.type = 2)
+                (queue_table.campana_id = ominicontacto_app_campana.id)
                 WHERE ominicontacto_app_agenteprofile.id in
                 (
                 SELECT ominicontacto_app_agenteprofile.id FROM ominicontacto_app_agenteprofile
@@ -474,8 +474,9 @@ class AverageWorker(DialerWorker):
                 (ominicontacto_app_agenteprofile.id = queue_member_table.member_id)
                 INNER JOIN queue_table ON (queue_member_table.queue_name = queue_table.name)
                 WHERE queue_table.campana_id = %s
-                ) GROUP BY ominicontacto_app_agenteprofile.id;""",
-                (id_campaign,))
+                ) AND ominicontacto_app_campana.type = %s AND ominicontacto_app_campana.estado = %s
+                GROUP BY ominicontacto_app_agenteprofile.id;""",
+                (id_campaign, TYPE_DIALER, STATUS_ACTIVE))
             return dict(cursor_oml.fetchall())
 
     @classmethod
