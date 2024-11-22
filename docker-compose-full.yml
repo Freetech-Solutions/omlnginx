@@ -262,6 +262,16 @@ services:
     networks:
       - network1
 
+  delete_incidence_rule_worker:
+    image: omnidialer_worker
+    container_name: delete-incidence-rule-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=delete-incidence-rule
+    networks:
+      - network1
+
+
 networks:
   network1:
     name: ${NETWORK}

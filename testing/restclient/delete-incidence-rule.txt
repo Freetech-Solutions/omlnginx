@@ -1,0 +1,7 @@
+POST http://localhost:1440/delete-incidence-rule/33
+Content-Type: application/json
+
+{
+        "id": 12,
+        "type": 1
+}

@@ -204,6 +204,33 @@ Other parameters are:
 }
 ```
 
+Delete incidence rule
+---------------------
+
+### Endpoint: `[POST] /delete-incidence-rule/<id_campaign>`
+
+#### Description
+The delete-incidence-rule endpoint will delete an incidence rule in a campaign
+
+The value <id_campaign> correspond to the id of a campaign in OML and OMD.
+
+Other parameters are:
+<id> - id of the incidence_rule in OML
+<type> - mode: 1 for status-like incidence rule, 2 for disposition-like incidence rule
+
+
+#### Method
+- **HTTP Method:** `POST`
+
+### Request Body
+```json
+{
+        "id": 3,
+        "type": 1
+}
+```
+
+
 
 Arquitecture
 ============

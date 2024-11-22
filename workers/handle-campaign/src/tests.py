@@ -115,6 +115,13 @@ class MyTestSuite(unittest.TestCase):
             self.assertEqual(cursor_dialer.fetchone()[0], 3)
             cursor_dialer.execute('SELECT contact_strategy FROM ONLY campaign;')
             self.assertEqual(cursor_dialer.fetchone()[0], [1, 4])
+            # let's remove an incidence rule
+            job = GearmanJob(
+                None, None, None, None,
+                b'{"id_campaign": 4, "id_rule": 3, "type_rule": 1}')
+            AverageWorker.delete_incidence_rule(worker, job)
+            cursor_dialer.execute('SELECT COUNT(*) FROM ONLY incidence_rules;')
+            self.assertEqual(cursor_dialer.fetchone()[0], 2)
             id_campaign = campaign_id_data[0]
             # testing start-campaign
             AverageWorker.process_campaign = MagicMock()
@@ -169,7 +176,7 @@ class MyTestSuite(unittest.TestCase):
             cursor_dialer.execute(
                 'SELECT COUNT(*) FROM ONLY incidence_rules_historic WHERE campaign_id = %s',
                 (id_campaign,))
-            self.assertEqual(cursor_dialer.fetchone()[0], 3)
+            self.assertEqual(cursor_dialer.fetchone()[0], 2)
             cursor_dialer.execute(
                 'SELECT COUNT(*) FROM ONLY incidence_rules_disposition_historic WHERE'
                 ' campaign_id = %s',

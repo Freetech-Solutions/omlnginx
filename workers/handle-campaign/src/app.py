@@ -25,6 +25,7 @@ JOBS_TO_METHODS = {
     'delete-campaign': WORKER.delete_campaign,
     'add-incidence-rule-disposition': WORKER.add_incidence_rule_disposition,
     'create-incidence-rule': WORKER.create_incidence_rule,
+    'delete-incidence-rule': WORKER.delete_incidence_rule,
     # medium processes
     'send-reports': WORKER.send_reports,
     # scheduled processes

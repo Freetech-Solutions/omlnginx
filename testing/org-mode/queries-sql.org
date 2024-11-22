@@ -22,8 +22,12 @@ update incidence_rules set in_mode = 2 where id = 2;
 
 # inspect the incidence rules for the campaign
 #+begin_src sql :engine postgresql :dbhost localhost :dbuser omnidialer :dbpassword dialer456 :database omnidialer :dbport 5433
-select * from only incidence_rules where campaign_id = 4;
+select * from only incidence_rules where campaign_id = 33;
 #+end_src
+
+#+RESULTS:
+| id | status | status_custom | max_attempt | retry_later | in_mode | campaign_id |
+|----+--------+---------------+-------------+-------------+---------+-------------|
 
 # insert an incidence_rule for congestion
 #+begin_src sql :engine postgresql :dbhost localhost :dbuser omnidialer :dbpassword dialer456 :database omnidialer :dbport 5433
