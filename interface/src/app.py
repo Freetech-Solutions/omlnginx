@@ -79,9 +79,10 @@ def create_incidence_rule(id_campaign):
 @app.route('/delete-incidence-rule/<id_campaign>', methods=['POST'])
 def delete_incidence_rule(id_campaign):
     json_value = request.get_json()
-    id_rule = json_value.get('id_rule')
+    id_rule = json_value.get('id')
+    type_rule = json_value.get('type')
     return DIALER.delete_incidence_rule(
-        id_campaign, id_rule
+        id_campaign, id_rule, type_rule
     )
 
 

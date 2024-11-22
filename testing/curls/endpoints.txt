@@ -36,6 +36,6 @@ curl -d '{"id_contact": 3, "disposition_option": 7}' -H "Content-Type: applicati
 Example:
 curl -d '{"id_rule": 3, "status": 3, "status_custom":"no answer", "max_attempt": 5, "retry_later": 5, "mode": 1}' -H "Content-Type: application/json" -X POST http://localhost:1440/create-incidence-rule/4
 ** Delete incidence rule
-*** <id> of the campaign (in the URL), <id_rule> the id of the incidence rule in OML and OMD
+*** <id> of the campaign (in the URL), <id_rule> the id of the incidence rule in OML and OMD, <type> of the incidence rule
 Example:
-curl -d '{"id_rule": 3}' -H "Content-Type: application/json" -X POST http://localhost:1440/delete-incidence-rule/4
+curl -d '{"id": 3, "type": 1}' -H "Content-Type: application/json" -X POST http://localhost:1440/delete-incidence-rule/4

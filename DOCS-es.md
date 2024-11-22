@@ -208,6 +208,31 @@ Otros parámetros son:
 }
 ```
 
+Eliminar regla de incidencia
+----------------------------
+
+### Endpoint: `[POST] /delete-incidence-rule/<id_campaign>`
+
+#### Descripción
+El endpoint delete-incidence-rule elimina un regla de incidencia en una campaña
+
+El parámetro <id_campaign> corresponde al id de una campaña in OML y OMD.
+
+Otros parámetros son:
+<id> - id de la regla de la regla de incidencia en OML
+<type> - mode: 1 para reglas de incidencia de tipo status, 2 para reglas de incidencia de tipo calificación
+
+
+#### Método
+- **Método HTTP:** `POST`
+
+### Cuerpo de la petición
+```json
+{
+        "id": 3,
+        "type": 1
+}
+
 
 Arquitectura
 ============

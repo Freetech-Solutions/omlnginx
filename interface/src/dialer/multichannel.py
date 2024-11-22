@@ -104,10 +104,11 @@ class GearmanDialer(Dialer):
         return json.dumps({'msg': 'Incide rule added'})
 
     @classmethod
-    def delete_incidence_rule(cls, id_campaign, id_rule):
+    def delete_incidence_rule(cls, id_campaign, id_rule, type_rule):
         payload = {
             'id_campaign': id_campaign,
-            'id_rule': id_rule
+            'id_rule': id_rule,
+            'type_rule': type_rule
         }
         payload_bytes = cls.encode_payload(payload)
         cls.GM_CLIENT.submit_job('delete-incidence-rule', payload_bytes)

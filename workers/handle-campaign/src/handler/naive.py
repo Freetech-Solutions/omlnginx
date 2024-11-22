@@ -1073,10 +1073,18 @@ class AverageWorker(DialerWorker):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
         id_rule = data['id_rule']
-        logger.debug(f'Removing incidence_rule {id_rule} in campaign with id = {id_campaign}')
+        type_rule = data['type_rule']
+        type_rules = ['STATUS', 'DISPOSITION']
+        type_rule_label = type_rules[type_rule - 1]
+        STATUS = 1
+        logger.debug(f'Removing incidence_rule {id_rule} of type {type_rule_label} '
+                     f'in campaign with id = {id_campaign}')
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
             cursor = conn.cursor()
-            cursor.execute('DELETE FROM incidence_rule WHERE id = %s;', (id_rule,))
+            if type_rule == STATUS:
+                cursor.execute('DELETE FROM incidence_rules WHERE id = %s;', (id_rule,))
+            else:
+                cursor.execute('DELETE FROM incidence_rules_disposition WHERE id = %s;', (id_rule,))
             return b'Incidence rule was deleted'
 
 
