@@ -187,11 +187,14 @@ El endpoint create-incidence-rule crea una regla de incidencia en una campaña.
 El valor <id_campaign> corresponde al id de una campaña en OML y OMD.
 Otros parámetros son:
 <id_rule> - el id de la regla de incidencia en OML
-<status> - id del status
-<status_custom> - nombre del status
 <max_attempt> - número máximo de intentos
 <retry_later> - delay (en segundos) antes de cada intento
 <mode> - modo: fijo o multinum
+<type> - 1 (si la regla de incidencia es de tipo 'status') or 2 (si la regla de incidencia es de tipo 'calificación')
+<status> - id del status (solo si <type> es 1)
+<status_custom> - nombre del status (solo si <type> es 1)
+<disposition_option_id> - id de la calificacion aplicada en OML (solo si <type> es 2)
+
 
 #### Método
 - **Método HTTP:** `POST`
@@ -278,15 +281,7 @@ Tests
 
 Para ejecutar las pruebas unitarias, simplemente haz lo siguiente:
 
-$ bash rebuild.bash <oml-docker-network>
-
-$ docker-compose down
-
-$ docker-compose --env-file .env-tests -f docker-compose-test.yml up -d
-
 $ bash run-tests.bash
-
-$ docker-compose --env-file .env-tests -f docker-compose-test.yml down
 
 
 Logging

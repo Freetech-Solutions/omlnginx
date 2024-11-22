@@ -105,7 +105,7 @@ class MyTestSuite(unittest.TestCase):
         job = GearmanJob(
             None, None, None, None,
             b'{"id_campaign": 4, "id_rule": 3, "status": 3, "status_custom":"no answer", '
-            b'"max_attempt": 5, "retry_later": 5, "mode": 1}')
+            b'"max_attempt": 5, "retry_later": 5, "mode": 1, "type_rule": 1}')
         AverageWorker.create_incidence_rule(worker, job)
 
         with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:

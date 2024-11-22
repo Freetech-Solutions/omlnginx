@@ -46,12 +46,4 @@ Troubleshooting:
 
 For run the unit tests just do:
 
-$ bash rebuild.bash <oml-docker-network>
-
-$ docker-compose down
-
-$ docker-compose --env-file .env-tests -f docker-compose-test.yml up -d
-
-$ bash run-tests.bash
-
-$ docker-compose --env-file .env-tests -f docker-compose-test.yml down
+bash run-tests.bash

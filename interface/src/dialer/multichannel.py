@@ -89,7 +89,7 @@ class GearmanDialer(Dialer):
     @classmethod
     def create_incidence_rule(
             cls, id_campaign, id_rule, status, status_custom, max_attempt,
-            retry_later, mode):
+            retry_later, mode, disposition_option_id):
         payload = {
             'id_campaign': id_campaign,
             'id_rule': id_rule,
@@ -97,7 +97,8 @@ class GearmanDialer(Dialer):
             'status_custom': status_custom,
             'max_attempt': max_attempt,
             'retry_later': retry_later,
-            'mode': mode
+            'mode': mode,
+            'disposition_option_id': disposition_option_id
         }
         payload_bytes = cls.encode_payload(payload)
         cls.GM_CLIENT.submit_job('create-incidence-rule', payload_bytes)

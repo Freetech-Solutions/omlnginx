@@ -1052,19 +1052,30 @@ class AverageWorker(DialerWorker):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
         id_rule = data['id_rule']
-        status = data['status']
+        type_rule = data['type_rule']
         status_custom = data['status_custom']
         max_attempt = data['max_attempt']
         retry_later = data['retry_later']
         mode = data['mode']
+        STATUS = 1
         logger.debug(f'Adding incidence rule to campaign {id_campaign}')
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
-            cursor_dialer.execute(
-                """INSERT INTO incidence_rules (id, status, status_custom, max_attempt, retry_later,
-                in_mode, campaign_id) VALUES
-                (%s, %s, %s, %s, %s, %s, %s);""",
-                (id_rule, status, status_custom, max_attempt, retry_later, mode, id_campaign))
+            if type_rule == STATUS:
+                status = data['status']
+                cursor_dialer.execute(
+                    """INSERT INTO incidence_rules (id, status, status_custom, max_attempt,
+                    retry_later, in_mode, campaign_id) VALUES
+                    (%s, %s, %s, %s, %s, %s, %s);""",
+                    (id_rule, status, status_custom, max_attempt, retry_later, mode, id_campaign))
+            else:
+                disposition_option_id = data['disposition_option_id']
+                cursor_dialer.execute(
+                    """INSERT INTO incidence_rules_disposition (id, disposition_option_id,
+                    status_custom, max_attempt,
+                    retry_later, in_mode, campaign_id) VALUES
+                    (%s, %s, %s, %s, %s, %s);""",
+                    (id_rule, disposition_option_id, max_attempt, retry_later, mode, id_campaign))
             return b'Incidence rule was added'
 
     @classmethod
