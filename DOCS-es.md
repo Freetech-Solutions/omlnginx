@@ -220,7 +220,7 @@ El parámetro <id_campaign> corresponde al id de una campaña in OML y OMD.
 
 Otros parámetros son:
 <id> - id de la regla de la regla de incidencia en OML
-<type> - mode: 1 para reglas de incidencia de tipo status, 2 para reglas de incidencia de tipo calificación
+<type> - tipo: 1 para reglas de incidencia de tipo status, 2 para reglas de incidencia de tipo calificación
 
 
 #### Método
