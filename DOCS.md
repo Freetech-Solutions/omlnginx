@@ -202,7 +202,9 @@ Other parameters are:
         "status_custom": "no answer",
         "max_attempt": 5,
         "retry_later": 5,
-        "mode": 1
+        "mode": 1,
+        "type": 1
+
 }
 ```
 

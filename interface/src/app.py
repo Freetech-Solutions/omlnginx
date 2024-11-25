@@ -65,6 +65,7 @@ def add_incidence_rule_disposition(id_campaign):
 def create_incidence_rule(id_campaign):
     json_value = request.get_json()
     id_rule = json_value.get('id_rule', -1)
+    type_rule = json_value.get('type', -1)
     status = json_value.get('status', -1)
     status_custom = json_value.get('status_custom', "")
     disposition_option_id = json_value.get('disposition_option_id', -1)
@@ -73,7 +74,7 @@ def create_incidence_rule(id_campaign):
     mode = json_value.get('mode', -1)
     return DIALER.create_incidence_rule(
         id_campaign, id_rule, status, status_custom, max_attempt,
-        retry_later, mode, disposition_option_id
+        retry_later, mode, disposition_option_id, type_rule
     )
 
 
