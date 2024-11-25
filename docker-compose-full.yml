@@ -271,6 +271,15 @@ services:
     networks:
       - network1
 
+  update_incidence_rule_worker:
+    image: omnidialer_worker
+    container_name: update-incidence-rule-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=update-incidence-rule
+    networks:
+      - network1
+
 
 networks:
   network1:

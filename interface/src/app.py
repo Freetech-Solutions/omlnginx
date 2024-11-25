@@ -88,5 +88,22 @@ def delete_incidence_rule(id_campaign):
     )
 
 
+@app.route('/update-incidence-rule/<id_campaign>', methods=['POST'])
+def update_incidence_rule(id_campaign):
+    json_value = request.get_json()
+    id_rule = json_value.get('id_rule', -1)
+    type_rule = json_value.get('type', -1)
+    status = json_value.get('status', -1)
+    status_custom = json_value.get('status_custom', "")
+    disposition_option_id = json_value.get('disposition_option_id', -1)
+    max_attempt = json_value.get('max_attempt', -1)
+    retry_later = json_value.get('retry_later', -1)
+    mode = json_value.get('mode', -1)
+    return DIALER.update_incidence_rule(
+        id_campaign, id_rule, status, status_custom, max_attempt,
+        retry_later, mode, disposition_option_id, type_rule
+    )
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=1440, debug=True)

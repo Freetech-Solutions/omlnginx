@@ -115,6 +115,18 @@ class MyTestSuite(unittest.TestCase):
             self.assertEqual(cursor_dialer.fetchone()[0], 3)
             cursor_dialer.execute('SELECT contact_strategy FROM ONLY campaign;')
             self.assertEqual(cursor_dialer.fetchone()[0], [1, 4])
+            # now just edit the incidence rule
+            job = GearmanJob(
+                None, None, None, None,
+                b'{"id_campaign": 4, "id_rule": 3, "status": 3, "status_custom":"no answer", '
+                b'"max_attempt": 7, "retry_later": 5, "mode": 1, "type_rule": 1}')
+            AverageWorker.update_incidence_rule(worker, job)
+            id_rule = 3
+            cursor_dialer.execute(
+                'SELECT max_attempt FROM ONLY incidence_rules WHERE id = %s;',
+                (id_rule,))
+            max_attempt_value = cursor_dialer.fetchone()[0]
+            self.assertEqual(max_attempt_value, 7)
             # let's remove an incidence rule
             job = GearmanJob(
                 None, None, None, None,

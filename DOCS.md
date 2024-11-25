@@ -208,6 +208,44 @@ Other parameters are:
 }
 ```
 
+Update incidence rule
+---------------------
+
+### Endpoint: `[POST] /update-incidence-rule/<id_campaign>`
+
+#### Description
+The update-incidence-rule endpoint will modify an existing incidence rule in a campaign
+
+The value <id_campaign> correspond to the id of a campaign in OML and OMD.
+
+Other parameters are:
+<id_rule> - id of the incidence_rule in OML
+<max_attempt> - maximum number of attempts
+<retry_later> - delay (in seconds) before any attempt
+<mode> - mode: fixed or multinum
+<type> - 1 (to update an status-like incidence rule) or 2 (to update an disposition-like incidence rule)
+<status> - id of the status (only if <type> is 1)
+<status_custom> - name of the status (only if <type> is 1)
+<disposition_option_id> - id of the disposition option applied in OML (only if <type> is 2)
+
+
+#### Method
+- **HTTP Method:** `POST`
+
+### Request Body
+```json
+{
+        "id_rule": 3,
+        "status": 3,
+        "status_custom": "no answer",
+        "max_attempt": 5,
+        "retry_later": 5,
+        "mode": 1,
+        "type": 1
+
+}
+```
+
 Delete incidence rule
 ---------------------
 

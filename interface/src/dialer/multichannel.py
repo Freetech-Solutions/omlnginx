@@ -115,3 +115,21 @@ class GearmanDialer(Dialer):
         payload_bytes = cls.encode_payload(payload)
         cls.GM_CLIENT.submit_job('delete-incidence-rule', payload_bytes)
         return json.dumps({'msg': 'Incidence rule deleted'})
+
+    @classmethod
+    def update_incidence_rule(cls, id_campaign, id_rule, status, status_custom, max_attempt,
+                              retry_later, mode, disposition_option_id, type_rule):
+        payload = {
+            'id_campaign': id_campaign,
+            'id_rule': id_rule,
+            'status': status,
+            'status_custom': status_custom,
+            'max_attempt': max_attempt,
+            'retry_later': retry_later,
+            'mode': mode,
+            'disposition_option_id': disposition_option_id,
+            'type_rule': type_rule
+        }
+        payload_bytes = cls.encode_payload(payload)
+        cls.GM_CLIENT.submit_job('update-incidence-rule', payload_bytes)
+        return json.dumps({'msg': 'Incidence rule was updated'})

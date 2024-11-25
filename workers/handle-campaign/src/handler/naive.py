@@ -1098,6 +1098,38 @@ class AverageWorker(DialerWorker):
                 cursor.execute('DELETE FROM incidence_rules_disposition WHERE id = %s;', (id_rule,))
             return b'Incidence rule was deleted'
 
+    @classmethod
+    @exception_handler_decorator
+    def update_incidence_rule(cls, worker, job):
+        data = cls.decode_payload(job.data)
+        id_campaign = data['id_campaign']
+        id_campaign = data['id_campaign']
+        id_rule = data['id_rule']
+        type_rule = data['type_rule']
+        status_custom = data['status_custom']
+        max_attempt = data['max_attempt']
+        retry_later = data['retry_later']
+        mode = data['mode']
+        STATUS = 1
+        logger.debug(f'Adding incidence rule to campaign {id_campaign}')
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            if type_rule == STATUS:
+                status = data['status']
+                cursor_dialer.execute(
+                    """UPDATE incidence_rules SET status = %s, status_custom = %s,
+                    max_attempt = %s, retry_later = %s, in_mode = %s, campaign_id = %s
+                    WHERE id = %s;""",
+                    (status, status_custom, max_attempt, retry_later, mode, id_campaign, id_rule))
+            else:
+                disposition_option_id = data['disposition_option_id']
+                cursor_dialer.execute(
+                    """UPDATE incidence_rules_disposition SET disposition_option_id = %s,
+                    status_custom = %s, max_attempt = %s, retry_later = %s, in_mode = %s,
+                    campaign_id = %s WHERE id = %s;""",
+                    (disposition_option_id, max_attempt, retry_later, mode, id_campaign, id_rule))
+            return b'Incidence rule was updated'
+
 
 class SingleCallWorker(AverageWorker):
     """Another naive dialer worker flow that makes only 1 call at a time, and after every call
