@@ -19,6 +19,27 @@ services:
     environment:
       - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
 
+  scheduler:
+    build:
+      context: ./scheduler/src
+    container_name: omnidialer-scheduler
+    volumes:
+      - ./scheduler/src:/app
+    ports:
+      - '1441:1441'
+    networks:
+      - network1
+    stop_signal: SIGINT
+    tty: true
+    stdin_open: true
+    depends_on:
+      - job_server
+      - redis
+      - postgresql
+    environment:
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
+
+
   job_server:
     image: artefactual/gearmand:1.1.18-alpine
     container_name: gearman_job_server_1
@@ -279,6 +300,16 @@ services:
       - GEARMAN_JOBS=update-incidence-rule
     networks:
       - network1
+
+  schedule_agenda_worker:
+    image: omnidialer_worker
+    container_name: schedule-agenda-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=schedule_agenda
+    networks:
+      - network1
+
 
 
 networks:

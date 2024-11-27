@@ -4,12 +4,7 @@ from flask import Flask, request
 
 from dialer.multichannel import GearmanDialer
 
-
 app = Flask(__name__)
-
-
-app.config.from_object('settings.default')
-
 
 DIALER = GearmanDialer
 
@@ -103,6 +98,15 @@ def update_incidence_rule(id_campaign):
         id_campaign, id_rule, status, status_custom, max_attempt,
         retry_later, mode, disposition_option_id, type_rule
     )
+
+
+@app.route('/add-agenda/<id_campaign>', methods=['POST'])
+def add_agenda(id_campaign):
+    datetime_agenda = request.get_json().get('datetime', '')
+    campaign_name = request.get_json().get('campaign_name', '')
+    phone_number = request.get_json().get('phone_number', '')
+    id_contact = request.get_json().get('id_contact', '')
+    return DIALER.add_agenda(id_campaign, id_contact, campaign_name, datetime_agenda, phone_number)
 
 
 if __name__ == '__main__':
