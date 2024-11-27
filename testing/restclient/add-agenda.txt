@@ -1,0 +1,10 @@
+POST http://localhost:1440/add-agenda/4
+Content-Type: application/json
+
+{
+        "id_campaign": 33,
+        "id_contact": 7,
+        "campaign_name": "clonan_32",
+        "phone_number": "313123427",
+        "datetime": "27/11/24 05:03:00"
+}
