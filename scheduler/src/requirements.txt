@@ -1,0 +1,5 @@
+requests
+apscheduler
+gearman3
+flask
+redis

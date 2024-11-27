@@ -273,6 +273,36 @@ Other parameters are:
 ```
 
 
+Add agenda to call
+------------------
+
+### Endpoint: `[POST] /add-agenda/<id_campaign>`
+
+#### Description
+The add-agenda endpoint will schedule a call to be made at a certain date and time
+
+The value <id_campaign> correspond to the id of a campaign in OML and OMD.
+
+Other parameters are:
+<id_contact> - the contact to be called
+<campaign_name> - the name of the campaign in OML
+<phone_number> - phone number to be called
+<datetime> - the date and time the call will be placed
+
+
+#### Method
+- **HTTP Method:** `POST`
+
+### Request Body
+```json
+{
+        "id_contact": 7,
+        "campaign_name": "clonan_33",
+        "phone_number": "313123427",
+        "datetime": "27/11/24 15:42:00"
+}
+```
+
 
 Arquitecture
 ============
@@ -290,6 +320,8 @@ The data of the system is persisted in a Postgres instance and some data are rep
 The data saved in Redis is related with contact history in a campaign and reports of the campaign.
 
 The system also publish in PUBSUB channels information about reports and status of the campaigns.
+
+It is also possible to places agendas for calls using a custom scheduler.
 
 Horizontal scalability
 ======================

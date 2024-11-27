@@ -47,3 +47,7 @@ curl -d '{"id_rule": 4, "disposition_option_id": 7, "max_attempt": 5, "retry_lat
 *** <id> of the campaign (in the URL), <id_rule> the id of the incidence rule in OML and OMD, <type> of the incidence rule
 Example:
 curl -d '{"id": 3, "type": 1}' -H "Content-Type: application/json" -X POST http://localhost:1440/delete-incidence-rule/4
+** Add agenda for call
+*** <id> of the campaign (in the URL), <campaign_name> name of the campaign in OML, <phone_number> to call, <datetime> the date and time selected to place the call
+Example:
+curl -d '{"id_contact": 7, "campaign_name": "clonan_33", "phone_number": "1231323, "datetime": "27/11/24 15:42:00"}' -H "Content-Type: application/json" -X POST http://localhost:1440/add-agenda/4

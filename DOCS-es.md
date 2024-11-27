@@ -276,6 +276,37 @@ Otros parámetros son:
 }
 
 
+Adicionar agenda para llamar
+----------------------------
+
+### Endpoint: `[POST] /add-agenda/<id_campaign>`
+
+#### Descripción
+El endpoint add-agenda programa una llamada en una determinada fecha y hora.
+
+El parámetro <id_campaign> corresponde al id de una campañan en OML y OMD.
+
+Otros parámetros son:
+<id_contact> - el contacto a llamar
+<campaign_name> - el nombre de la campaña en OML
+<phone_number> - número de teléfono a llamar
+<datetime> - la fecha y hora en que se realizará la llamada
+
+
+#### Método
+- **Método HTTP:** `POST`
+
+### Cuerpo de la petición
+```json
+{
+        "id_contact": 7,
+        "campaign_name": "clonan_33",
+        "phone_number": "313123427",
+        "datetime": "27/11/24 15:42:00"
+}
+```
+
+
 Arquitectura
 ============
 
@@ -293,6 +324,7 @@ Los datos guardados en Redis están relacionados con el historial de contactos e
 
 El sistema también publica en canales PUBSUB información sobre informes y estado de las campañas.
 
+También es posible agendar llamadas usando un scheduler personalizado.
 
 Escalabilidad horizontal
 ========================

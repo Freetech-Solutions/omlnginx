@@ -19,6 +19,28 @@ services:
     environment:
       - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
 
+  scheduler:
+    build:
+      context: ./scheduler/src
+    container_name: omnidialer-scheduler
+    volumes:
+      - ./scheduler/src:/app
+    ports:
+      - '1441:1441'
+    networks:
+      - network1
+    stop_signal: SIGINT
+    tty: true
+    stdin_open: true
+    depends_on:
+      - job_server
+      - redis
+    environment:
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
+      - REDIS_DIALER_SERVER=${REDIS_DIALER_SERVER}
+      - REDIS_DIALER_PORT=${REDIS_DIALER_PORT}
+      - TZ=${TZ}
+
   job_server:
     image: artefactual/gearmand:1.1.18-alpine
     container_name: gearman_job_server_1

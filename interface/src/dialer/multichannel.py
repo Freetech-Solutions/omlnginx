@@ -133,3 +133,16 @@ class GearmanDialer(Dialer):
         payload_bytes = cls.encode_payload(payload)
         cls.GM_CLIENT.submit_job('update-incidence-rule', payload_bytes)
         return json.dumps({'msg': 'Incidence rule was updated'})
+
+    @classmethod
+    def add_agenda(cls, id_campaign, id_contact, campaign_name, datetime_agenda, phone_number):
+        payload = {
+            'id_campaign': id_campaign,
+            'id_contact': id_contact,
+            'campaign_name': campaign_name,
+            'datetime_agenda': datetime_agenda,
+            'phone_number': phone_number
+        }
+        payload_bytes = cls.encode_payload(payload)
+        cls.GM_CLIENT.submit_job('schedule-agenda', payload_bytes, background=True)
+        return json.dumps({'msg': 'Agenda was sent for scheduling'})

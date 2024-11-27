@@ -9,6 +9,7 @@ import os
 import redis
 import psycopg
 import gearman.client
+import requests
 
 from decimal import Decimal
 
@@ -591,6 +592,7 @@ class AverageWorker(DialerWorker):
     def process_contact(cls, worker, job):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
+        logger.debug(f'Attempting to make a contact in campaign {id_campaign}')
         if cls.campaign_is_active(id_campaign):
             cls.attempt_contact_asterisk(data['contact'], id_campaign)
             cls.connect_redis_dialer()
@@ -1103,7 +1105,6 @@ class AverageWorker(DialerWorker):
     def update_incidence_rule(cls, worker, job):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
-        id_campaign = data['id_campaign']
         id_rule = data['id_rule']
         type_rule = data['type_rule']
         status_custom = data['status_custom']
@@ -1129,6 +1130,17 @@ class AverageWorker(DialerWorker):
                     campaign_id = %s WHERE id = %s;""",
                     (disposition_option_id, max_attempt, retry_later, mode, id_campaign, id_rule))
             return b'Incidence rule was updated'
+
+    @classmethod
+    @exception_handler_decorator
+    def schedule_agenda(cls, worker, job):
+        data = cls.decode_payload(job.data)
+        id_campaign = data['id_campaign']
+        host = 'omnidialer-scheduler'
+        port = 1441
+        uri = f'http://{host}:{port}/add-agenda/{id_campaign}'
+        requests.post(uri, json=data)
+        return b'Agenda was scheduled'
 
 
 class SingleCallWorker(AverageWorker):

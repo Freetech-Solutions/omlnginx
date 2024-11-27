@@ -31,6 +31,7 @@ JOBS_TO_METHODS = {
     'send-reports': WORKER.send_reports,
     # scheduled processes
     'schedule-contact': WORKER.schedule_contact,
+    'schedule-agenda': WORKER.schedule_agenda,
 }
 
 
