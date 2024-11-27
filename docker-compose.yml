@@ -39,6 +39,7 @@ services:
       - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
       - REDIS_DIALER_SERVER=${REDIS_DIALER_SERVER}
       - REDIS_DIALER_PORT=${REDIS_DIALER_PORT}
+      - TZ=${TZ}
 
   job_server:
     image: artefactual/gearmand:1.1.18-alpine

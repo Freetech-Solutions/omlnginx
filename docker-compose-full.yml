@@ -38,6 +38,7 @@ services:
       - postgresql
     environment:
       - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
+      - TZ=${TZ}
 
 
   job_server:

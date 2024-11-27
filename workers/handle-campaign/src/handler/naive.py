@@ -592,6 +592,7 @@ class AverageWorker(DialerWorker):
     def process_contact(cls, worker, job):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
+        logger.debug(f'Attempting to make a contact in campaign {id_campaign}')
         if cls.campaign_is_active(id_campaign):
             cls.attempt_contact_asterisk(data['contact'], id_campaign)
             cls.connect_redis_dialer()
