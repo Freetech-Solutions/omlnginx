@@ -416,7 +416,9 @@ class AverageWorker(DialerWorker):
 
     @classmethod
     def no_active_agendas(cls, id_campaign):
-        pass
+        cls.connect_redis_dialer()
+        len_agendas = AverageWorker.REDIS_DIALER_CONNECTION.zrange("scheduler.run_times", 0, -1)
+        return len_agendas == []
 
     @classmethod
     def campaign_is_active(cls, id_campaign):
