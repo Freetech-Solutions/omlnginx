@@ -403,7 +403,7 @@ class AverageWorker(DialerWorker):
             attempted_contacts = cls.REDIS_DIALER_CONNECTION.hget(
                 f'CAMP:{id_campaign}:COUNTER',
                 'ATTEMPTED_CALLS')
-            return number_contacts == attempted_contacts
+            return number_contacts == int(attempted_contacts)
 
     @classmethod
     def no_active_incidence_rules(cls, id_campaign):
@@ -412,10 +412,10 @@ class AverageWorker(DialerWorker):
             f'CAMP:{id_campaign}:COUNTER',
             FINAL_STATUS_TO_NAME[PENDING_ATTEMPTS]
         )
-        return pending_attempts is not None
+        return pending_attempts is None
 
     @classmethod
-    def no_active_agendas(cls, id_campaign):
+    def no_active_agendas(cls):
         cls.connect_redis_dialer()
         len_agendas = AverageWorker.REDIS_DIALER_CONNECTION.zrange("scheduler.run_times", 0, -1)
         return len_agendas == []
