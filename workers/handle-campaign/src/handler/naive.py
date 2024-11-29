@@ -392,6 +392,33 @@ class AverageWorker(DialerWorker):
         return dialer_cursor.fetchone()[0]
 
     @classmethod
+    def all_contacts_were_attempted(cls, id_campaign):
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute(
+                'SELECT COUNT(*) FROM contact_in_campaign where id_campaign = %s',
+                (id_campaign,))
+            number_contacts = cursor_dialer.fetchone()[0]
+            cls.connect_redis_dialer()
+            attempted_contacts = cls.REDIS_DIALER_CONNECTION.hget(
+                f'CAMP:{id_campaign}:COUNTER',
+                'ATTEMPTED_CALLS')
+            return number_contacts == attempted_contacts
+
+    @classmethod
+    def no_active_incidence_rules(cls, id_campaign):
+        cls.connect_redis_dialer()
+        pending_attempts = cls.REDIS_DIALER_CONNECTION.hget(
+            f'CAMP:{id_campaign}:COUNTER',
+            FINAL_STATUS_TO_NAME[PENDING_ATTEMPTS]
+        )
+        return pending_attempts is not None
+
+    @classmethod
+    def no_active_agendas(cls, id_campaign):
+        pass
+
+    @classmethod
     def campaign_is_active(cls, id_campaign):
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
@@ -413,14 +440,8 @@ class AverageWorker(DialerWorker):
                 return False
 
             # notify to OML if there are no more contacts for call and pause the campaign
-            # TODO: clarify if contacts with failed statuses that completed the incidence
-            # rules should be taken in consideration for these
-            # notifications
-            cursor_dialer.execute('SELECT id FROM ONLY contact_in_campaign WHERE id_campaign = %s'
-                                  ' AND status <> %s limit 1;',
-                                  (id_campaign, STATUS_ANSWERED_AGENT))
-            contacts_not_called_exists = cursor_dialer.fetchone()
-            if not contacts_not_called_exists:
+            if cls.all_contacts_were_attempted(id_campaign) and \
+               cls.no_active_incidence_rules(id_campaign) and cls.no_active_agendas():
                 logger.debug(f'Campaign {id_campaign}: no more contacts pending for call')
                 cls.set_campaign_status(id_campaign, PAUSED)
                 cls.connect_redis_oml()
