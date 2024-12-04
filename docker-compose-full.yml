@@ -311,6 +311,14 @@ services:
     networks:
       - network1
 
+  change_database:
+    image: omnidialer_worker
+    container_name: change-database-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=change-database
+    networks:
+      - network1
 
 
 networks:
