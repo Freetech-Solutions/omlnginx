@@ -402,7 +402,7 @@ class AverageWorker(DialerWorker):
             cls.connect_redis_dialer()
             attempted_contacts = cls.REDIS_DIALER_CONNECTION.hget(
                 f'CAMP:{id_campaign}:COUNTER',
-                'ATTEMPTED_CALLS')
+                'ATTEMPTED_CALLS') or 0
             return number_contacts == int(attempted_contacts)
 
     @classmethod
