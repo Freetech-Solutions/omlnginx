@@ -146,3 +146,10 @@ class GearmanDialer(Dialer):
         payload_bytes = cls.encode_payload(payload)
         cls.GM_CLIENT.submit_job('schedule-agenda', payload_bytes, background=True)
         return json.dumps({'msg': 'Agenda was sent for scheduling'})
+
+    @classmethod
+    def change_database(cls, id_campaign):
+        payload = {'id_campaign': id_campaign}
+        payload_bytes = cls.encode_payload(payload)
+        cls.GM_CLIENT.submit_job('change-database', payload_bytes)
+        return json.dumps({'msg': 'Database was changed'})

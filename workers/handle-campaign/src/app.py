@@ -27,11 +27,12 @@ JOBS_TO_METHODS = {
     'create-incidence-rule': WORKER.create_incidence_rule,
     'delete-incidence-rule': WORKER.delete_incidence_rule,
     'update-incidence-rule': WORKER.update_incidence_rule,
+    'change-database': WORKER.change_database,
     # medium processes
     'send-reports': WORKER.send_reports,
     # scheduled processes
     'schedule-contact': WORKER.schedule_contact,
-    'schedule-agenda': WORKER.schedule_agenda,
+    'schedule-agenda': WORKER.schedule_agenda
 }
 
 

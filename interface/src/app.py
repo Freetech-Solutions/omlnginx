@@ -109,5 +109,10 @@ def add_agenda(id_campaign):
     return DIALER.add_agenda(id_campaign, id_contact, campaign_name, datetime_agenda, phone_number)
 
 
+@app.route('/change-database/<id_campaign>', methods=['POST'])
+def change_database(id_campaign):
+    return DIALER.change_database(id_campaign)
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=1440, debug=True)

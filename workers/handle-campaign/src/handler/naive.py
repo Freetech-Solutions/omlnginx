@@ -1165,6 +1165,18 @@ class AverageWorker(DialerWorker):
         requests.post(uri, json=data)
         return b'Agenda was scheduled'
 
+    @classmethod
+    @exception_handler_decorator
+    def change_database(cls, worker, job):
+        data = cls.decode_payload(job.data)
+        id_campaign = data['id_campaign']
+        # 1- remove Redis related reports
+        # 2- remove reports from campaign
+        # 3- remove contacts
+        # 4- bring the new contacts from OML
+        return b'Database was updated'
+
+
 
 class SingleCallWorker(AverageWorker):
     """Another naive dialer worker flow that makes only 1 call at a time, and after every call
