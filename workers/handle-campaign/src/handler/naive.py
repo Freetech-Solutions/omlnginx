@@ -291,6 +291,33 @@ class AverageWorker(DialerWorker):
         return cursor.fetchmany(size=size)
 
     @classmethod
+    def copy_contacts_from_oml(cls, cursor_dialer, cursor_oml, id_campaign):
+        logger.debug(f'Campaign {id_campaign}: retrieving the contacts')
+        sql = """SELECT co.id, co.telefono, co.datos, co.es_originario
+        FROM ominicontacto_app_contacto AS co
+        INNER JOIN ominicontacto_app_basedatoscontacto AS db ON
+        db.id = co.bd_contacto_id INNER JOIN ominicontacto_app_campana
+        AS ca ON db.id = ca.bd_contacto_id AND ca.id = %s;"""
+        size = 1000
+        logger.debug(f'Campaign {id_campaign}: copying the contacts')
+        cursor_oml.execute(sql, (id_campaign,))
+        while True:
+            contacts = cls.get_contacts_campaign(cursor_oml, size)
+            if not contacts:
+                break
+            for (id_contact, phone, data, is_original) in contacts:
+                cursor_dialer.execute(
+                    'INSERT INTO contact '
+                    '(id, phone, data, is_original) VALUES (%s, %s, %s, %s)'
+                    'ON CONFLICT (id) DO NOTHING;',
+                    (id_contact, phone, data, is_original))
+                cursor_dialer.execute(
+                    """INSERT INTO contact_in_campaign (id_campaign, id_contact, status,
+                    final_status, disposition_option) VALUES (%s, %s, %s, %s, %s);""",
+                    (id_campaign, id_contact, STATUS_CREATED, INITIAL,
+                     NO_DISPOSITION_OPTION))
+
+    @classmethod
     @exception_handler_decorator
     def create_campaign(cls, worker, job):
         # assumes the dialer campaign exists in OML with all the required tables and fields created
@@ -330,30 +357,7 @@ class AverageWorker(DialerWorker):
                             """INSERT INTO incidence_rules_disposition
                             (id, disposition_option_id, max_attempt, retry_later, in_mode,
                             campaign_id) VALUES (%s, %s, %s, %s, %s, %s);""", incidence_rule)
-                    logger.debug(f'Campaign {id_campaign}: retrieving the contacts')
-                    sql = """SELECT co.id, co.telefono, co.datos, co.es_originario
-                    FROM ominicontacto_app_contacto AS co
-                    INNER JOIN ominicontacto_app_basedatoscontacto AS db ON
-                    db.id = co.bd_contacto_id INNER JOIN ominicontacto_app_campana
-                    AS ca ON db.id = ca.bd_contacto_id AND ca.id = %s;"""
-                    size = 1000
-                    logger.debug(f'Campaign {id_campaign}: copying the contacts')
-                    cursor_oml.execute(sql, (id_campaign,))
-                    while True:
-                        contacts = cls.get_contacts_campaign(cursor_oml, size)
-                        if not contacts:
-                            break
-                        for (id_contact, phone, data, is_original) in contacts:
-                            cursor_dialer.execute(
-                                'INSERT INTO contact '
-                                '(id, phone, data, is_original) VALUES (%s, %s, %s, %s)'
-                                'ON CONFLICT (id) DO NOTHING;',
-                                (id_contact, phone, data, is_original))
-                            cursor_dialer.execute(
-                                """INSERT INTO contact_in_campaign (id_campaign, id_contact, status,
-                                final_status, disposition_option) VALUES (%s, %s, %s, %s, %s);""",
-                                (id_campaign, id_contact, STATUS_CREATED, INITIAL,
-                                 NO_DISPOSITION_OPTION))
+                    cls.copy_contacts_from_oml(cursor_dialer, cursor_oml, id_campaign)
 
         response = f'Campaign {id_campaign} with strategy {contact_strategy} created!!!'
 
@@ -1183,12 +1187,16 @@ class AverageWorker(DialerWorker):
             AverageWorker.REDIS_DIALER_CONNECTION.delete(key)
         # 2- remove Postgres related reports & contacts history
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
-            cursor_dialer = conn_dialer.cursor()
-            cursor_dialer.execute(
-                'DELETE FROM contact_in_campaign WHERE id_campaign = %s', (id_campaign,))
-            cursor_dialer.execute(
-                'UPDATE campaign SET statistics = "{}" WHERE id = %s', (id_campaign,))
-        # 3- bring the new contacts from OML
+            with conn_dialer.transaction():
+                cursor_dialer = conn_dialer.cursor()
+                with psycopg.connect(cls.POSTGRES_OML_CONNECTION_STR) as conn_oml:
+                    cursor_oml = conn_oml.cursor()
+                    cursor_dialer.execute(
+                        'DELETE FROM contact_in_campaign WHERE id_campaign = %s', (id_campaign,))
+                    cursor_dialer.execute(
+                        'UPDATE campaign SET statistics = "{}" WHERE id = %s', (id_campaign,))
+                    # 3- bring the new contacts from OML
+                    cls.copy_contacts_from_oml(cursor_dialer, cursor_oml, id_campaign)
         return b'Database was updated'
 
 
