@@ -51,3 +51,7 @@ curl -d '{"id": 3, "type": 1}' -H "Content-Type: application/json" -X POST http:
 *** <id> of the campaign (in the URL), <campaign_name> name of the campaign in OML, <phone_number> to call, <datetime> the date and time selected to place the call
 Example:
 curl -d '{"id_contact": 7, "campaign_name": "clonan_33", "phone_number": "1231323, "datetime": "27/11/24 15:42:00"}' -H "Content-Type: application/json" -X POST http://localhost:1440/add-agenda/4
+** Change database
+*** <id> of the campaign (in the URL)
+Example:
+curl -d '{}' -H "Content-Type: application/json" -X POST http://localhost:1440/change-database/4
