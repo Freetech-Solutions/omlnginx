@@ -303,6 +303,20 @@ Other parameters are:
 }
 ```
 
+Change contacts database
+------------------
+
+### Endpoint: `[POST] /change-database/<id_campaign>`
+
+#### Description
+The change-database endpoint will pause the campaign and replace the existing contacts in the campaign with the newly changed in its counterparts campaign in OML.
+It will also remove all the reports and history associated with the campaign.
+
+The value <id_campaign> correspond to the id of a campaign in OML and OMD.
+
+#### Method
+- **HTTP Method:** `POST`
+
 
 Arquitecture
 ============
