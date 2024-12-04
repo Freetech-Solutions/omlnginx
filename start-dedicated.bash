@@ -38,4 +38,4 @@ bash add-worker-single-job.bash update-incidence-rule update-incidence-rule-1 $1
 
 bash add-worker-single-job.bash schedule-agenda schedule-agenda-1 $1
 
-bash add-worker-single-job.bash change-database change-database $1
+bash add-worker-single-job.bash change-database change-database-1 $1
