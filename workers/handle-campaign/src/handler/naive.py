@@ -1188,7 +1188,7 @@ class AverageWorker(DialerWorker):
                 'DELETE FROM contact_in_campaign WHERE id_campaign = %s', (id_campaign,))
             cursor_dialer.execute(
                 'UPDATE campaign SET statistics = "{}" WHERE id = %s', (id_campaign,))
-        # 4- bring the new contacts from OML
+        # 3- bring the new contacts from OML
         return b'Database was updated'
 
 
