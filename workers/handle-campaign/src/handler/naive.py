@@ -1179,10 +1179,10 @@ class AverageWorker(DialerWorker):
         # 1- remove Redis related reports & contacts history
         AverageWorker.connect_redis_dialer()
         AverageWorker.REDIS_DIALER_CONNECTION.delete(f'CAMP:{id_campaign}:COUNTER')
-        for key in cls.REDIS_OML_CONNECTION.scan_iter(
+        for key in cls.REDIS_DIALER_CONNECTION.scan_iter(
                 match=f'CONTACT:*:CAMP:{id_campaign}', count=1000):
             AverageWorker.REDIS_DIALER_CONNECTION.delete(key)
-        for key in cls.REDIS_OML_CONNECTION.scan_iter(
+        for key in cls.REDIS_DIALER_CONNECTION.scan_iter(
                 match=f'CONTACT:*:CAMP:{id_campaign}:HISTORY', count=1000):
             AverageWorker.REDIS_DIALER_CONNECTION.delete(key)
         # 2- remove Postgres related reports & contacts history
@@ -1194,7 +1194,7 @@ class AverageWorker(DialerWorker):
                     cursor_dialer.execute(
                         'DELETE FROM contact_in_campaign WHERE id_campaign = %s', (id_campaign,))
                     cursor_dialer.execute(
-                        'UPDATE campaign SET statistics = "{}" WHERE id = %s', (id_campaign,))
+                        'UPDATE campaign SET statistics = NULL WHERE id = %s', (id_campaign,))
                     # 3- bring the new contacts from OML
                     cls.copy_contacts_from_oml(cursor_dialer, cursor_oml, id_campaign)
         return b'Database was updated'
