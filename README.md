@@ -2,11 +2,11 @@ The OmniDialer for Omnileads (OML), a dialer designed to be integrated to OML an
 
 Usage:
 
+```
 $ cp env .env
-
-Modify the .env file according to your needs and do:
-
-$ bash start-dedicated.bash <oml-docker-network>
+$ docker-compose build
+$ docker-compose up -d
+```
 
 A flask server would be running at 0.0.0.0:1440 with a Gearman job server and the required Gearman workers.
 
