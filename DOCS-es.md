@@ -20,15 +20,11 @@ Asegúrate de tener Docker y Docker-Compose instalados y de que tienes la shell 
 
 Luego, realiza lo siguiente:
 
-$ cp env .env
-
-En cualquier caso, ejecuta:
-
-$ bash start-dedicated.bash <oml-docker-network>
-
-Otra option es ejecutar directamente:
-
-$ docker-compose -f docker-compose-full.yml up -d
+```
+cp env .env
+docker-compose build
+docker-compose up -d
+```
 
 Un servidor Flask estará corriendo en 0.0.0.0:1440 con un job server de Gearman y los workers de Gearman necesarios.
 

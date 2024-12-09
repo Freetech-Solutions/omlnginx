@@ -1,14 +1,21 @@
+REPO=omnileads
+API_IMG=${REPO}/dialer_api:dev
+LISTENER_IMG=${REPO}/dialer_listener:dev
+WORKER_IMG=${REPO}/dialer_worker:dev
+DIALPLAN_IMG=${REPO}/dialer_dialplan:dev
+ASTERISK_IMG=${REPO}/dialer_asterisk:dev
+
 TZ=America/Argentina/Cordoba
 ASTERISK_USER=omnileadsami
 ASTERISK_PASS=5_MeO_DMT
-ASTERISK_HOST=dialer_acd
+ASTERISK_HOST=dialer_asterisk
 ASTERISK_PORT=8888
 ASTERISK_APP_DIALER=call_manager_dialer
 ASTERISK_APP=call_manager
 REDIS_OML_SERVER=oml-redis
 REDIS_OML_PORT=6379
-REDIS_DIALER_SERVER=omnidialer-redis
-REDIS_DIALER_PORT=6380
+REDIS_DIALER_SERVER=oml-redis
+REDIS_DIALER_PORT=6379
 POSTGRES_OML_PASSWORD=admin123
 POSTGRES_OML_SERVER=oml-postgres
 POSTGRES_OML_PORT=5432
@@ -21,4 +28,14 @@ POSTGRES_DIALER_PASSWORD=dialer456
 POSTGRES_DIALER_SERVER=dialer-postgres
 POSTGRES_DIALER_PORT=5433
 POSTGRES_DIALER_DB=omnidialer
-NETWORK=devenv_omnileads
+NETWORK=oml_omnileads
+ 
+# Asterisk
+# PSTNGW_REGISTER=yes
+# PSTNGW_SIP_AUTH=yes
+# PSTNGW_SIP_USER=01177660020
+# PSTNGW_SIP_PASS=omnileads
+# PSTNGW_HOSTNAME=oml-pbxemulator:5070
+### ACD omnileads asterisk ACD SIP Peer (for dialer_asterisk)
+OMLACD_SIP_ADDR=oml-acd:5260
+ASTERISK_IPV4=10.22.22.199

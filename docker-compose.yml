@@ -1,10 +1,10 @@
 services:
   api:
     build:
+      target: run
       context: ./interface/src
+    image: ${API_IMG}  
     container_name: omnidialer-api
-    volumes:
-      - ./interface/src:/app
     ports:
       - '1440:1440'
     networks:
@@ -14,7 +14,6 @@ services:
     stdin_open: true
     depends_on:
       - job_server
-      - redis
       - postgresql
     environment:
       - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
@@ -34,7 +33,6 @@ services:
     stdin_open: true
     depends_on:
       - job_server
-      - redis
     environment:
       - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
       - REDIS_DIALER_SERVER=${REDIS_DIALER_SERVER}
@@ -51,10 +49,9 @@ services:
     command: gearmand -t 1
 
   worker:
-    image: omnidialer_worker
-    container_name: start-campaign-1
     build:
       context: ./workers/handle-campaign/src
+    image: ${WORKER_IMG}
     networks:
       - network1
     tty: true
@@ -83,25 +80,7 @@ services:
     depends_on:
       - job_server
       - postgresql
-      - redis
-
-
-  redis:
-    container_name: omnidialer-redis
-    dns: 8.8.8.8
-    environment:
-      - BIND_IP=0.0.0.0
-    networks:
-      - network1
-    ports:
-      - '6380:6380'
-    expose:
-      - '6380'
-    image: redis:7.2.5-alpine
-    volumes:
-      - redis_omnidialer:/data
-    command: redis-server --port 6380
-
+ 
   redisinsight:
     container_name: omnidialer-redisinsight
     dns: 8.8.8.8
@@ -144,13 +123,11 @@ services:
       - omnidialer-postgresql:/var/lib/postgresql/data
       - ./omnidialer.sql:/docker-entrypoint-initdb.d/init.sql
 
-
   websocket_ari:
     container_name: omnidialer_websocket_ari
     build:
       context: ./websocket_ari/src
-    volumes:
-      - ./websocket_ari/src:/app
+    image: ${LISTENER_IMG}  
     networks:
       - network1
     tty: true
@@ -168,6 +145,197 @@ services:
       - job_server
       - postgresql
       - worker
+
+  process_contact_worker:
+    image: ${WORKER_IMG}
+    deploy:
+      replicas: 3
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=process-contact
+    networks:
+      - network1
+
+  process_campaign_worker:
+    image: ${WORKER_IMG}
+    container_name: process-campaign-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=process-campaign
+    networks:
+      - network1
+
+  create_campaign_worker:
+    image: ${WORKER_IMG}
+    container_name: create-campaign-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=create-campaign
+    networks:
+      - network1
+
+  resume_campaign_worker:
+    image: ${WORKER_IMG}
+    container_name: resume-campaign-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=resume-campaign
+    networks:
+      - network1
+
+  edit_campaign_worker:
+    image: ${WORKER_IMG}
+    container_name: edit-campaign-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=edit-campaign
+    networks:
+      - network1
+
+  stop_campaign_worker:
+    image: ${WORKER_IMG}
+    container_name: stop-campaign-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=stop-campaign
+    networks:
+      - network1
+
+  pause_campaign_worker:
+    image: ${WORKER_IMG}
+    container_name: pause-campaign-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=pause-campaign
+    networks:
+      - network1
+
+  delete_campaign_worker:
+    image: ${WORKER_IMG}
+    container_name: delete-campaign-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=delete-campaign
+    networks:
+      - network1
+
+  process_event_worker:
+    image: ${WORKER_IMG}
+    container_name: process-event-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=process-event
+    networks:
+      - network1
+
+  schedule_contact_worker:
+    image: ${WORKER_IMG}
+    container_name: schedule-contact-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=schedule-contact
+    networks:
+      - network1
+
+  send_reports_worker:
+    image: ${WORKER_IMG}
+    container_name: send-reports-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=send-reports
+    networks:
+      - network1
+
+  add_incidence_rule_disposition_worker:
+    image: ${WORKER_IMG}
+    container_name: add-incidence-rule-disposition-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=add-incidence-rule-disposition
+    networks:
+      - network1
+
+  change_database_worker:
+    image: ${WORKER_IMG}
+    container_name: change-database-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=change-database
+    networks:
+      - network1
+
+  create_incidence_rule_worker:
+    image: ${WORKER_IMG}
+    container_name: create-incidence-rule-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=create-incidence-rule
+    networks:
+      - network1
+
+  delete_incidence_rule_worker:
+    image: ${WORKER_IMG}
+    container_name: delete-incidence-rule-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=delete-incidence-rule
+    networks:
+      - network1
+
+  update_incidence_rule_worker:
+    image: ${WORKER_IMG}
+    container_name: update-incidence-rule-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=update-incidence-rule
+    networks:
+      - network1
+
+  schedule-agenda:
+    image: ${WORKER_IMG}
+    container_name: schedule-agenda-1
+    env_file: .env
+    environment:
+      - GEARMAN_JOBS=schedule-agenda
+    networks:
+      - network1
+
+  dialer_asterisk:
+    build:
+      context: ./asterisk/
+    image: ${ASTERISK_IMG}  
+    container_name: dialer_asterisk  
+    dns: 8.8.8.8
+    env_file:
+      - .env
+    networks:
+      network1:
+          ipv4_address: ${ASTERISK_IPV4}
+    privileged: true
+    restart: on-failure
+    stop_grace_period: 30s
+    working_dir: /etc/asterisk
+     
+  dialer_dialplan:
+    build:
+      target: run
+      context: ./dialplan/
+    image: ${DIALPLAN_IMG}  
+    container_name: omnidialer-dialplan
+    depends_on:
+      - dialer_asterisk
+    environment:
+      - TZ=${TZ}
+      - REDIS_HOSTNAME=${REDIS_OML_SERVER}
+      - REDIS_PORT=${REDIS_OML_PORT}
+      - ARI_HOST=${ASTERISK_HOST}
+      - ARI_PORT=${ASTERISK_PORT}
+      - ARI_USER=${ASTERISK_USER}
+      - ARI_PASS=${ASTERISK_PASS}
+    restart: on-failure
+    stop_grace_period: 30s
+    networks:
+      - network1  
 
 networks:
   network1:

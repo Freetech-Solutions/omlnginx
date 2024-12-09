@@ -166,13 +166,13 @@ class AverageWorker(DialerWorker):
     def connect_redis_oml(cls):
         if cls.REDIS_OML_CONNECTION is None:
             cls.REDIS_OML_CONNECTION = redis.Redis(
-                host=REDIS_OML_SERVER, port=REDIS_OML_PORT, decode_responses=True)
+                host=REDIS_OML_SERVER, port=REDIS_OML_PORT, decode_responses=True, db=0)
 
     @classmethod
     def connect_redis_dialer(cls):
         if cls.REDIS_DIALER_CONNECTION is None:
             cls.REDIS_DIALER_CONNECTION = redis.Redis(
-                host=REDIS_DIALER_SERVER, port=REDIS_DIALER_PORT, decode_responses=True)
+                host=REDIS_DIALER_SERVER, port=REDIS_DIALER_PORT, decode_responses=True, db=3)
 
     @classmethod
     def is_allowed_to_call(cls, id_campaign):

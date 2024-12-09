@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.4
-FROM python:3.6-alpine
+FROM python:3.6-alpine as builder
 
 WORKDIR /app
 
@@ -11,5 +11,11 @@ ADD . /app
 
 RUN pip3 install -r requirements.txt
 
-ENTRYPOINT ["python3"]
-CMD ["/app/app.py"]
+FROM python:3.6-alpine AS run
+
+WORKDIR /app
+
+COPY --from=builder /usr/local /usr/local
+COPY . /app
+
+CMD ["python3", "app.py"]

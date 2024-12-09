@@ -1,11 +1,77 @@
 stages:
   - test
+  - build
 
-test:
-  stage: test
-  image: python:3.8-alpine
+# Template genérico para builds
+.build_template:
+  image: docker:20.10.15-alpine3.15
+  services:
+    - docker:20.10.15-dind-alpine3.15
   before_script:
-    - python -m pip install --upgrade pip
-    - pip install flake8
+    - apk add --no-cache docker-cli-buildx
   script:
-    - flake8
+    - echo "Building ${IMAGE_NAME}..."
+    - ls -l ${DOCKERFILE_PATH}
+    - docker buildx build --file=${DOCKERFILE_PATH} --tag=${IMAGE_NAME} ${BUILD_CONTEXT}
+    - |-
+      echo "Pushing image ${IMAGE_NAME}..."
+      if [ "${CI_COMMIT_BRANCH}" == "main" ]; then
+        echo "${DOCKER_SECRET}" | docker login --username "${DOCKER_USERNAME}" --password-stdin
+        IMAGE_VERSION=$(cat ${VERSION_FILE})
+        docker tag ${IMAGE_NAME} docker.io/omnileads/${IMAGE_NAME}:$IMAGE_VERSION
+        docker push docker.io/omnileads/${IMAGE_NAME}:$IMAGE_VERSION
+      else
+        echo "${DOCKER_PASSWORD}" | docker login --username "${DOCKER_USER}" --password-stdin
+        IMAGE_VERSION=$(cat ${VERSION_FILE})
+        docker tag ${IMAGE_NAME} docker.io/freetechsolutions/${IMAGE_NAME}:$IMAGE_VERSION
+        docker push docker.io/freetechsolutions/${IMAGE_NAME}:$IMAGE_VERSION
+      fi
+  rules:
+    - if: '$CI_COMMIT_REF_NAME =~ /build/'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+
+# Builds específicos para cada componente
+container-image-asterisk:
+  extends: .build_template
+  stage: build
+  variables:
+    IMAGE_NAME: "dialer_asterisk"
+    DOCKERFILE_PATH: "asterisk/Dockerfile"
+    VERSION_FILE: "asterisk/version.txt"
+    BUILD_CONTEXT: "asterisk"
+
+container-image-dialplan:
+  extends: .build_template
+  stage: build
+  variables:
+    IMAGE_NAME: "dialer_dialplan"
+    DOCKERFILE_PATH: "dialplan/Dockerfile"
+    VERSION_FILE: "dialplan/version.txt"
+    BUILD_CONTEXT: "dialplan"
+
+container-image-api:
+  extends: .build_template
+  stage: build
+  variables:
+    IMAGE_NAME: "dialer_api"
+    DOCKERFILE_PATH: "interface/src/Dockerfile"
+    VERSION_FILE: "interface/src/version.txt"
+    BUILD_CONTEXT: "interface/src"
+
+container-image-worker:
+  extends: .build_template
+  stage: build
+  variables:
+    IMAGE_NAME: "dialer_worker"
+    DOCKERFILE_PATH: "workers/handle-campaign/src/Dockerfile"
+    VERSION_FILE: "workers/handle-campaign/src/version.txt"
+    BUILD_CONTEXT: "workers/handle-campaign/src"
+
+container-image-websocket_ari:
+  extends: .build_template
+  stage: build
+  variables:
+    IMAGE_NAME: "dialer_listener"
+    DOCKERFILE_PATH: "websocket_ari/src/Dockerfile"
+    VERSION_FILE: "websocket_ari/src/version.txt"
+    BUILD_CONTEXT: "websocket_ari/src"
