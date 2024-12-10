@@ -162,6 +162,7 @@ services:
     env_file: .env
     environment:
       - GEARMAN_JOBS=process-campaign
+      - CAPS=${CAPS}
     networks:
       - network1
 

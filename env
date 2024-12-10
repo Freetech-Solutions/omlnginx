@@ -29,7 +29,8 @@ POSTGRES_DIALER_SERVER=dialer-postgres
 POSTGRES_DIALER_PORT=5433
 POSTGRES_DIALER_DB=omnidialer
 NETWORK=oml_omnileads
- 
+CAPS=3
+
 # Asterisk
 # PSTNGW_REGISTER=yes
 # PSTNGW_SIP_AUTH=yes
