@@ -225,6 +225,10 @@ class AverageWorker(DialerWorker):
             AND ca.id = %s;""", (id_campaign,))
         metadata = json.dumps(cursor_oml.fetchone()[0])
         campaign_id_data += (metadata,)
+        cls.connect_redis_oml()
+        customdialerdst = cls.REDIS_OML_CONNECTION.hget(
+            f'OML:CAMP:{id_campaign}', 'CUSTOMDIALERDST')
+        campaign_id_data += (customdialerdst,)
         return campaign_id_data, incidence_rules_data, incidence_rules_disposition_data
 
     @classmethod
@@ -249,15 +253,20 @@ class AverageWorker(DialerWorker):
                     # 1- update campaign table
                     logger.debug(
                         f'Campaign {id_campaign}: inserting the campaign data into omnidialer')
+                    cls.connect_redis_dialer()
+                    customdialerdst = campaign_id_data[-1]
+                    cls.REDIS_DIALER_CONNECTION.set(
+                        f'CAMP:{id_campaign}:CUSTOMDIALERDST', customdialerdst)
                     params = campaign_id_data[1:] + (id_campaign,)
                     cursor_dialer.execute(
                         """UPDATE campaign SET oml_status = %s, name = %s, start_date = %s,
-                         end_date = %s, duplicates_control = %s, priority = %s, strategy = %s,
-                         wait = %s, initial_predictive_model = %s, initial_boost_factor = %s,
-                         max_channels = %s, sunday = %s, monday = %s, tuesday = %s, wednesday = %s,
-                         thursday = %s, friday = %s, saturday = %s, hour_start = %s, hour_ends = %s,
-                         contact_strategy = %s, dialer_status = %s, metadata = %s
-                         WHERE id = %s;""", params)
+                        end_date = %s, duplicates_control = %s, priority = %s, strategy = %s,
+                        wait = %s, initial_predictive_model = %s, initial_boost_factor = %s,
+                        max_channels = %s, sunday = %s, monday = %s, tuesday = %s, wednesday = %s,
+                        thursday = %s, friday = %s, saturday = %s, hour_start = %s, hour_ends = %s,
+                        contact_strategy = %s, dialer_status = %s, metadata = %s,
+                        customdialerdst = %s
+                        WHERE id = %s;""", params)
                     # 2- update incidence rules
                     cursor_dialer.execute('DELETE FROM incidence_rules WHERE campaign_id = %s',
                                           (id_campaign,))
@@ -333,6 +342,10 @@ class AverageWorker(DialerWorker):
                     (campaign_id_data, incidence_rules_data,
                      incidence_rules_disposition_data) = cls.get_campaign_data(
                         id_campaign, cursor_oml, contact_strategy)
+                    cls.connect_redis_dialer()
+                    customdialerdst = campaign_id_data[-1]
+                    cls.REDIS_DIALER_CONNECTION.set(
+                        f'CAMP:{id_campaign}:CUSTOMDIALERDST', customdialerdst)
                     logger.debug(
                         f'Campaign {id_campaign}: inserting the campaign data into omnidialer')
                     cursor_dialer.execute(
@@ -340,9 +353,9 @@ class AverageWorker(DialerWorker):
                         duplicates_control, priority, strategy, wait, initial_predictive_model,
                         initial_boost_factor, max_channels, sunday, monday, tuesday, wednesday,
                         thursday, friday, saturday, hour_start, hour_ends, contact_strategy,
-                        dialer_status, metadata) VALUES
+                        dialer_status, metadata, customdialerdst) VALUES
                          (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s, %s);""", campaign_id_data)
+                        %s, %s, %s, %s, %s, %s, %s);""", campaign_id_data)
                     logger.debug(
                         f'Campaign {id_campaign}: inserting the incidence_rules into omnidialer')
                     for incidence_rule in incidence_rules_data:
@@ -571,6 +584,7 @@ class AverageWorker(DialerWorker):
 
     @classmethod
     def allowed_parallel_contact_attempts(cls, id_campaign):
+        cls.connect_redis_dialer()
         active_channels = cls.get_active_channels(id_campaign)
         if active_channels == -1:
             return 0
@@ -584,10 +598,13 @@ class AverageWorker(DialerWorker):
             cursor_dialer.execute('SELECT initial_boost_factor FROM ONLY campaign WHERE id = %s',
                                   (id_campaign,))
             boost_factor = cursor_dialer.fetchone()[0]
-            allowed_parallel_attempts_acc_agents = int(Decimal(
-                cls.get_allowed_attempts_according_agents(
-                    id_campaign, active_channels, campaign_max_available_channels)) * boost_factor)
-            return min(num_available_channels, allowed_parallel_attempts_acc_agents)
+            if cls.REDIS_DIALER_CONNECTION.get(f'CAMP:{id_campaign}:CUSTOMDIALERDST') == '0':
+                allowed_parallel_attempts_acc_agents = int(Decimal(
+                    cls.get_allowed_attempts_according_agents(
+                        id_campaign, active_channels,
+                        campaign_max_available_channels)) * boost_factor)
+                return min(num_available_channels, allowed_parallel_attempts_acc_agents)
+            return num_available_channels
 
     @classmethod
     def take_contacts(cls, contacts_attempts_number, id_campaign):
@@ -941,10 +958,11 @@ class AverageWorker(DialerWorker):
             logger.debug(f'Campaign {id_campaign}: copying campaign table data')
             cursor.execute('SELECT * FROM ONLY campaign WHERE id = %s;', (id_campaign,))
             campaign_data_initial = cursor.fetchone()
-            statistics = json.dumps(campaign_data_initial[-2])
-            campaign_data = campaign_data_initial[:-2] + (statistics, campaign_data_initial[-1])
+            statistics = json.dumps(campaign_data_initial[-3])
+            campaign_data = campaign_data_initial[:-3] + (statistics, campaign_data_initial[-2],
+                                                          campaign_data_initial[-1])
             sql1 = 'INSERT INTO campaign_historic VALUES'
-            sql2 = ' ({0} %s);'.format('%s, ' * 24)
+            sql2 = ' ({0} %s);'.format('%s, ' * 25)
             sql = sql1 + sql2
             cursor.execute(sql, campaign_data)
             # 2- copy incidence rules

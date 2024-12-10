@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-docker-compose --env-file .env-tests -f docker-compose-test.yml up -d --build
+docker-compose --env-file .env-tests -f docker-compose-test.yml up -d --build --remove-orphans
 
 docker exec -it omnidialer-worker-test python -m unittest tests.py
 
