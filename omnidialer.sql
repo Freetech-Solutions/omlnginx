@@ -49,7 +49,8 @@ CREATE TABLE public.campaign (
     contact_strategy integer[],
     dialer_status integer NOT NULL,
     statistics JSONB,
-    metadata JSONB
+    metadata JSONB,
+    customdialerdst boolean NOT NULL
 );
 
 

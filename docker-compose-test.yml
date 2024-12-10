@@ -9,7 +9,7 @@ services:
     command: gearmand -t 1
 
   worker:
-    image: omnidialer_worker
+    image: omnidialer_worker_test
     container_name: omnidialer-worker-test
     build:
       context: ./workers/handle-campaign/src
@@ -56,7 +56,7 @@ services:
       - '6381'
     image: redis:7.2.5-alpine
     volumes:
-      - redis_omnidialer:/data
+      - redis_omnidialer_tests:/data
     command: redis-server --port 6381
 
 
@@ -80,14 +80,13 @@ services:
     restart: on-failure
     stop_grace_period: 1m30s
     volumes:
-      - omnidialer-postgresql:/var/lib/postgresql/data
+      - omnidialer_postgresql_tests:/var/lib/postgresql/data
       - ./omnidialer.sql:/docker-entrypoint-initdb.d/init.sql
 
 networks:
   network1:
-    name: omnileads_omnileads
-    external: true
+    name: omnidialer_tests
 
 volumes:
-  omnidialer-postgresql:
-  redis_omnidialer:
+  omnidialer_postgresql_tests:
+  redis_omnidialer_tests:
