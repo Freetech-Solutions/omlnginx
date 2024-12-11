@@ -153,6 +153,9 @@ services:
     env_file: .env
     environment:
       - GEARMAN_JOBS=process-contact
+    depends_on:
+      - job_server
+      - postgresql
     networks:
       - network1
 
@@ -169,6 +172,9 @@ services:
     image: ${WORKER_IMG}
     container_name: create-campaign-1
     env_file: .env
+    depends_on:
+      - job_server
+      - postgresql
     environment:
       - GEARMAN_JOBS=create-campaign
     networks:
@@ -178,6 +184,9 @@ services:
     image: ${WORKER_IMG}
     container_name: resume-campaign-1
     env_file: .env
+    depends_on:
+      - job_server
+      - postgresql
     environment:
       - GEARMAN_JOBS=resume-campaign
     networks:
@@ -187,6 +196,9 @@ services:
     image: ${WORKER_IMG}
     container_name: edit-campaign-1
     env_file: .env
+    depends_on:
+      - job_server
+      - postgresql
     environment:
       - GEARMAN_JOBS=edit-campaign
     networks:
@@ -196,6 +208,9 @@ services:
     image: ${WORKER_IMG}
     container_name: stop-campaign-1
     env_file: .env
+    depends_on:
+      - job_server
+      - postgresql
     environment:
       - GEARMAN_JOBS=stop-campaign
     networks:
@@ -205,6 +220,9 @@ services:
     image: ${WORKER_IMG}
     container_name: pause-campaign-1
     env_file: .env
+    depends_on:
+      - job_server
+      - postgresql
     environment:
       - GEARMAN_JOBS=pause-campaign
     networks:
@@ -214,6 +232,9 @@ services:
     image: ${WORKER_IMG}
     container_name: delete-campaign-1
     env_file: .env
+    depends_on:
+      - job_server
+      - postgresql
     environment:
       - GEARMAN_JOBS=delete-campaign
     networks:
@@ -232,6 +253,9 @@ services:
     image: ${WORKER_IMG}
     container_name: schedule-contact-1
     env_file: .env
+    depends_on:
+      - job_server
+      - postgresql
     environment:
       - GEARMAN_JOBS=schedule-contact
     networks:
@@ -241,6 +265,9 @@ services:
     image: ${WORKER_IMG}
     container_name: send-reports-1
     env_file: .env
+    depends_on:
+      - job_server
+      - postgresql
     environment:
       - GEARMAN_JOBS=send-reports
     networks:
@@ -250,6 +277,9 @@ services:
     image: ${WORKER_IMG}
     container_name: add-incidence-rule-disposition-1
     env_file: .env
+    depends_on:
+      - job_server
+      - postgresql
     environment:
       - GEARMAN_JOBS=add-incidence-rule-disposition
     networks:
@@ -259,6 +289,9 @@ services:
     image: ${WORKER_IMG}
     container_name: change-database-1
     env_file: .env
+    depends_on:
+      - job_server
+      - postgresql
     environment:
       - GEARMAN_JOBS=change-database
     networks:
@@ -268,6 +301,9 @@ services:
     image: ${WORKER_IMG}
     container_name: create-incidence-rule-1
     env_file: .env
+    depends_on:
+      - job_server
+      - postgresql
     environment:
       - GEARMAN_JOBS=create-incidence-rule
     networks:
@@ -277,6 +313,9 @@ services:
     image: ${WORKER_IMG}
     container_name: delete-incidence-rule-1
     env_file: .env
+    depends_on:
+      - job_server
+      - postgresql
     environment:
       - GEARMAN_JOBS=delete-incidence-rule
     networks:
@@ -286,6 +325,9 @@ services:
     image: ${WORKER_IMG}
     container_name: update-incidence-rule-1
     env_file: .env
+    depends_on:
+      - job_server
+      - postgresql
     environment:
       - GEARMAN_JOBS=update-incidence-rule
     networks:
@@ -295,6 +337,9 @@ services:
     image: ${WORKER_IMG}
     container_name: schedule-agenda-1
     env_file: .env
+    depends_on:
+      - job_server
+      - postgresql
     environment:
       - GEARMAN_JOBS=schedule-agenda
     networks:
