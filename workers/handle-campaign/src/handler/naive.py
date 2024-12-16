@@ -64,11 +64,10 @@ DIALER_ACD_HOST = os.getenv('DIALER_ACD_HOST', 'omlacd')
 WEEK_DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
 
 # campaign status possible values
-CREATED = 1
-ACTIVE = 2
-PAUSED = 3
-RESUMED = 4
-FINALIZED = 5
+CREATED = 1                     # ESTADO_INACTIVA in OML
+ACTIVE = 2                      # ESTADO_ACTIVA in OML
+PAUSED = 5                      # ESTADO_PAUSADA in OML
+FINALIZED = 3                   # ESTADO_FINALIZADA in OML
 
 # contact status, in sync with OML's incidence_rules statuses
 # TODO: see the remaining statuses
@@ -285,8 +284,8 @@ class AverageWorker(DialerWorker):
                         cursor_dialer.execute("""INSERT INTO incidence_rules_disposition
                         (id, disposition_option_id, max_attempt, retry_later, in_mode, campaign_id)
                         VALUES (%s, %s, %s, %s, %s, %s);""", incidence_rule)
-                if orig_status_campaign in [ACTIVE, RESUMED]:
-                    cls.set_campaign_status(id_campaign, RESUMED, cursor_dialer)
+                if orig_status_campaign == ACTIVE:
+                    cls.set_campaign_status(id_campaign, ACTIVE, cursor_dialer)
                     message = json.dumps({'id_campaign': id_campaign})
                     cls.GM_CLIENT.submit_job('process-campaign', message, background=True)
 
@@ -452,7 +451,7 @@ class AverageWorker(DialerWorker):
             campaign_in_range = cursor_dialer.fetchone()
             if not campaign_in_range:
                 logger.debug(f'Campaign {id_campaign}: campaign expired')
-                cls.set_campaign_status(id_campaign, PAUSED)
+                cls.set_campaign_status(id_campaign, PAUSED, sync_omnileads=True)
                 cls.connect_redis_oml()
                 cls.REDIS_OML_CONNECTION.publish(f'omnidialer-campaign-{id_campaign}',
                                                  'Campaign expired')
@@ -462,7 +461,7 @@ class AverageWorker(DialerWorker):
             if cls.all_contacts_were_attempted(id_campaign) and \
                cls.no_active_incidence_rules(id_campaign) and cls.no_active_agendas():
                 logger.debug(f'Campaign {id_campaign}: no more contacts pending for call')
-                cls.set_campaign_status(id_campaign, PAUSED)
+                cls.set_campaign_status(id_campaign, PAUSED, sync_omnileads=True)
                 cls.connect_redis_oml()
                 cls.REDIS_OML_CONNECTION.publish(f'omnidialer-campaign-{id_campaign}',
                                                  'No more contacts pending for call')
@@ -486,17 +485,15 @@ class AverageWorker(DialerWorker):
                 cls.REDIS_OML_CONNECTION.publish(f'omnidialer-campaign-{id_campaign}',
                                                  f'Less than {PERCENTAGE_PENDING_CALL_THRESHOLD}%'
                                                  ' of contacts pending for call')
-
-        return (status in [ACTIVE, RESUMED])
+        return status == ACTIVE
 
     @classmethod
     def get_number_active_campaigns(cls):
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
             cursor = conn.cursor()
             cursor.execute(
-                """SELECT Count(*) FROM ONLY campaign WHERE dialer_status = %s
-                OR dialer_status = %s;""",
-                (ACTIVE, RESUMED))
+                """SELECT Count(*) FROM ONLY campaign WHERE dialer_status = %s"""
+                (ACTIVE,))
             active_campaigns = cursor.fetchone()[0]
         return active_campaigns
 
@@ -693,7 +690,7 @@ class AverageWorker(DialerWorker):
     def resume_campaign(cls, worker, job):
         id_campaign = cls.decode_payload(job.data)
         logger.debug(f'Campaign {id_campaign} resuming the campaign')
-        cls.set_campaign_status(id_campaign, RESUMED)
+        cls.set_campaign_status(id_campaign, ACTIVE)
         message = json.dumps({'id_campaign': id_campaign})
         cls.GM_CLIENT.submit_job('process-campaign', message, background=True)
         response = f'Campaign {id_campaign} was resumed!'
@@ -933,16 +930,30 @@ class AverageWorker(DialerWorker):
         return b'Campaign was deleted'
 
     @classmethod
-    def set_campaign_status(cls, id_campaign, new_status, cursor=None):
-        if cursor is None:
-            with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
-                cursor = conn.cursor()
+    def set_campaign_status(cls, id_campaign, new_status, cursor=None, sync_omnileads=False):
+        if not sync_omnileads:
+            if cursor is None:
+                with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        'UPDATE campaign SET dialer_status = %s WHERE id = %s;',
+                        (new_status, id_campaign))
+            else:
                 cursor.execute(
                     'UPDATE campaign SET dialer_status = %s WHERE id = %s;',
                     (new_status, id_campaign))
         else:
-            cursor.execute(
-                'UPDATE campaign SET dialer_status = %s WHERE id = %s;', (new_status, id_campaign))
+            with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+                with conn_dialer.transaction():
+                    cursor_dialer = conn_dialer.cursor()
+                    with psycopg.connect(cls.POSTGRES_OML_CONNECTION_STR) as conn_oml:
+                        cursor_oml = conn_oml.cursor()
+                        cursor_dialer.execute(
+                            'UPDATE campaign SET dialer_status = %s WHERE id = %s;',
+                            (new_status, id_campaign))
+                        cursor_oml.execute(
+                            'UPDATE ominicontacto_app_campana SET estado = %s WHERE id = %s;',
+                            (new_status, id_campaign))
 
     @classmethod
     def finalize_campaign(cls, id_campaign):
@@ -1085,7 +1096,7 @@ class AverageWorker(DialerWorker):
             if incidence_rule_applied:
                 status = cls.get_campaign_status(id_campaign, cursor_dialer)
                 if status == PAUSED:
-                    cls.set_campaign_status(id_campaign, RESUMED)
+                    cls.set_campaign_status(id_campaign, ACTIVE, cursor=cursor_dialer, sync_omnileads=True)
                     message = json.dumps({'id_campaign': id_campaign})
                     cls.GM_CLIENT.submit_job('process-campaign', message, background=True)
             return b'Disposition for incidence rule was added!'
@@ -1190,7 +1201,7 @@ class AverageWorker(DialerWorker):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
         # 0- Pause the campaign
-        cls.set_campaign_status(id_campaign, PAUSED)
+        cls.set_campaign_status(id_campaign, PAUSED, sync_omnileads=True)
         # 1- remove Redis related reports & contacts history
         AverageWorker.connect_redis_dialer()
         AverageWorker.REDIS_DIALER_CONNECTION.delete(f'CAMP:{id_campaign}:COUNTER')
