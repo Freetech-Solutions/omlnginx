@@ -1213,33 +1213,3 @@ class AverageWorker(DialerWorker):
                     # 3- bring the new contacts from OML
                     cls.copy_contacts_from_oml(cursor_dialer, cursor_oml, id_campaign)
         return b'Database was updated'
-
-
-class SingleCallWorker(AverageWorker):
-    """Another naive dialer worker flow that makes only 1 call at a time, and after every call
-    pauses the campaign, It will also remove the contacts one by one after the calls.
-    Assumes the call was always answered."""
-
-    @classmethod
-    @exception_handler_decorator
-    def process_contact(cls, worker, job):
-        logger.debug('Processing contact in SingleCallWorker')
-        data = cls.decode_payload(job.data)
-        id_campaign = data['id_campaign']
-        if cls.campaign_is_active(id_campaign):
-            cls.attempt_contact_asterisk(data['contact'], id_campaign)
-            cls.set_campaign_status(id_campaign, PAUSED)
-            return b'Contact was called in SingleCallWorker'
-        return b'Contact was not called in SingleCallWorker'
-
-    @classmethod
-    def allowed_parallel_contact_attempts(cls, id_campaign):
-        return 1
-
-
-class NoIncidenceRulesHandler(AverageWorker):
-
-    @classmethod
-    def handle_incidence_rules(cls, status, id_campaign, contact_id, phone_number):
-        # don't do anything
-        pass
