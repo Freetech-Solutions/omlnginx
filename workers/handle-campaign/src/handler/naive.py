@@ -492,7 +492,7 @@ class AverageWorker(DialerWorker):
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
             cursor = conn.cursor()
             cursor.execute(
-                """SELECT Count(*) FROM ONLY campaign WHERE dialer_status = %s"""
+                """SELECT Count(*) FROM ONLY campaign WHERE dialer_status = %s""",
                 (ACTIVE,))
             active_campaigns = cursor.fetchone()[0]
         return active_campaigns
