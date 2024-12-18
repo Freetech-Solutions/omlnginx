@@ -1027,10 +1027,21 @@ class AverageWorker(DialerWorker):
         return b'Campaign was finalized'
 
     @classmethod
+    def update_prev_stats(cls, id_campaign):
+        """Copy the current stats to the key 'COUNTER_PREV' so it can be used for comparison
+        and send only the modified keys"""
+        for key, value in cls.REDIS_DIALER_CONNECTION.hgetall(
+                f'CAMP:{id_campaign}:COUNTER').items():
+            cls.REDIS_DIALER_CONNECTION.hset(f'CAMP:{id_campaign}:COUNTER_PREV', key, value)
+
+    @classmethod
     @exception_handler_decorator
     def send_reports(cls, worker, job):
+        cls.connect_redis_dialer()
         ari_event_data = cls.decode_payload(job.data)
         id_campaign, contact_id, phone_number = cls.get_contact_data(ari_event_data)
+        previous_stats = cls.REDIS_DIALER_CONNECTION.hgetall(f'CAMP:{id_campaign}:COUNTER_PREV') \
+            or {}
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute(
@@ -1041,7 +1052,6 @@ class AverageWorker(DialerWorker):
             cursor_dialer.execute("""SELECT final_status, COUNT(*) FROM ONLY contact_in_campaign
             WHERE id_campaign = %s and final_status <> %s GROUP BY final_status;""",
                                   (id_campaign, INITIAL))
-            cls.connect_redis_dialer()
             # cleaning previous values of final_status related reports
             cls.REDIS_DIALER_CONNECTION.hdel(
                 f'CAMP:{id_campaign}:COUNTER',
@@ -1074,18 +1084,22 @@ class AverageWorker(DialerWorker):
                 json.dumps({
                     'type': 'EVENT',
                     'camp_id': id_campaign,
-                    'data': job.data
+                    'data': ari_event_data
                 }))
             stats_message = {
                 'type': 'STATS',
                 'camp_id': id_campaign,
             }
-            stats_message.update(stats)
-            stats_json = json.dumps(stats)
-            stats_json_message = json.dumps(stats_message)
+            # for Redis PUBSUB
+            changed_stats = dict(set(stats.items()) - set(previous_stats.items()))
+            changed_stats.update(stats_message)
+            changed_stats_json = json.dumps(changed_stats)
             cls.REDIS_OML_CONNECTION.publish(
                 'OML:CHANNEL:DIALER',
-                stats_json_message)
+                changed_stats_json)
+            cls.update_prev_stats(id_campaign)
+            # for Postgres in Omnidialer
+            stats_json = json.dumps(stats)
             cursor_dialer.execute(
                 'UPDATE campaign SET statistics = %s WHERE id = %s;', (stats_json, id_campaign))
             return b'Success!'
