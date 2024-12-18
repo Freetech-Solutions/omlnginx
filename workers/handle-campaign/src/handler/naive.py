@@ -453,8 +453,10 @@ class AverageWorker(DialerWorker):
                 logger.debug(f'Campaign {id_campaign}: campaign expired')
                 cls.set_campaign_status(id_campaign, PAUSED, sync_omnileads=True)
                 cls.connect_redis_oml()
-                cls.REDIS_OML_CONNECTION.publish(f'omnidialer-campaign-{id_campaign}',
-                                                 'Campaign expired')
+                cls.REDIS_OML_CONNECTION.publish(
+                    'OML:CHANNEL:DIALER',
+                    json.dumps({'type': 'EXPIRATION',
+                                'camp_id': id_campaign}))
                 return False
 
             # notify to OML if there are no more contacts for call and pause the campaign
@@ -463,8 +465,12 @@ class AverageWorker(DialerWorker):
                 logger.debug(f'Campaign {id_campaign}: no more contacts pending for call')
                 cls.set_campaign_status(id_campaign, PAUSED, sync_omnileads=True)
                 cls.connect_redis_oml()
-                cls.REDIS_OML_CONNECTION.publish(f'omnidialer-campaign-{id_campaign}',
-                                                 'No more contacts pending for call')
+                cls.REDIS_OML_CONNECTION.publish(
+                    'OML:CHANNEL:DIALER',
+                    json.dumps({
+                        'type': 'CONTACTS_CONSUMED',
+                        'camp_id': id_campaign,
+                    }))
                 return False
 
             # notify to OML if there are less than PERCENTAGE_PENDING_CALL_THRESHOLD%
@@ -482,9 +488,12 @@ class AverageWorker(DialerWorker):
                 logger.debug(f'Campaign {id_campaign}: less than '
                              f'{PERCENTAGE_PENDING_CALL_THRESHOLD}% contacts pending for call')
                 cls.connect_redis_oml()
-                cls.REDIS_OML_CONNECTION.publish(f'omnidialer-campaign-{id_campaign}',
-                                                 f'Less than {PERCENTAGE_PENDING_CALL_THRESHOLD}%'
-                                                 ' of contacts pending for call')
+                cls.REDIS_OML_CONNECTION.publish(
+                    'OML:CHANNEL:DIALER',
+                    json.dumps({
+                        'type': 'ALMOST_NO_CONTACTS',
+                        'camp_id': id_campaign,
+                    }))
         return status == ACTIVE
 
     @classmethod
@@ -1058,13 +1067,25 @@ class AverageWorker(DialerWorker):
                 pending_for_call
             )
             stats = cls.REDIS_DIALER_CONNECTION.hgetall(f'CAMP:{id_campaign}:COUNTER')
-            stats_json = json.dumps(stats)
             logger.debug(f'Report for campaign {id_campaign}: {stats}')
             cls.connect_redis_oml()
             cls.REDIS_OML_CONNECTION.publish(
-                f'OML:CHANNEL:DIALEREVENTS:CAMP:{id_campaign}:EVENTS', job.data)
+                'OML:CHANNEL:DIALER',
+                json.dumps({
+                    'type': 'EVENT',
+                    'camp_id': id_campaign,
+                    'data': job.data
+                }))
+            stats_message = {
+                'type': 'STATS',
+                'camp_id': id_campaign,
+            }
+            stats_message.update(stats)
+            stats_json = json.dumps(stats)
+            stats_json_message = json.dumps(stats_message)
             cls.REDIS_OML_CONNECTION.publish(
-                f'OML:CHANNEL:DIALEREVENTS:CAMP:{id_campaign}', stats_json)
+                'OML:CHANNEL:DIALER',
+                stats_json_message)
             cursor_dialer.execute(
                 'UPDATE campaign SET statistics = %s WHERE id = %s;', (stats_json, id_campaign))
             return b'Success!'
