@@ -954,6 +954,12 @@ class AverageWorker(DialerWorker):
                         cursor_oml.execute(
                             'UPDATE ominicontacto_app_campana SET estado = %s WHERE id = %s;',
                             (new_status, id_campaign))
+            cls.connect_redis_oml()
+            cls.REDIS_OML_CONNECTION.publish(
+                "OML:CHANNEL:DIALER",
+                json.dumps({'type': 'STATUSCHANGE',
+                            'camp_id': id_campaign,
+                            'status': new_status}))
 
     @classmethod
     def finalize_campaign(cls, id_campaign):
