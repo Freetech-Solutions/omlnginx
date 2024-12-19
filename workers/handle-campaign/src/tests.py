@@ -13,7 +13,7 @@ import psycopg
 from gearman.job import GearmanJob
 from gearman.worker import GearmanWorker
 
-from handler.naive import AverageWorker, ACTIVE, PAUSED, RESUMED
+from handler.naive import AverageWorker, ACTIVE, PAUSED
 
 
 class MyTestSuite(unittest.TestCase):
@@ -152,7 +152,7 @@ class MyTestSuite(unittest.TestCase):
             job = GearmanJob(None, None, None, None, b'4')
             AverageWorker.resume_campaign(worker, job)
             status_campaign = AverageWorker.get_campaign_status(id_campaign, cursor_dialer)
-            self.assertEqual(status_campaign, RESUMED)
+            self.assertEqual(status_campaign, ACTIVE)
 
             # testing endpoint add disposition for incidence rule
             job = GearmanJob(

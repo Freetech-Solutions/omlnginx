@@ -329,7 +329,7 @@ The data of the system is persisted in a Postgres instance and some data are rep
 
 The data saved in Redis is related with contact history in a campaign and reports of the campaign.
 
-The system also publish in PUBSUB channels information about reports and status of the campaigns.
+The system also publish to a PUBSUB channel information about reports, events and status of the campaigns, users can subscribe to OML:CHANNEL:DIALER to get this information.
 
 It is also possible to places agendas for calls using a custom scheduler.
 
