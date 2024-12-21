@@ -10,8 +10,11 @@ import redis
 import psycopg
 import gearman.client
 import requests
+import datetime
 
+from datetime import timedelta
 from decimal import Decimal
+from time import sleep
 
 from settings.default import REDIS_DIALER_PORT, REDIS_DIALER_SERVER, GEARMAN_JOB_SERVERS
 
@@ -62,6 +65,8 @@ POSTGRES_DIALER_PASSWORD = os.getenv('POSTGRES_DIALER_PASSWORD')
 DIALER_ACD_HOST = os.getenv('DIALER_ACD_HOST', 'omlacd')
 
 WEEK_DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+
+CAPS = int(os.getenv('CAPS', 3))
 
 # campaign status possible values
 CREATED = 1                     # ESTADO_INACTIVA in OML
@@ -156,10 +161,21 @@ class AverageWorker(DialerWorker):
             if cls.is_allowed_to_call(id_campaign):
                 logger.debug(f'Campaign {id_campaign} is allowed to call')
                 contacts_attempts_number = cls.allowed_parallel_contact_attempts(id_campaign)
+                initial_time = datetime.datetime.now()
+                caps_calls_counter = 0
                 for contact in cls.take_contacts(contacts_attempts_number, id_campaign):
-                    # TODO: analyze if an sleep would improve the process here
-                    # sleep(3)
-                    cls.attempt_contact(contact, id_campaign)
+                    current_time = datetime.datetime.now()
+                    current_delta = current_time - initial_time
+                    if current_delta >= timedelta(seconds=1):
+                        caps_calls_counter = 0
+                        initial_time = current_time
+                    else:
+                        if caps_calls_counter < CAPS:
+                            cls.attempt_contact(contact, id_campaign)
+                            caps_calls_counter += 1
+                        else:
+                            remaining = (timedelta(seconds=1) - current_delta).total_seconds()
+                            sleep(remaining)
 
     @classmethod
     def connect_redis_oml(cls):
