@@ -13,5 +13,4 @@ WORKDIR /app
 COPY --from=builder /usr/local /usr/local
 COPY . /app
 
-#ENTRYPOINT ["python3"]
 CMD ["python3", "app.py"]

@@ -11,4 +11,4 @@ WORKDIR /app
 COPY --from=build /usr/local /usr/local
 COPY src/* /app/
 
-CMD ["python3",  "call_manager.py" ]
+CMD ["python3",  "app.py" ]
