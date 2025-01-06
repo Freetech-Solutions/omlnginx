@@ -4,12 +4,12 @@ import json
 import logging
 import requests
 import os
+import pika
 import signal
 import sys
 import traceback
 import websocket
 import redis
-# from time import sleep
 from ari_manager import ARI
 
 logging.basicConfig(
@@ -31,22 +31,33 @@ class CallManager:
             port=int(os.getenv('REDIS_PORT', 6379)),
             db=int(os.getenv('REDIS_DB', 0))
         )
-        
+
         if not self.redis_client.exists("dialer_pstn_calls"):
             self.redis_client.set("dialer_pstn_calls", 0)
             logging.info("Clave 'dialer_pstn_calls' was created")
         else:
             logging.info("Clave 'dialer_pstn_calls' exists")
 
-        # Inicializar un conjunto para rastrear los IDs de canales PSTN
         self.pstn_channel_ids = set()
-        # Diccionario para mapear DIALER-AGENT channel IDs a DIALER-PSTN channel IDs
         self.agent_to_pstn = {}
+        self.channel_dialstatus = {}
+        # Configuración de RabbitMQ
+        self.rabbitmq_host = os.getenv("RABBITMQ_HOST", "localhost")
+        self.rabbitmq_queue = 'call_log_processor'  
+        self.pstngw_hostname = os.getenv("PSTNGW_HOSTNAME")
+
+        # Establecemos conexión y canal persistentes con RabbitMQ
+        self.rabbit_connection = pika.BlockingConnection(
+            pika.ConnectionParameters(
+                host=self.rabbitmq_host,
+                heartbeat=600,
+                blocked_connection_timeout=300
+            )
+        )
+        self.rabbit_channel = self.rabbit_connection.channel()
+        self.rabbit_channel.queue_declare(queue=self.rabbitmq_queue, durable=True)
 
     def client(self):
-        """
-        WebSocket Cli Asterisk ARI
-        """
         try:
             ari_client = websocket.WebSocketApp(
                 f"ws://{self.ari.host}:{self.ari.port}/ari/events"
@@ -62,26 +73,18 @@ class CallManager:
             return None
 
     def on_message(self, ws, message):
-        """
-        Callback Asterisk WebSockets Events
-        """
         if "RTP" not in message and "ChannelVarset" not in message:
             logging.info("\n" + "="*50 + "\nJSON event from WS:\n%s\n%s", json.dumps(json.loads(message), indent=2), "="*50)
 
         event_to_dict = json.loads(message)
-
-        # Verificar que el tipo de mensaje sea "Dial" antes de acceder a "peer"
+        
         if event_to_dict.get("type") == "Dial":
-            # Intentar obtener el campo "peer" y verificar su existencia
             peer = event_to_dict.get("peer")
             if peer:
                 caller = peer.get("caller", {})
                 caller_name = caller.get("name", "")
                 channel_id = peer.get("id", "Unknown")
-
                 logging.info("Peer ID: %s", channel_id)
-
-                # Verificar si caller_name está vacío y mostrar advertencia si es el caso
                 if not caller_name:
                     logging.warning("Caller 'name' is empty for channel ID %s", channel_id)
         else:
@@ -124,17 +127,17 @@ class CallManager:
         logging.info("WebSocket connection opened")
 
     def reconnect(self):
-        """Intentar reconectar cada 10 segundos."""
         logging.info("Attempting to reconnect in 10 seconds...")
+        time.sleep(10)
         self.start_websocket()
 
     def start_websocket(self):
-        """Iniciar el WebSocket y manejar señales."""
         ws = self.client()
 
         def signal_handler(signum, frame):
-            logging.info("Signal received, closing connection")
+            logging.info("Signal received, shutting down...")
             ws.close()
+            self.shutdown()
 
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
@@ -146,16 +149,105 @@ class CallManager:
 
         ws.run_forever()
 
+    def shutdown(self):
+        # Cerramos conexión con RabbitMQ
+        if self.rabbit_connection and self.rabbit_connection.is_open:
+            self.rabbit_connection.close()
+        sys.exit(0)
+
+    def handle_dial(self, event):
+        try:
+            dialstatus = event.get('dialstatus')
+            dialstring = event.get('dialstring', 'Unknown')
+            peer = event.get('peer', {})
+            peer_id = peer.get('id')
+            channel = event.get('channel', {})
+            channel_id = channel.get('id')
+
+            # Obtener caller_name del peer
+            caller = peer.get('caller', {})
+            caller_name = caller.get('name', '')
+
+            # Parsear caller_name para obtener id_camp, id_customer, tel_customer
+            id_camp, id_customer, tel_customer = self.parse_caller_name(caller_name)
+
+            # Verificar si es una llamada DIALER-PSTN
+            if re.match(r'^\d+@pstn_gateway$', dialstring):
+                if dialstatus == '':
+                    # Logica para DIAL, etc...
+                    self.redis_client.incr('dialer_pstn_calls')
+                    logging.info("Incremented dialer_pstn_calls counter")
+
+                    if peer_id:
+                        self.pstn_channel_ids.add(peer_id)
+                        logging.info(f"Added PSTN channel id {peer_id} to tracking set")
+
+                    if self.pstngw_hostname and id_camp and id_customer and tel_customer:
+                        call_data = {
+                            'id_camp': id_camp,
+                            'id_customer': id_customer,
+                            'tel_customer': tel_customer,
+                            'channel_id': peer_id or channel_id
+                        }
+                        self.publish_message_if_needed(call_data, "DIAL")
+                    else:
+                        logging.warning("PSTNGW_HOSTNAME not set or no data extracted from caller name. Message not published.")
+
+                elif dialstatus == 'ANSWER':
+                    if self.pstngw_hostname and id_camp and id_customer and tel_customer:
+                        call_data = {
+                            'id_camp': id_camp,
+                            'id_customer': id_customer,
+                            'tel_customer': tel_customer,
+                            'channel_id': peer_id or channel_id
+                        }
+                        # Publicar el evento ANSWER al RabbitMQ
+                        self.publish_message_if_needed(call_data, "ANSWER")
+                    else:
+                        logging.warning("PSTNGW_HOSTNAME not set or no data extracted from caller name for ANSWER event. Message not published.")
+                        self.publish_message_if_needed(call_data, dialstatus)
+
+                else:
+                    # Otros dialstatus (RINGING, BUSY, CONGESTION, NOANSWER, etc.)
+                    logging.info("Dial status: %s", dialstatus)
+                    if self.pstngw_hostname and id_camp and id_customer and tel_customer:
+                        call_data = {
+                            'id_camp': id_camp,
+                            'id_customer': id_customer,
+                            'tel_customer': tel_customer,
+                            'channel_id': peer_id or channel_id
+                        }
+                        # Publicar el evento ANSWER al RabbitMQ
+                        self.publish_message_if_needed(call_data, dialstatus)
+                    else:
+                        logging.warning("PSTNGW_HOSTNAME not set or no data extracted from caller name for ANSWER event. Message not published.")
+                        self.publish_message_if_needed(call_data, dialstatus)
+
+            elif re.match(r'^camp_\d+@omlacd$', dialstring):
+                # Es una llamada DIALER-AGENT
+                if dialstatus == 'NOANSWER':
+                    agent_channel_id = peer_id
+                    pstn_channel_id = self.agent_to_pstn.get(agent_channel_id)
+                    if pstn_channel_id:
+                        self.hangup_channel(pstn_channel_id)
+                        logging.info(f"Hung up PSTN channel {pstn_channel_id} due to agent no answer.")
+                    else:
+                        logging.warning(f"No PSTN channel ID found for agent channel {agent_channel_id}")
+                else:
+                    logging.info("Dial status: %s", dialstatus)
+            else:
+                # Si el dialstring no coincide con ninguno de los patrones anteriores
+                logging.info("Dial status: %s", dialstatus)
+
+        except Exception as e:
+            logging.error("Error handling dial event: %s", str(e))
+
     def handle_stasis_start(self, event):
-        """
-        Manejador de StasisStart para una nueva llamada.
-        """
         try:
             channel_data = self.extract_channel_data(event)
             if channel_data:
                 channel_id = channel_data.get('channel_id')
 
-                # Almacenar los datos de la llamada en self.calls
                 self.calls[channel_id] = channel_data
                 logging.info(f"Call data stored for channel {channel_id}")
 
@@ -166,14 +258,14 @@ class CallManager:
                     "bridge_id=%s, channel_id=%s",
                     channel_data.get('id_camp'), channel_data.get('id_customer'), channel_data.get('tel_customer'),
                     channel_data.get('channel_type'), channel_data.get('channel_id_pstn'),
-                    channel_data.get('bridge_id'), channel_id)
+                    channel_data.get('bridge_id'), channel_id
+                )
 
                 channel_type = channel_data.get('channel_type')
 
                 if channel_type == 'to_omlacd_dialout':
                     self.handle_to_omlacd_dialout(channel_id)
                 elif channel_type == 'to_omlacd_dialqueue':
-                    # Almacenar la asociación DIALER-AGENT channel ID a DIALER-PSTN channel ID
                     if channel_data.get('channel_id_pstn') and channel_id:
                         self.agent_to_pstn[channel_id] = channel_data.get('channel_id_pstn')
                         logging.info(f"Mapped agent channel {channel_id} to PSTN channel {channel_data.get('channel_id_pstn')}")
@@ -185,61 +277,6 @@ class CallManager:
         except Exception as e:
             logging.error("Error handling stasis start: %s", str(e))
 
-    def handle_dial(self, event):
-        try:
-            dialstatus = event.get('dialstatus')
-            dialstring = event.get('dialstring', 'Unknown')
-            peer = event.get('peer', {})
-            peer_id = peer.get('id')
-            channel = event.get('channel', {})
-            channel_id = channel.get('id')
-
-            if re.match(r'^camp_\d+@omlacd$', dialstring):
-                # Es una llamada DIALER-AGENT
-                if dialstatus == 'NOANSWER':
-                    agent_channel_id = peer_id  # Usamos peer_id como agent_channel_id
-                    # Obtener el canal DIALER-PSTN asociado
-                    pstn_channel_id = self.agent_to_pstn.get(agent_channel_id)
-                    if pstn_channel_id:
-                        self.hangup_channel(pstn_channel_id)
-                        logging.info(f"******************* {pstn_channel_id} **********************")
-                        logging.info(f"Hung up PSTN channel {pstn_channel_id} due to agent no answer.")
-                    else:
-                        logging.warning(f"No PSTN channel ID found for agent channel {agent_channel_id}")
-                else:
-                    logging.info("Dial status: %s", dialstatus)
-            elif re.match(r'^\d+@pstn_gateway$', dialstring):
-                # Es una llamada DIALER-PSTN
-                if dialstatus == '':
-                    # Incrementar el contador en Redis
-                    self.redis_client.incr('dialer_pstn_calls')
-                    logging.info("Incremented dialer_pstn_calls counter")
-                    # Almacenar el ID del canal peer
-                    if peer_id:
-                        self.pstn_channel_ids.add(peer_id)
-                        logging.info(f"Added PSTN channel id {peer_id} to tracking set")
-                else:
-                    logging.info("Dial status: %s", dialstatus)
-            else:
-                logging.info("Dial status: %s", dialstatus)
-        except Exception as e:
-            logging.error("Error handling dial event: %s", str(e))
-
-    def handle_channel_destroyed(self, event):
-        try:
-            channel = event.get('channel', {})
-            channel_id = channel.get('id')
-            if channel_id in self.pstn_channel_ids:
-                # Decrementar el contador en Redis
-                self.redis_client.decr('dialer_pstn_calls')
-                logging.info(f"Decremented dialer_pstn_calls counter for channel id {channel_id}")
-                # Remover el ID del canal del conjunto
-                self.pstn_channel_ids.remove(channel_id)
-            else:
-                logging.info(f"ChannelDestroyed for channel id {channel_id}, not a tracked PSTN channel")
-        except Exception as e:
-            logging.error("Error handling ChannelDestroyed event: %s", str(e))
-            
     def handle_channel_hangup_request(self, event):
         try:
             channel = event.get('channel', {})
@@ -248,16 +285,7 @@ class CallManager:
 
             if cause is not None:
                 logging.info("Channel %s hangup request with cause %s", channel_id, cause)
-
-                # Buscar el call_data correspondiente
-                call_data = self.calls.get(channel_id)
-                if not call_data:
-                    # Si no se encuentra, buscar en call_data donde el channel_id coincide con 'channel_id_pstn' o 'omlacd_channel_id'
-                    for cd in self.calls.values():
-                        if channel_id in [cd.get('channel_id'), cd.get('channel_id_pstn'), cd.get('omlacd_channel_id')]:
-                            call_data = cd
-                            break
-
+                call_data = self.find_call_data_by_channel_id(channel_id)
                 if call_data:
                     self.hangup_channel(call_data.get('omlacd_channel_id'))
                     self.hangup_channel(call_data.get('channel_id_pstn'))
@@ -273,6 +301,48 @@ class CallManager:
                 logging.info("Channel %s hangup request received but no cause provided", channel_id)
         except Exception as e:
             logging.error("Error handling hangup request: %s", str(e))
+
+    def handle_channel_destroyed(self, event):
+        try:
+            channel = event.get('channel', {})
+            channel_id = channel.get('id')
+            
+            caller = channel.get('caller', {})            
+            caller_name = caller.get('name', '')
+
+            id_camp, id_customer, tel_customer = self.parse_caller_name(caller_name)
+
+            dialstatus = self.channel_dialstatus.get(channel_id, "UNKNOWN")
+
+            if channel_id in self.pstn_channel_ids:
+                self.redis_client.decr('dialer_pstn_calls')
+                logging.info("Decremented dialer_pstn_calls counter for channel id %s", channel_id)
+                self.pstn_channel_ids.remove(channel_id)
+
+                if self.pstngw_hostname and id_camp and id_customer and tel_customer and dialstatus:
+                    if dialstatus != 'ANSWER':
+                        call_data = {
+                            'id_camp': id_camp,
+                            'id_customer': id_customer,
+                            'tel_customer': tel_customer,
+                            'channel_id': channel_id,
+                            'dialstatus': dialstatus
+                        }
+                        self.publish_message_if_needed(call_data, dialstatus)
+                    else:
+                        logging.info(f"Dialstatus is ANSWER, not publishing to RabbitMQ for channel {channel_id}.")
+                else:
+                    logging.warning(f"No call data extracted or PSTNGW_HOSTNAME not set or no dialstatus. Channel {channel_id}. Message not published.")
+            
+            else:
+                logging.info(f"ChannelDestroyed for channel id {channel_id}, not a tracked PSTN channel")
+
+            # Remover el dialstatus guardado para liberar memoria
+            if channel_id in self.channel_dialstatus:
+                del self.channel_dialstatus[channel_id]
+
+        except Exception as e:
+            logging.error("Error handling ChannelDestroyed event: %s", str(e))
 
     def handle_channel_dtmf_received(self, event):
         channel = event.get('channel', {})
@@ -330,6 +400,12 @@ class CallManager:
         except Exception as e:
             logging.error("Error handling channel state change: %s", str(e))
 
+    def find_call_data_by_channel_id(self, channel_id):
+        for cd in self.calls.values():
+            if channel_id in [cd.get('channel_id'), cd.get('channel_id_pstn'), cd.get('omlacd_channel_id')]:
+                return cd
+        return None
+
     def extract_channel_data(self, event):
         try:
             channel = event.get('channel', {})
@@ -342,7 +418,7 @@ class CallManager:
             channel_type = None
             queue_timeout = None
             channel_id_pstn = None
-            bridge_id = None  # Uso de 'bridge_id' consistentemente
+            bridge_id = None
             phone_number = None
             id_agent = None
             call_type = None
@@ -350,7 +426,7 @@ class CallManager:
             args = app_data.split(',')
 
             for arg in args:
-                key_value = arg.split(':', 1)  # Importante para manejar valores con ':'
+                key_value = arg.split(':', 1)
                 if len(key_value) == 2:
                     key, value = key_value
                     key = key.strip()
@@ -374,7 +450,7 @@ class CallManager:
                     elif key == 'channel_id_pstn':
                         channel_id_pstn = value
                     elif key in ('bridge_id', 'id_bridge'):
-                        bridge_id = value  # Unificamos el uso de 'bridge_id'
+                        bridge_id = value
                     elif key == 'id_agent':
                         id_agent = value
 
@@ -418,9 +494,6 @@ class CallManager:
             logging.error("Error al colgar el canal %s: %s", channel_id, str(e))
 
     def handle_to_omlacd_dialout(self, channel_id):
-        """
-        Maneja el inicio de una llamada de salida a OMLACD.
-        """
         logging.info("****** External Outbound Channel Start *****")
 
         call_data = self.calls.get(channel_id)
@@ -462,9 +535,6 @@ class CallManager:
         logging.info("Added channel %s to bridge %s", channel_id, bridge_id)
 
     def dial_to_omlacd_queue(self, channel_id):
-        """
-        Marca al agente para conectarlo con el cliente.
-        """
         try:
             call_data = self.calls.get(channel_id)
             if not call_data:
@@ -499,7 +569,6 @@ class CallManager:
                 variables=originate_data['variables']
             )
 
-            # Verificar si la respuesta indica éxito
             if response and isinstance(response, dict) and 'id' in response:
                 logging.info('Llamada generada exitosamente')
                 omlacd_channel_id = response['id']
@@ -544,6 +613,68 @@ class CallManager:
                 logging.warning("No bridge ID provided to delete_bridge")
         except Exception as e:
             logging.error("Error al eliminar el bridge %s: %s", bridge_id, str(e))
+
+    def parse_caller_name(self, caller_name):
+        if caller_name:
+            parts = caller_name.split('_')
+            if len(parts) == 3:
+                return parts[0], parts[1], parts[2]
+            else:
+                logging.warning("Caller name doesn't follow expected pattern id_camp_id_customer_tel_customer: %s", caller_name)
+                return None, None, None
+        else:
+            logging.warning("Caller name is empty, cannot extract call data")
+            return None, None, None
+
+    def publish_message_if_needed(self, call_data, event_type):
+        if not self.pstngw_hostname:
+            logging.warning("PSTNGW_HOSTNAME not set. Message not published.")
+            return
+
+        allowed_dialstatuses = {"ANSWER", "CANCEL", "BUSY", "CONGESTION", "AMD", "NOANSWER", "DIAL"}
+        if event_type not in allowed_dialstatuses:
+            logging.info(f"Dialstatus {event_type} is not in allowed list. Message not published.")
+            return
+
+        msg = {
+            'callid': call_data.get('channel_id'),
+            'campana_id': call_data.get('id_camp'),
+            'tipo_campana': '2',
+            'tipo_llamada': '2',
+            'agente_id': 'dialer-dialout',
+            'event': event_type,
+            'numero_marcado': call_data.get('tel_customer'),
+            'contacto_id': call_data.get('id_customer'),
+            'bridge_wait_time': '-1',
+            'duracion_llamada': '-1',
+            'archivo_grabacion': '-1',
+            'agente_extra_id': '-1',
+            'campana_extra_id': '-1',
+            'numero_extra': '-1'
+        }
+
+        self.publish_to_rabbitmq(msg)
+
+    def publish_to_rabbitmq(self, message):
+        try:
+            message_json = json.dumps(message)
+            self.rabbit_channel.basic_publish(
+                exchange='',
+                routing_key=self.rabbitmq_queue,
+                body=message_json,
+                properties=pika.BasicProperties(
+                    delivery_mode=pika.DeliveryMode.Persistent
+                )
+            )
+            logging.info(f"Mensaje publicado en RabbitMQ: {message_json}")
+            return True
+        except pika.exceptions.AMQPConnectionError as e:
+            logging.error(f"Error de conexión con RabbitMQ: {e}")
+            return False
+        except Exception as e:
+            logging.error(f"Error inesperado: {e}")
+            return False
+
 
 if __name__ == "__main__":
     ASTERISK_USER = os.getenv('ARI_USER', 'default_user')

@@ -39,9 +39,9 @@ fi
 
 # Reemplazar el hostname del PSTN si está definido
 if [[ -n "${PSTNGW_HOSTNAME}" ]]; then
-    sed -i "s/acd:5260/${PSTNGW_HOSTNAME}/g" /etc/asterisk/pjsip_wizard_pstngw.conf
+    sed -i "s/tel_gateway:5260/${PSTNGW_HOSTNAME}/g" /etc/asterisk/pjsip_wizard_pstngw.conf
 else
-    sed -i "s/acd:5260/${OMLACD_SIP_ADDR}/g" /etc/asterisk/pjsip_wizard_pstngw.conf
+    sed -i "s/tel_gateway:5260/${OMLACD_SIP_ADDR}/g" /etc/asterisk/pjsip_wizard_pstngw.conf
 fi
 
 # Iniciar el servidor Asterisk

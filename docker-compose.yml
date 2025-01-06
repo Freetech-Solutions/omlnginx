@@ -3,7 +3,7 @@ services:
     build:
       target: run
       context: ./interface/src
-    image: ${API_IMG}  
+    image: ${API_IMG}
     container_name: omnidialer-api
     ports:
       - '1440:1440'
@@ -21,6 +21,7 @@ services:
   scheduler:
     build:
       context: ./scheduler/src
+    image: ${API_IMG}  
     container_name: omnidialer-scheduler
     volumes:
       - ./scheduler/src:/app
@@ -370,8 +371,11 @@ services:
     container_name: omnidialer-dialplan
     depends_on:
       - dialer_asterisk
+    env_file:
+      - .env  
     environment:
       - TZ=${TZ}
+      - RABBITMQ_HOST=${RABBITMQ_OML_SERVER}
       - REDIS_HOSTNAME=${REDIS_OML_SERVER}
       - REDIS_PORT=${REDIS_OML_PORT}
       - ARI_HOST=${ASTERISK_HOST}

@@ -67,6 +67,15 @@ container-image-worker:
     VERSION_FILE: "workers/handle-campaign/src/version.txt"
     BUILD_CONTEXT: "workers/handle-campaign/src"
 
+container-image-scheduler:
+  extends: .build_template
+  stage: build
+  variables:
+    IMAGE_NAME: "dialer_scheduler"
+    DOCKERFILE_PATH: "scheduler/src/Dockerfile"
+    VERSION_FILE: "scheduler/src/version.txt"
+    BUILD_CONTEXT: "scheduler/src"
+
 container-image-websocket_ari:
   extends: .build_template
   stage: build
