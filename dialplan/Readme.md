@@ -25,11 +25,11 @@ This component is responsible for managing outbound calls in an Asterisk-based e
 
 ## Environment Variables
 
-- `ARI_USER`, `ARI_PASS`: Credentials for Asterisk ARI.
-- `ARI_HOST`, `ARI_PORT`: Host and port for connecting to the ARI.
+- `ASTERISK_USER`, `ASTERISK_PASS`: Credentials for Asterisk ARI.
+- `ASTERISK_HOST`, `ASTERISK_PORT`: Host and port for connecting to the ARI.
 - `ASTERISK_APP`: The ARI Stasis application name.
-- `REDIS_HOSTNAME`, `REDIS_PORT`, `REDIS_DB`: Redis configuration.
-- `RABBITMQ_HOST`: Host for RabbitMQ connection.
+- `REDIS_OML_SERVER`, `REDIS_PORT`, `REDIS_DB`: Redis configuration.
+- `RABBITMQ_OML_SERVER`: Host for RabbitMQ connection.
 - `POSTGRES_HOST`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`: For the consumer that stores call logs into PostgreSQL.
 - `PSTNGW_HOSTNAME`: This environment variable activates a mode where outbound calls use a separate PSTN gateway, independent of the OmniLeads Automatic Call Distributor. This effectively removes all outbound call generation traffic from the application's ACD and directs it to the PSTN.
 
@@ -93,7 +93,7 @@ Active Configuration: The configuration activated by these variables is as follo
 - If `PSTNGW_HOSTNAME` is not set, no messages will be published to RabbitMQ.
 - If RabbitMQ or PostgreSQL connections fail, the script logs errors and tries to handle these gracefully (requeue messages, etc.).
 - Check Asterisk ARI logs if no events seem to be received.
-- Ensure the correct ARI endpoint (`ARI_HOST`, `ARI_PORT`) and credentials are specified.
+- Ensure the correct ARI endpoint (`ASTERISK_HOST`, `ASTERISK_PORT`) and credentials are specified.
 
 ## License
 

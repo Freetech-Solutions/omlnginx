@@ -1,37 +1,47 @@
-REPO=omnileads
+# IMG
+REPO=docker.io/omnileads
 API_IMG=${REPO}/dialer_api:dev
 SCHEDULER_IMG=${REPO}/dialer_scheduler:dev
 LISTENER_IMG=${REPO}/dialer_listener:dev
 WORKER_IMG=${REPO}/dialer_worker:dev
 DIALPLAN_IMG=${REPO}/dialer_dialplan:dev
 ASTERISK_IMG=${REPO}/dialer_asterisk:dev
+POSTGRES_IMG=docker.io/library/postgres:14.9-bullseye
+GEARMAN_IMG=docker.io/artefactual/gearmand:1.1.18-alpine
+REDIS_IMG=docker.io/redis:7.2.5-alpine
+
 
 TZ=America/Argentina/Cordoba
+
 ASTERISK_USER=omnileadsami
 ASTERISK_PASS=5_MeO_DMT
 ASTERISK_HOST=dialer_asterisk
 ASTERISK_PORT=8888
 ASTERISK_APP_DIALER=call_manager_dialer
 ASTERISK_APP=call_manager
+# ASTERISK_SIP_NAT_ADDR=10.10.10.4
+
 REDIS_OML_SERVER=oml-redis
 REDIS_OML_PORT=6379
 REDIS_DIALER_SERVER=oml-redis
 REDIS_DIALER_PORT=6379
+
 POSTGRES_OML_PASSWORD=admin123
 POSTGRES_OML_SERVER=oml-postgres
 POSTGRES_OML_PORT=5432
 RABBITMQ_OML_SERVER=oml-rabbit-mq
+
 GEARMAN_JOB_SERVERS=gearman_job_server_1:4730
 GEARMAN_JOBS=start-campaign|stop-campaign|resume-campaign|process-contact|schedule-contact|process-event|create-campaign|edit-campaign|pause-campaign|delete-campaign|send-reports|add-incidence-rule-disposition|create-incidence-rule|process-campaign|delete-incidence-rule|update-incidence-rule|schedule-agenda|change-database
 PYTHON_LOGLEVEL=warning
 DIALER_ACD_HOST=pstn_gateway
+CAPS=3
+
 POSTGRES_DIALER_USER=omnidialer
 POSTGRES_DIALER_PASSWORD=dialer456
 POSTGRES_DIALER_SERVER=dialer-postgres
 POSTGRES_DIALER_PORT=5433
 POSTGRES_DIALER_DB=omnidialer
-NETWORK=oml_omnileads
-CAPS=3
 
 # Asterisk
 # PSTNGW_REGISTER=yes
@@ -42,3 +52,4 @@ CAPS=3
 ### ACD omnileads asterisk ACD SIP Peer (for dialer_asterisk)
 OMLACD_SIP_ADDR=oml-acd:5260
 ASTERISK_IPV4=10.22.22.199
+NETWORK=oml_omnileads

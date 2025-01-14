@@ -11,6 +11,8 @@ FROM python:3.8-alpine AS run
 
 WORKDIR /app
 
+RUN apk add tzdata
+
 COPY --from=builder /usr/local /usr/local
 COPY . /app
 

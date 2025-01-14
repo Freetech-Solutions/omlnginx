@@ -24,6 +24,12 @@ if [[ -n "${OMLACD_SIP_ADDR}" ]]; then
     sed -i "s/acd:5260/${OMLACD_SIP_ADDR}/g" /etc/asterisk/pjsip_wizard_omlacd.conf
 fi
 
+# Configuración de NAT & SIP
+if [[ -n "${SIP_NAT_ADDR}" ]]; then
+    sed -i "s#;external_media_address=localhost#external_media_address=${SIP_NAT_ADDR}#g" /etc/asterisk/pjsip.conf
+    sed -i "s#;external_signaling_address=localhost#external_signaling_address=${SIP_NAT_ADDR}#g" /etc/asterisk/pjsip.conf    
+fi
+
 # Configuración opcional para SIP Gateway PSTN
 if [[ -n "${PSTNGW_REGISTER}" && "${PSTNGW_REGISTER}" == "yes" ]]; then
     sed -i "s/sends_registrations=no/sends_registrations=yes/g" /etc/asterisk/pjsip_wizard_pstngw.conf

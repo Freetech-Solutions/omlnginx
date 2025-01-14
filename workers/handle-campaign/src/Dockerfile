@@ -13,6 +13,8 @@ RUN pip3 install -r requirements.txt
 
 FROM python:3.6-alpine AS run
 
+RUN apk add tzdata
+
 WORKDIR /app
 
 COPY --from=builder /usr/local /usr/local
