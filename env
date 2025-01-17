@@ -1,5 +1,6 @@
 REPO=omnileads
 API_IMG=${REPO}/dialer_api:dev
+SCHEDULER_IMG=${REPO}/dialer_scheduler:dev
 LISTENER_IMG=${REPO}/dialer_listener:dev
 WORKER_IMG=${REPO}/dialer_worker:dev
 DIALPLAN_IMG=${REPO}/dialer_dialplan:dev

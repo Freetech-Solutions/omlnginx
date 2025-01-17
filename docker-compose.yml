@@ -21,7 +21,7 @@ services:
   scheduler:
     build:
       context: ./scheduler/src
-    image: ${API_IMG}  
+    image: ${SCHEDULER_IMG}
     container_name: omnidialer-scheduler
     volumes:
       - ./scheduler/src:/app
