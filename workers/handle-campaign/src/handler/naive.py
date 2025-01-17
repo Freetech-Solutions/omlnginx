@@ -987,59 +987,11 @@ class AverageWorker(DialerWorker):
                             'status': new_status}))
 
     @classmethod
-    def finalize_campaign(cls, id_campaign):
-        logger.debug(f'Stopping campaign with id = {id_campaign}')
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
-            cls.set_campaign_status(id_campaign, FINALIZED)
-            cursor = conn.cursor()
-            # move all the data of the campaign to the historical tables
-            # 1- copy campaign table
-            logger.debug(f'Campaign {id_campaign}: copying campaign table data')
-            cursor.execute('SELECT * FROM ONLY campaign WHERE id = %s;', (id_campaign,))
-            campaign_data_initial = cursor.fetchone()
-            statistics = json.dumps(campaign_data_initial[-3])
-            campaign_data = campaign_data_initial[:-3] + (statistics, campaign_data_initial[-2],
-                                                          campaign_data_initial[-1])
-            sql1 = 'INSERT INTO campaign_historic VALUES'
-            sql2 = ' ({0} %s);'.format('%s, ' * 25)
-            sql = sql1 + sql2
-            cursor.execute(sql, campaign_data)
-            # 2- copy incidence rules
-            logger.debug(f'Campaign {id_campaign}: copying incidence rules data')
-            cursor.execute(
-                'SELECT * FROM ONLY incidence_rules WHERE campaign_id = %s;', (id_campaign,))
-            for incidence_rule in cursor.fetchall():
-                cursor.execute(
-                    'INSERT INTO incidence_rules_historic VALUES (%s, %s, %s, %s, %s, %s, %s);',
-                    incidence_rule)
-            cursor.execute(
-                'SELECT * FROM ONLY incidence_rules_disposition WHERE campaign_id = %s;',
-                (id_campaign,))
-            for incidence_rule in cursor.fetchall():
-                cursor.execute('INSERT INTO incidence_rules_disposition_historic VALUES'
-                               ' (%s, %s, %s, %s, %s, %s);', incidence_rule)
-            # 3- copy contacts
-            logger.debug(f'Campaign {id_campaign}: copying contacts data')
-            size = 1000
-            cursor.execute('SELECT * FROM ONLY contact_in_campaign WHERE id_campaign = %s',
-                           (id_campaign,))
-            while True:
-                cursor_insert = conn.cursor()
-                contacts = cursor.fetchmany(size=size)
-                if not contacts:
-                    break
-                for contact in contacts:
-                    cursor_insert.execute('INSERT INTO contact_in_campaign_historic VALUES'
-                                          ' (%s, %s, %s, %s, %s, %s, %s, %s, %s);', contact)
-            # 4- remove original campaign data
-            logger.debug(f'Campaign {id_campaign}: removing original campaign data')
-            cursor.execute('DELETE FROM ONLY campaign WHERE id = %s', (id_campaign,))
-
-    @classmethod
     @exception_handler_decorator
     def stop_campaign(cls, worker, job):
         id_campaign = int(job.data)
-        cls.finalize_campaign(id_campaign)
+        logger.debug(f'Stopping campaign with id = {id_campaign}')
+        cls.set_campaign_status(id_campaign, FINALIZED)
         return b'Campaign was finalized'
 
     @classmethod
