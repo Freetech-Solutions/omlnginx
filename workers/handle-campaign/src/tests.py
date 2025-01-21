@@ -13,7 +13,7 @@ import psycopg
 from gearman.job import GearmanJob
 from gearman.worker import GearmanWorker
 
-from handler.naive import AverageWorker, ACTIVE, PAUSED
+from handler.naive import AverageWorker, ACTIVE, PAUSED, FINALIZED
 
 
 class MyTestSuite(unittest.TestCase):
@@ -169,36 +169,8 @@ class MyTestSuite(unittest.TestCase):
             # testing stop-campaign
             job = GearmanJob(None, None, None, None, b'4')
             AverageWorker.stop_campaign(worker, job)
-            cursor_dialer.execute('SELECT * FROM ONLY campaign WHERE id = %s', (id_campaign,))
-            self.assertEqual(cursor_dialer.fetchone(), None)
-            cursor_dialer.execute(
-                'SELECT * FROM ONLY incidence_rules WHERE campaign_id = %s', (id_campaign,))
-            self.assertEqual(cursor_dialer.fetchone(), None)
-            cursor_dialer.execute(
-                'SELECT * FROM ONLY incidence_rules_disposition WHERE campaign_id = %s',
-                (id_campaign,))
-            self.assertEqual(cursor_dialer.fetchone(), None)
-            cursor_dialer.execute(
-                'SELECT * FROM ONLY contact_in_campaign WHERE id_campaign = %s',
-                (id_campaign,))
-            self.assertEqual(cursor_dialer.fetchone(), None)
-            cursor_dialer.execute('SELECT COUNT(*) FROM ONLY campaign_historic WHERE id = %s',
-                                  (id_campaign,))
-            self.assertEqual(cursor_dialer.fetchone()[0], 1)
-            cursor_dialer.execute(
-                'SELECT COUNT(*) FROM ONLY incidence_rules_historic WHERE campaign_id = %s',
-                (id_campaign,))
-            self.assertEqual(cursor_dialer.fetchone()[0], 2)
-            cursor_dialer.execute(
-                'SELECT COUNT(*) FROM ONLY incidence_rules_disposition_historic WHERE'
-                ' campaign_id = %s',
-                (id_campaign,))
-            self.assertEqual(cursor_dialer.fetchone()[0], 2)
-            cursor_dialer.execute(
-                'SELECT COUNT(*) FROM ONLY contact_in_campaign_historic WHERE'
-                ' id_campaign = %s',
-                (id_campaign,))
-            self.assertEqual(cursor_dialer.fetchone()[0], 2)
+            status_campaign = AverageWorker.get_campaign_status(id_campaign, cursor_dialer)
+            self.assertEqual(status_campaign, FINALIZED)
 
 
 if __name__ == '__main__':
