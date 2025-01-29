@@ -27,8 +27,8 @@ class CallManager:
 
         # Init redis cli
         self.redis_client = redis.Redis(
-            host=os.getenv('REDIS_HOSTNAME', 'localhost'),
-            port=int(os.getenv('REDIS_PORT', 6379)),
+            host=os.getenv('REDIS_OML_SERVER', 'localhost'),
+            port=int(os.getenv('REDIS_OML_PORT', 6379)),
             db=int(os.getenv('REDIS_DB', 0))
         )
 
@@ -42,14 +42,14 @@ class CallManager:
         self.agent_to_pstn = {}
         self.channel_dialstatus = {}
         # Configuración de RabbitMQ
-        self.rabbitmq_host = os.getenv("RABBITMQ_HOST", "localhost")
+        self.RABBITMQ_OML_SERVER = os.getenv("RABBITMQ_OML_SERVER", "localhost")
         self.rabbitmq_queue = 'call_log_processor'  
         self.pstngw_hostname = os.getenv("PSTNGW_HOSTNAME")
 
         # Establecemos conexión y canal persistentes con RabbitMQ
         self.rabbit_connection = pika.BlockingConnection(
             pika.ConnectionParameters(
-                host=self.rabbitmq_host,
+                host=self.RABBITMQ_OML_SERVER,
                 heartbeat=600,
                 blocked_connection_timeout=300
             )
@@ -677,10 +677,10 @@ class CallManager:
 
 
 if __name__ == "__main__":
-    ASTERISK_USER = os.getenv('ARI_USER', 'default_user')
-    ASTERISK_PASS = os.getenv('ARI_PASS', 'default_pass')
-    ASTERISK_HOST = os.getenv('ARI_HOST', 'acd_dialer')
-    ASTERISK_PORT = os.getenv('ARI_PORT', '7088')
+    ASTERISK_USER = os.getenv('ASTERISK_USER', 'default_user')
+    ASTERISK_PASS = os.getenv('ASTERISK_PASS', 'default_pass')
+    ASTERISK_HOST = os.getenv('ASTERISK_HOST', 'acd_dialer')
+    ASTERISK_PORT = os.getenv('ASTERISK_PORT', '7088')
     ASTERISK_APP = 'call_manager'
 
     ari_client = ARI(

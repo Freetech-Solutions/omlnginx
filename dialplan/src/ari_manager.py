@@ -7,10 +7,10 @@ import logging
 class ARI:
 
     def __init__(self, user=None, password=None, host=None, port=None):
-        self.host = host if host is not None else os.getenv('ARI_HOST', 'acd')
-        self.port = port if port is not None else os.getenv('ARI_PORT', '7088')
-        self.user = user if user is not None else os.getenv('ARI_USER', 'omnileads')
-        self.password = password if password is not None else os.getenv('ARI_PASS')
+        self.host = host if host is not None else os.getenv('ASTERISK_HOST', 'acd')
+        self.port = port if port is not None else os.getenv('ASTERISK_PORT', '7088')
+        self.user = user if user is not None else os.getenv('ASTERISK_USER', 'omnileads')
+        self.password = password if password is not None else os.getenv('ASTERISK_PASS')
 
     def post(self, route, payload=None, headers=None):
         uri = f'http://{self.host}:{self.port}/ari/{route}'

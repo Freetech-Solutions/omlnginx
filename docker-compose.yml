@@ -18,6 +18,15 @@ services:
     environment:
       - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
 
+  job_server:
+    image: artefactual/gearmand:1.1.18-alpine
+    container_name: gearman_job_server_1
+    ports:
+      - '4730:4730'
+    networks:
+      - network1
+    command: gearmand -t 1
+
   scheduler:
     build:
       context: ./scheduler/src
@@ -40,14 +49,28 @@ services:
       - REDIS_DIALER_PORT=${REDIS_DIALER_PORT}
       - TZ=${TZ}
 
-  job_server:
-    image: artefactual/gearmand:1.1.18-alpine
-    container_name: gearman_job_server_1
-    ports:
-      - '4730:4730'
+  websocket_ari:
+    container_name: omnidialer_websocket_ari
+    build:
+      context: ./websocket_ari/src
+    image: ${LISTENER_IMG}  
     networks:
       - network1
-    command: gearmand -t 1
+    tty: true
+    stdin_open: true
+    environment:
+      - ASTERISK_HOST=${ASTERISK_HOST}
+      - ASTERISK_PORT=${ASTERISK_PORT}
+      - ASTERISK_USER=${ASTERISK_USER}
+      - ASTERISK_PASS=${ASTERISK_PASS}
+      - ASTERISK_APP=${ASTERISK_APP}
+      - ASTERISK_APP_DIALER=${ASTERISK_APP_DIALER}
+      - TZ=${TZ}
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
+    depends_on:
+      - job_server
+      - postgresql
+      - worker
 
   worker:
     build:
@@ -81,71 +104,6 @@ services:
     depends_on:
       - job_server
       - postgresql
- 
-  redisinsight:
-    container_name: omnidialer-redisinsight
-    dns: 8.8.8.8
-    environment:
-      - TZ=${TZ}
-      - BIND_IP=0.0.0.0
-    networks:
-      - network1
-    ports:
-      - '5540:5540'
-    expose:
-      - '5540'
-    image: redis/redisinsight:latest
-    privileged: true
-    restart: on-failure
-    stop_grace_period: 1m30s
-    volumes:
-      - redis_redisinsight:/data
-
-  postgresql:
-    container_name: dialer-postgres
-    dns: 8.8.8.8
-    environment:
-      - TZ=${TZ}
-      - POSTGRES_USER=${POSTGRES_DIALER_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_DIALER_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DIALER_DB}
-      - PGPORT=5433
-    image: postgres:14.9-bullseye
-    networks:
-      - network1
-    expose:
-      - "5433"
-    ports:
-      - ${POSTGRES_DIALER_PORT}:5433
-    privileged: true
-    restart: on-failure
-    stop_grace_period: 1m30s
-    volumes:
-      - omnidialer-postgresql:/var/lib/postgresql/data
-      - ./omnidialer.sql:/docker-entrypoint-initdb.d/init.sql
-
-  websocket_ari:
-    container_name: omnidialer_websocket_ari
-    build:
-      context: ./websocket_ari/src
-    image: ${LISTENER_IMG}  
-    networks:
-      - network1
-    tty: true
-    stdin_open: true
-    environment:
-      - ASTERISK_HOST=${ASTERISK_HOST}
-      - ASTERISK_PORT=${ASTERISK_PORT}
-      - ASTERISK_USER=${ASTERISK_USER}
-      - ASTERISK_PASS=${ASTERISK_PASS}
-      - ASTERISK_APP=${ASTERISK_APP}
-      - ASTERISK_APP_DIALER=${ASTERISK_APP_DIALER}
-      - TZ=${TZ}
-      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
-    depends_on:
-      - job_server
-      - postgresql
-      - worker
 
   process_contact_worker:
     image: ${WORKER_IMG}
@@ -373,19 +331,34 @@ services:
       - dialer_asterisk
     env_file:
       - .env  
-    environment:
-      - TZ=${TZ}
-      - RABBITMQ_HOST=${RABBITMQ_OML_SERVER}
-      - REDIS_HOSTNAME=${REDIS_OML_SERVER}
-      - REDIS_PORT=${REDIS_OML_PORT}
-      - ARI_HOST=${ASTERISK_HOST}
-      - ARI_PORT=${ASTERISK_PORT}
-      - ARI_USER=${ASTERISK_USER}
-      - ARI_PASS=${ASTERISK_PASS}
     restart: on-failure
     stop_grace_period: 30s
     networks:
       - network1  
+
+  postgresql:
+    container_name: dialer-postgres
+    dns: 8.8.8.8
+    environment:
+      - TZ=${TZ}
+      - POSTGRES_USER=${POSTGRES_DIALER_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_DIALER_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DIALER_DB}
+      - PGPORT=5433
+    image: ${POSTGRES_IMG}
+    networks:
+      - network1
+    expose:
+      - "5433"
+    ports:
+      - ${POSTGRES_DIALER_PORT}:5433
+    privileged: true
+    restart: on-failure
+    stop_grace_period: 1m30s
+    volumes:
+      - omnidialer-postgresql:/var/lib/postgresql/data
+      - ./omnidialer.sql:/docker-entrypoint-initdb.d/init.sql
+
 
 networks:
   network1:

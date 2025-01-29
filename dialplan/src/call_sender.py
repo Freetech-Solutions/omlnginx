@@ -9,10 +9,10 @@ from ari_manager import ARI
 # Configurar logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-ASTERISK_USER = os.getenv('ARI_USER', 'default_user')
-ASTERISK_PASS = os.getenv('ARI_PASS', 'default_pass')
-ASTERISK_HOST = os.getenv('ARI_HOST', 'dialer_acd')
-ASTERISK_PORT = os.getenv('ARI_PORT', '8888')
+ASTERISK_USER = os.getenv('ASTERISK_USER', 'default_user')
+ASTERISK_PASS = os.getenv('ASTERISK_PASS', 'default_pass')
+ASTERISK_HOST = os.getenv('ASTERISK_HOST', 'dialer_acd')
+ASTERISK_PORT = os.getenv('ASTERISK_PORT', '8888')
 ASTERISK_APP = os.getenv('ASTERISK_APP', 'call_manager')
 PSTN_GATEWAY = os.getenv('PSTN_GW', 'pstn_gateway')
 
