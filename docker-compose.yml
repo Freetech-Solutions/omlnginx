@@ -72,6 +72,25 @@ services:
       - postgresql
       - worker
 
+  redisinsight:
+    container_name: omnidialer-redisinsight
+    dns: 8.8.8.8
+    environment:
+      - TZ=${TZ}
+      - BIND_IP=0.0.0.0
+    networks:
+      - network1
+    ports:
+      - '5540:5540'
+    expose:
+      - '5540'
+    image: redis/redisinsight:latest
+    privileged: true
+    restart: on-failure
+    stop_grace_period: 1m30s
+    volumes:
+      - redis_redisinsight:/data
+
   worker:
     build:
       context: ./workers/handle-campaign/src

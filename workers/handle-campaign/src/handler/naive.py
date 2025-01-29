@@ -571,9 +571,9 @@ class AverageWorker(DialerWorker):
     @classmethod
     def get_active_channels(cls, id_campaign):
         cls.connect_redis_oml()
-        active_channels = cls.REDIS_OML_CONNECTION.get('dialer_pstn_calls')
+        active_channels = cls.REDIS_OML_CONNECTION.get(f'OML:CALLS:{id_campaign}:DIALER')
         if active_channels is None:
-            logger.debug('dialer_pstn_calls key not available, check your OML installation')
+            logger.debug(f'OML:CALLS:{id_campaign}:DIALER key not available, check your OML installation')
             return -1
         return int(active_channels)
 
@@ -598,7 +598,10 @@ class AverageWorker(DialerWorker):
         if active_channels < campaign_max_available_channels:
             if total_available_agents >= active_channels:
                 if active_campaigns > 0:
-                    return available_agents / active_campaigns
+                    # TODO: figure out how to get back to this heuristic when the agents
+                    # are assigned to the same campaign
+                    # return available_agents / active_campaigns
+                    return available_agents
                 return 0
             logger.debug(f"Campaign {id_campaign}: too much calls for available agents")
             return 0
