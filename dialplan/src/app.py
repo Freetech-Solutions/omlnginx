@@ -27,8 +27,8 @@ class CallManager:
 
         # Init redis cli
         self.redis_client = redis.Redis(
-            host=os.getenv('REDIS_OML_SERVER', 'localhost'),
-            port=int(os.getenv('REDIS_OML_PORT', 6379)),
+            host=os.getenv('REDIS_DIALER_SERVER', 'localhost'),
+            port=int(os.getenv('REDIS_DIALER_PORT', 6379)),
             db=int(os.getenv('REDIS_DB', 0))
         )
 

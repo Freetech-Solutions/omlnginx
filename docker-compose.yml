@@ -139,8 +139,9 @@ services:
 
   process_campaign_worker:
     image: ${WORKER_IMG}
-    container_name: process-campaign-1
     env_file: .env
+    deploy:
+      replicas: 5
     environment:
       - GEARMAN_JOBS=process-campaign
       - CAPS=${CAPS}
