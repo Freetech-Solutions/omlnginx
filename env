@@ -1,55 +1,79 @@
-# IMG
-REPO=docker.io/omnileads
-API_IMG=${REPO}/dialer_api:dev
-SCHEDULER_IMG=${REPO}/dialer_scheduler:dev
-LISTENER_IMG=${REPO}/dialer_listener:dev
-WORKER_IMG=${REPO}/dialer_worker:dev
-DIALPLAN_IMG=${REPO}/dialer_dialplan:dev
-ASTERISK_IMG=${REPO}/dialer_asterisk:dev
+# --- OMnidialer container images
+API_IMG=docker.io/freetechsolutions/dialer_api:250106.01
+LISTENER_IMG=docker.io/freetechsolutions/dialer_listener:250106.01
+WORKER_IMG=docker.io/freetechsolutions/dialer_worker:250106.01
+SCHEDULER_IMG=docker.io/freetechsolutions/dialer_scheduler:250106.01
+DIALPLAN_IMG=docker.io/freetechsolutions/dialer_dialplan:250106.01
+ASTERISK_IMG=docker.io/freetechsolutions/dialer_asterisk:250106.01
+# --- 3rd party container images
 POSTGRES_IMG=docker.io/library/postgres:14.9-bullseye
 GEARMAN_IMG=docker.io/artefactual/gearmand:1.1.18-alpine
 REDIS_IMG=docker.io/redis:7.2.5-alpine
 
-
+# --- Time Zone
 TZ=America/Argentina/Cordoba
 
+# --- Asterisk dialer container params
 ASTERISK_USER=omnileadsami
-ASTERISK_PASS=5_MeO_DMT
-ASTERISK_HOST=dialer_asterisk
+ASTERISK_PASS=amipassword
+ASTERISK_HOST=asterisk
 ASTERISK_PORT=8888
 ASTERISK_APP_DIALER=call_manager_dialer
 ASTERISK_APP=call_manager
-# ASTERISK_SIP_NAT_ADDR=10.10.10.4
+# --- Asterisk dialer IPV4 container or NAT ADDR
+ASTERISK_IPV4=10.22.22.199
 
+# --- Redis OML & dialer conn params
 REDIS_OML_SERVER=oml-redis
 REDIS_OML_PORT=6379
 REDIS_DIALER_SERVER=oml-redis
 REDIS_DIALER_PORT=6379
+REDIS_DB=3
 
+# --- Postgres OML & dialer conn params
+POSTGRES_OML_USER=omnileads
 POSTGRES_OML_PASSWORD=admin123
 POSTGRES_OML_SERVER=oml-postgres
 POSTGRES_OML_PORT=5432
-RABBITMQ_OML_SERVER=oml-rabbit-mq
-
-GEARMAN_JOB_SERVERS=gearman_job_server_1:4730
-GEARMAN_JOBS=start-campaign|stop-campaign|resume-campaign|process-contact|schedule-contact|process-event|create-campaign|edit-campaign|pause-campaign|delete-campaign|send-reports|add-incidence-rule-disposition|create-incidence-rule|process-campaign|delete-incidence-rule|update-incidence-rule|schedule-agenda|change-database
-PYTHON_LOGLEVEL=warning
-DIALER_ACD_HOST=pstn_gateway
-CAPS=3
+POSTGRES_OML_DB=omnileads
 
 POSTGRES_DIALER_USER=omnidialer
 POSTGRES_DIALER_PASSWORD=dialer456
-POSTGRES_DIALER_SERVER=dialer-postgres
+POSTGRES_DIALER_SERVER=postgresql
 POSTGRES_DIALER_PORT=5433
 POSTGRES_DIALER_DB=omnidialer
 
-# Asterisk
+# --- RabbitMQ OML conn params
+RABBITMQ_OML_SERVER=oml-rabbit-mq
+
+# --- Gearman conn params
+GEARMAN_JOB_SERVERS=gearman_server:4730
+GEARMAN_JOBS=start-campaign|stop-campaign|resume-campaign|process-contact|schedule-contact|process-event|create-campaign|edit-campaign|pause-campaign|delete-campaign|send-reports|add-incidence-rule-disposition|create-incidence-rule|process-campaign
+
+DIALER_ACD_HOST=pstn_gateway
+
+# --- Log level
+PYTHON_LOGLEVEL=debug
+
+# --- OMniLeads ACD SIP Peer when dialer send calls
+OMLACD_SIP_ADDR=oml-acd:5260
+
+# --- Call attempts per second
+CAPS=1
+
+# --- Workers replicas
+PROCESS_CAMPAIGN_REPLICAS=5
+PROCESS_CONTACT_REPLICAS=3
+PROCESS_EVENT_REPLICAS=3
+
+# --- Network docker name
+NETWORK=oml_omnileads
+
+# --- Dial through PSTN Gateway settings
+# --- In order to use this feature, you must have a PSTN Gateway configured 
+# --- with SIP registration and authentication enabled.
 # PSTNGW_REGISTER=yes
 # PSTNGW_SIP_AUTH=yes
-# PSTNGW_SIP_USER=01177660020
+# PSTNGW_SIP_USER=01177660010
 # PSTNGW_SIP_PASS=omnileads
-# PSTNGW_HOSTNAME=oml-pbxemulator:5070
-### ACD omnileads asterisk ACD SIP Peer (for dialer_asterisk)
-OMLACD_SIP_ADDR=oml-acd:5260
-ASTERISK_IPV4=10.22.22.199
-NETWORK=oml_omnileads
+# PSTNGW_HOSTNAME=pbxemulator:5070
