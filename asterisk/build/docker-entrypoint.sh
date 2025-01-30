@@ -25,9 +25,9 @@ if [[ -n "${OMLACD_SIP_ADDR}" ]]; then
 fi
 
 # Configuración de NAT & SIP
-if [[ -n "${SIP_NAT_ADDR}" ]]; then
-    sed -i "s#;external_media_address=localhost#external_media_address=${SIP_NAT_ADDR}#g" /etc/asterisk/pjsip.conf
-    sed -i "s#;external_signaling_address=localhost#external_signaling_address=${SIP_NAT_ADDR}#g" /etc/asterisk/pjsip.conf    
+if [[ -n "${ASTERISK_SIP_NAT_ADDR}" ]]; then
+    sed -i "s#;external_media_address=localhost#external_media_address=${ASTERISK_SIP_NAT_ADDR}#g" /etc/asterisk/pjsip.conf
+    sed -i "s#;external_signaling_address=localhost#external_signaling_address=${ASTERISK_SIP_NAT_ADDR}#g" /etc/asterisk/pjsip.conf    
 fi
 
 # Configuración opcional para SIP Gateway PSTN
