@@ -4,7 +4,7 @@ stages:
 
 test:
   stage: test
-  image: python:3.8-alpine
+  image: python:3.6-alpine
   before_script:
     - python -m pip install --upgrade pip
     - pip install flake8
