@@ -1105,7 +1105,8 @@ class AverageWorker(DialerWorker):
             if incidence_rule_applied:
                 status = cls.get_campaign_status(id_campaign, cursor_dialer)
                 if status == PAUSED:
-                    cls.set_campaign_status(id_campaign, ACTIVE, cursor=cursor_dialer, sync_omnileads=True)
+                    cls.set_campaign_status(id_campaign, ACTIVE, cursor=cursor_dialer,
+                                            sync_omnileads=True)
                     message = json.dumps({'id_campaign': id_campaign})
                     cls.GM_CLIENT.submit_job('process-campaign', message, background=True)
             return b'Disposition for incidence rule was added!'
