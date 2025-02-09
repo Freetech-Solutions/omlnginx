@@ -479,7 +479,7 @@ class AverageWorker(DialerWorker):
             if cls.all_contacts_were_attempted(id_campaign) and \
                cls.no_active_incidence_rules(id_campaign) and cls.no_active_agendas():
                 logger.debug(f'Campaign {id_campaign}: no more contacts pending for call')
-                cls.set_campaign_status(id_campaign, PAUSED, sync_omnileads=True)
+                cls.set_campaign_status(id_campaign, FINALIZED, sync_omnileads=True)
                 cls.connect_redis_oml()
                 cls.REDIS_OML_CONNECTION.publish(
                     'OML:CHANNEL:DIALER',
