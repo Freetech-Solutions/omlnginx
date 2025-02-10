@@ -349,6 +349,7 @@ class AverageWorker(DialerWorker):
         id_campaign = data['id_campaign']
         logger.debug(f'Creating the campaign {id_campaign}')
         contact_strategy = data['contact_strategy']
+        cls.connect_redis_dialer()
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             with conn_dialer.transaction():
                 cursor_dialer = conn_dialer.cursor()
@@ -386,6 +387,7 @@ class AverageWorker(DialerWorker):
                             (id, disposition_option_id, max_attempt, retry_later, in_mode,
                             campaign_id) VALUES (%s, %s, %s, %s, %s, %s);""", incidence_rule)
                     cls.copy_contacts_from_oml(cursor_dialer, cursor_oml, id_campaign)
+                    cls.REDIS_DIALER_CONNECTION.set(f'OML:CALLS:{id_campaign}:DIALER', 0)
 
         response = f'Campaign {id_campaign} with strategy {contact_strategy} created!!!'
 
@@ -571,9 +573,10 @@ class AverageWorker(DialerWorker):
     @classmethod
     def get_active_channels(cls, id_campaign):
         cls.connect_redis_oml()
-        active_channels = cls.REDIS_OML_CONNECTION.get('dialer_pstn_calls')
+        active_channels = cls.REDIS_DIALER_CONNECTION.get(f'OML:CALLS:{id_campaign}:DIALER')
         if active_channels is None:
-            logger.debug('dialer_pstn_calls key not available, check your OML installation')
+            logger.debug(
+                f'OML:CALLS:{id_campaign}:DIALER key not available, check your OML installation')
             return -1
         return int(active_channels)
 
@@ -598,7 +601,10 @@ class AverageWorker(DialerWorker):
         if active_channels < campaign_max_available_channels:
             if total_available_agents >= active_channels:
                 if active_campaigns > 0:
-                    return available_agents / active_campaigns
+                    # TODO: figure out how to get back to this heuristic when the agents
+                    # are assigned to the same campaign
+                    # return available_agents / active_campaigns
+                    return available_agents
                 return 0
             logger.debug(f"Campaign {id_campaign}: too much calls for available agents")
             return 0
@@ -949,9 +955,12 @@ class AverageWorker(DialerWorker):
     def delete_campaign(cls, worker, job):
         id_campaign = int(job.data)
         logger.debug(f'Removing campaign with id = {id_campaign}')
+        cls.connect_redis_dialer()
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
             cursor = conn.cursor()
             cursor.execute('DELETE FROM campaign WHERE id = %s;', (id_campaign,))
+            cls.REDIS_DIALER_CONNECTION.delete(f'OML:CALLS:{id_campaign}:DIALER')
+            # TODO: remove the remaining data in Redis
         return b'Campaign was deleted'
 
     @classmethod
