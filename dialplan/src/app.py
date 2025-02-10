@@ -181,7 +181,7 @@ class CallManager:
                         logging.info(f"Incremented calls counter in Redis key '{redis_key}'")
                     else:
                         logging.warning("id_camp not defined. Calls counter not incremented.")
-                    
+
                     if peer_id:
                         self.pstn_channel_ids.add(peer_id)
                         logging.info(f"Added PSTN channel id {peer_id} to tracking set")
@@ -328,11 +328,12 @@ class CallManager:
                 if id_camp:
                     redis_key = f"OML:CALLS:{id_camp}:DIALER"
                     self.redis_client.decr(redis_key)
-                    logging.info(f"Decremented calls counter in Redis key '{redis_key}' for channel id {channel_id}")
+                    logging.info(f"Decremented calls counter in Redis key '{redis_key}' for channel"
+                                 f" id {channel_id}")
                 else:
                     logging.warning("id_camp not defined. Calls counter not decremented.")
 
-                self.pstn_channel_ids.remove(channel_id)                
+                self.pstn_channel_ids.remove(channel_id)
 
                 if self.pstngw_hostname and id_camp and id_customer and tel_customer and dialstatus:
                     if dialstatus != 'ANSWER':
