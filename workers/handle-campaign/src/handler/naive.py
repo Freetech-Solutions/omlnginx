@@ -427,17 +427,11 @@ class AverageWorker(DialerWorker):
 
     @classmethod
     def all_contacts_were_attempted(cls, id_campaign):
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
-            cursor_dialer = conn_dialer.cursor()
-            cursor_dialer.execute(
-                'SELECT COUNT(*) FROM contact_in_campaign where id_campaign = %s',
-                (id_campaign,))
-            number_contacts = cursor_dialer.fetchone()[0]
-            cls.connect_redis_dialer()
-            attempted_contacts = cls.REDIS_DIALER_CONNECTION.hget(
-                f'CAMP:{id_campaign}:COUNTER',
-                'ATTEMPTED_CALLS') or 0
-            return number_contacts == int(attempted_contacts)
+        cls.connect_redis_dialer()
+        pending_initial_contact_attempts = cls.REDIS_DIALER_CONNECTION.hget(
+            f'CAMP:{id_campaign}:COUNTER',
+            'PENDING_INITIAL_CONTACT_ATTEMPTS') or -1
+        return int(pending_initial_contact_attempts) == 0
 
     @classmethod
     def no_active_incidence_rules(cls, id_campaign):
@@ -446,7 +440,7 @@ class AverageWorker(DialerWorker):
             f'CAMP:{id_campaign}:COUNTER',
             FINAL_STATUS_TO_NAME[PENDING_ATTEMPTS]
         )
-        return pending_attempts is None
+        return int(pending_attempts) == 0
 
     @classmethod
     def no_active_agendas(cls):
@@ -1029,25 +1023,30 @@ class AverageWorker(DialerWorker):
             cursor_dialer.execute("""SELECT final_status, COUNT(*) FROM ONLY contact_in_campaign
             WHERE id_campaign = %s and final_status <> %s GROUP BY final_status;""",
                                   (id_campaign, INITIAL))
-            # cleaning previous values of final_status related reports
-            cls.REDIS_DIALER_CONNECTION.hdel(
-                f'CAMP:{id_campaign}:COUNTER',
-                FINAL_STATUS_TO_NAME[PENDING_ATTEMPTS]
-            )
-            cls.REDIS_DIALER_CONNECTION.hdel(
-                f'CAMP:{id_campaign}:COUNTER',
-                FINAL_STATUS_TO_NAME[FINALIZED_NOCONTACT]
-            )
-            cls.REDIS_DIALER_CONNECTION.hdel(
-                f'CAMP:{id_campaign}:COUNTER',
-                FINAL_STATUS_TO_NAME[FINALIZED_SUCCESS]
-            )
+
+            final_statuses = {
+                PENDING_ATTEMPTS: 0,
+                FINALIZED_NOCONTACT: 0,
+                FINALIZED_SUCCESS: 0
+            }
             for final_status_label, final_status_value in cursor_dialer.fetchall():
-                cls.REDIS_DIALER_CONNECTION.hset(
-                    f'CAMP:{id_campaign}:COUNTER',
-                    FINAL_STATUS_TO_NAME[final_status_label],
-                    final_status_value
-                )
+                final_statuses[final_status_label] = final_status_value
+
+            cls.REDIS_DIALER_CONNECTION.hset(
+                f'CAMP:{id_campaign}:COUNTER',
+                FINAL_STATUS_TO_NAME[PENDING_ATTEMPTS],
+                final_statuses[PENDING_ATTEMPTS]
+            )
+            cls.REDIS_DIALER_CONNECTION.hset(
+                f'CAMP:{id_campaign}:COUNTER',
+                FINAL_STATUS_TO_NAME[FINALIZED_NOCONTACT],
+                final_statuses[FINALIZED_NOCONTACT]
+            )
+            cls.REDIS_DIALER_CONNECTION.hset(
+                f'CAMP:{id_campaign}:COUNTER',
+                FINAL_STATUS_TO_NAME[FINALIZED_SUCCESS],
+                final_statuses[FINALIZED_SUCCESS]
+            )
             cls.REDIS_DIALER_CONNECTION.hset(
                 f'CAMP:{id_campaign}:COUNTER',
                 'PENDING_INITIAL_CONTACT_ATTEMPTS',  # pending to be contacted for the first time
