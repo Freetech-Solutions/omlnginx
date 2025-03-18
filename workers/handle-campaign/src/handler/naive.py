@@ -847,12 +847,11 @@ class AverageWorker(DialerWorker):
         return phone_numbers[phone_number_index]
 
     @classmethod
-    def get_phone_number_incidence_rule(
-            cls, cursor_dialer, id_campaign, contact_id, phone_number, type_incidence_rule):
+    def get_delay(cls, retry_later, type_incidence_rule, attempt_number):
         if type_incidence_rule == FIXED:
-            return phone_number
-        # multinum handler MULT
-        return cls.get_next_phone_number(cursor_dialer, id_campaign, contact_id, phone_number)
+            return retry_later
+        # MULT
+        return retry_later * attempt_number
 
     @classmethod
     def apply_incidence_rule(
@@ -862,10 +861,12 @@ class AverageWorker(DialerWorker):
             retry_later, max_attempt, type_incidence_rule = incidence_rule
             contact_history = cls.REDIS_DIALER_CONNECTION.lrange(
                 f'CONTACT:{contact_id}:CAMP:{id_campaign}:HISTORY', 0, -1)
-            if contact_history.count(str((status, status_type))) <= max_attempt:
-                phone_number = cls.get_phone_number_incidence_rule(
-                    cursor_dialer, id_campaign, contact_id, phone_number, type_incidence_rule)
+            attempt_number = contact_history.count(str((status, status_type)))
+            if attempt_number <= max_attempt:
+                phone_number = cls.get_next_phone_number(
+                    cursor_dialer, id_campaign, contact_id, phone_number)
                 contact = (contact_id, id_campaign, phone_number)
+                retry_later = cls.get_delay(retry_later, type_incidence_rule, attempt_number)
                 message = json.dumps({'contact_info': contact, 'delay': retry_later})
                 cursor_dialer.execute('UPDATE contact_in_campaign SET final_status = %s WHERE'
                                       ' id_campaign = %s and id_contact = %s;',
@@ -1193,8 +1194,7 @@ class AverageWorker(DialerWorker):
                 disposition_option_id = data['disposition_option_id']
                 cursor_dialer.execute(
                     """INSERT INTO incidence_rules_disposition (id, disposition_option_id,
-                    status_custom, max_attempt,
-                    retry_later, in_mode, campaign_id) VALUES
+                    max_attempt, retry_later, in_mode, campaign_id) VALUES
                     (%s, %s, %s, %s, %s, %s);""",
                     (id_rule, disposition_option_id, max_attempt, retry_later, mode, id_campaign))
             return b'Incidence rule was added'
