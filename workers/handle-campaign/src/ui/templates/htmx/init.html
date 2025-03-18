@@ -1,0 +1,35 @@
+<h2 class="mb-4">OMniDialer Admin</h2>
+
+<table id="example" class="table table-striped table-bordered" style="width:100%">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for id_campaign, name_campaign, status_campaign, actions_campaign in campaigns %}
+            <tr>
+                <td>{{ id_campaign }}</td>
+                <td><button class="btn btn-link"
+                            hx-get="/htmx/stats/{{ id_campaign }}"
+                            hx-target="#modals-here"
+                            hx-trigger="click"
+                            data-bs-toggle="modal"
+                            data-bs-target="#modals-here">{{ name_campaign }}</button></td>
+                <td id="status-{{ id_campaign }}">{{ status_campaign }}</td>
+                <td>
+                    <div id="actions-{{ id_campaign }}">
+                        {% for status in actions_campaign %}
+                            <button hx-post="/{{ STATUS_TO_ACTION_URLS[status] }}-campaign/{{ id_campaign }}"
+                                    hx-vals='{"sync-omnileads": "true"}'
+                                    hx-swap="none">{{ STATUS_TO_ACTION[status] }}</button>
+                        {% endfor %}
+                    </div>
+                </td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>

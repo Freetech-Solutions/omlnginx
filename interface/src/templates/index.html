@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+    </head>
+    <body>
+    </body>
+</html>
+
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Omnidialer Admin</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/ext/bootstrap.min.css') }}" >
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/ext/datatables.min.css') }}" >
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}" >
+    </head>
+    <body class="p-4">
+        <div hx-ext="ws,ws-transform-data" ws-connect="{{WEBSOCKET_SERVER}}"></div>
+        <div id="modals-here"
+             class="modal modal-blur fade"
+             style="display: none"
+             aria-hidden="false"
+             tabindex="-1">
+            <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+                <div class="modal-content"></div>
+            </div>
+        </div>
+        <div class="table" hx-trigger="load" hx-get="/htmx/init" hx-target="#campaignsTable"></div>
+        <div class="container" id="campaignsTable">
+            <table id="example" class="table table-striped table-bordered" style="width:100%">
+            </table>
+        </div>
+        <script type="text/javascript" src="{{ url_for('static', filename='js/ext/jquery-3.7.1.min.js') }}"></script>
+        <script type="text/javascript" src="{{ url_for('static', filename='js/ext/htmx.min.js') }}"></script>
+        <script type="text/javascript" src="{{ url_for('static', filename='js/ext/htmx-ext-ws.js') }}"></script>
+        <script type="text/javascript" src="{{ url_for('static', filename='js/ext/bootstrap.bundle.min.js') }}"></script>
+        <script type="text/javascript" src="{{ url_for('static', filename='js/ext/datatables.min.js') }}"></script>
+        <script type="text/javascript" src="{{ url_for('static', filename='js/index.js') }}"></script>
+    </body>
+</html>

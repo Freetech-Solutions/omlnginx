@@ -53,7 +53,7 @@ services:
     container_name: omnidialer_websocket_ari
     build:
       context: ./websocket_ari/src
-    image: ${LISTENER_IMG}  
+    image: ${LISTENER_IMG}
     networks:
       - network1
     tty: true
@@ -325,11 +325,26 @@ services:
     networks:
       - network1
 
+  render-template:
+    image: ${WORKER_IMG}
+    container_name: render-template-1
+    env_file: .env
+    stop_signal: SIGINT
+    tty: true
+    stdin_open: true
+    depends_on:
+      - job_server
+      - postgresql
+    environment:
+      - GEARMAN_JOBS=render-template
+    networks:
+      - network1
+
   dialer_asterisk:
     build:
       context: ./asterisk/
-    image: ${ASTERISK_IMG}  
-    container_name: dialer_asterisk  
+    image: ${ASTERISK_IMG}
+    container_name: dialer_asterisk
     dns: 8.8.8.8
     env_file:
       - .env
@@ -340,21 +355,30 @@ services:
     restart: on-failure
     stop_grace_period: 30s
     working_dir: /etc/asterisk
-     
+
   dialer_dialplan:
     build:
       target: run
       context: ./dialplan/
-    image: ${DIALPLAN_IMG}  
+    image: ${DIALPLAN_IMG}
     container_name: omnidialer-dialplan
     depends_on:
       - dialer_asterisk
     env_file:
-      - .env  
+      - .env
+    environment:
+      - TZ=${TZ}
+      - RABBITMQ_HOST=${RABBITMQ_OML_SERVER}
+      - REDIS_HOSTNAME=${REDIS_OML_SERVER}
+      - REDIS_PORT=${REDIS_OML_PORT}
+      - ARI_HOST=${ASTERISK_HOST}
+      - ARI_PORT=${ASTERISK_PORT}
+      - ARI_USER=${ASTERISK_USER}
+      - ARI_PASS=${ASTERISK_PASS}
     restart: on-failure
     stop_grace_period: 30s
     networks:
-      - network1  
+      - network1
 
   postgresql:
     container_name: dialer-postgres

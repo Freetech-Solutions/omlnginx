@@ -1,0 +1,10 @@
+<td id="status-{{ id_campaign }}">{{ status_campaign }}</td>
+
+
+<div id="actions-{{ id_campaign }}">
+    {% for status in actions_campaign %}
+        <button hx-post="/{{ STATUS_TO_ACTION_URLS[status] }}-campaign/{{ id_campaign }}"
+                hx-vals='{"sync-omnileads": "true"}'
+                hx-swap="none">{{ STATUS_TO_ACTION[status] }}</button>
+    {% endfor %}
+</div>
