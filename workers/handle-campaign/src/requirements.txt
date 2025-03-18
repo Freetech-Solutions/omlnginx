@@ -2,3 +2,4 @@ gearman3
 redis
 requests
 psycopg[binary]
+Jinja2==3.0.0

@@ -51,28 +51,53 @@ class GearmanDialer(Dialer):
         return cls.decode_payload(job_request.result)
 
     @classmethod
-    def start_campaign(cls, id_campaign):
-        cls.GM_CLIENT.submit_job('start-campaign', id_campaign, background=True)
+    def start_campaign(cls, id_campaign, sync_omnileads=False):
+        payload = {
+            'id_campaign': id_campaign,
+            'sync_omnileads': sync_omnileads
+        }
+        payload_bytes = cls.encode_payload(payload)
+        cls.GM_CLIENT.submit_job('start-campaign', payload_bytes, background=True)
         return json.dumps({'msg': 'Campaign process to be started'})
 
     @classmethod
-    def pause_campaign(cls, id_campaign):
-        cls.GM_CLIENT.submit_job('pause-campaign', id_campaign, background=True)
+    def pause_campaign(cls, id_campaign, sync_omnileads=False):
+        payload = {
+            'id_campaign': id_campaign,
+            'sync_omnileads': sync_omnileads
+        }
+        payload_bytes = cls.encode_payload(payload)
+        cls.GM_CLIENT.submit_job('pause-campaign', payload_bytes, background=True)
         return json.dumps({'msg': 'Campaign process to be paused'})
 
     @classmethod
-    def resume_campaign(cls, id_campaign):
-        cls.GM_CLIENT.submit_job('resume-campaign', id_campaign, background=True)
+    def resume_campaign(cls, id_campaign, sync_omnileads=False):
+        payload = {
+            'id_campaign': id_campaign,
+            'sync_omnileads': sync_omnileads
+        }
+        payload_bytes = cls.encode_payload(payload)
+        cls.GM_CLIENT.submit_job('resume-campaign', payload_bytes, background=True)
         return json.dumps({'msg': 'Campaign process to be resumed'})
 
     @classmethod
-    def delete_campaign(cls, id_campaign):
-        cls.GM_CLIENT.submit_job('delete-campaign', id_campaign)
+    def delete_campaign(cls, id_campaign, sync_omnileads=False):
+        payload = {
+            'id_campaign': id_campaign,
+            'sync_omnileads': sync_omnileads
+        }
+        payload_bytes = cls.encode_payload(payload)
+        cls.GM_CLIENT.submit_job('delete-campaign', payload_bytes)
         return json.dumps({'msg': 'Campaign deleted'})
 
     @classmethod
-    def stop_campaign(cls, id_campaign):
-        cls.GM_CLIENT.submit_job('stop-campaign', id_campaign)
+    def stop_campaign(cls, id_campaign, sync_omnileads=False):
+        payload = {
+            'id_campaign': id_campaign,
+            'sync_omnileads': sync_omnileads
+        }
+        payload_bytes = cls.encode_payload(payload)
+        cls.GM_CLIENT.submit_job('stop-campaign', payload_bytes)
         return json.dumps({'msg': 'Campaign finalized'})
 
     @classmethod
@@ -153,3 +178,8 @@ class GearmanDialer(Dialer):
         payload_bytes = cls.encode_payload(payload)
         cls.GM_CLIENT.submit_job('change-database', payload_bytes)
         return json.dumps({'msg': 'Database was changed'})
+
+    @classmethod
+    def render_template(cls, data):
+        job_request = cls.GM_CLIENT.submit_job('render-template', cls.encode_payload(data))
+        return cls.decode_payload(job_request.result)

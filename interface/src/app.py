@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 
-from flask import Flask, request
+from flask import Flask, request, render_template
 
 from dialer.multichannel import GearmanDialer
+
+from settings.default import WEBSOCKET_SERVER
+
 
 app = Flask(__name__)
 
@@ -26,17 +29,20 @@ def edit_campaign(id_campaign):
 
 @app.route('/start-campaign/<id_campaign>', methods=['POST'])
 def start_campaign(id_campaign):
-    return DIALER.start_campaign(id_campaign)
+    sync_omnileads = request.form.get('sync-omnileads', False) and True
+    return DIALER.start_campaign(id_campaign, sync_omnileads=sync_omnileads)
 
 
 @app.route('/stop-campaign/<id_campaign>', methods=['POST'])
 def stop_campaign(id_campaign):
-    return DIALER.stop_campaign(id_campaign)
+    sync_omnileads = request.form.get('sync-omnileads', False) and True
+    return DIALER.stop_campaign(id_campaign, sync_omnileads=sync_omnileads)
 
 
 @app.route('/pause-campaign/<id_campaign>', methods=['POST'])
 def pause_campaign(id_campaign):
-    return DIALER.pause_campaign(id_campaign)
+    sync_omnileads = request.form.get('sync-omnileads', False) and True
+    return DIALER.pause_campaign(id_campaign, sync_omnileads=sync_omnileads)
 
 
 @app.route('/resume-campaign/<id_campaign>', methods=['POST'])
@@ -112,6 +118,31 @@ def add_agenda(id_campaign):
 @app.route('/change-database/<id_campaign>', methods=['POST'])
 def change_database(id_campaign):
     return DIALER.change_database(id_campaign)
+
+
+# HTMX endpoints & UI related code
+
+app.jinja_env.globals['WEBSOCKET_SERVER'] = WEBSOCKET_SERVER
+
+
+# TODO: move this endpoint it to the workers
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+
+@app.route('/htmx/init')
+def init():
+    """Renders the initial data of the campaigns, on the first load of the web page"""
+    return DIALER.render_template({'type': 'init'})
+
+
+@app.route('/htmx/stats/<id_campaign>')
+def stats(id_campaign):
+    """Renders the initial data of the campaigns, on the first load of the web page"""
+    return DIALER.render_template(
+        {'type': 'stats', 'id_campaign': id_campaign}
+    )
 
 
 if __name__ == '__main__':

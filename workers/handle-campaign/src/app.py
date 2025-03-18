@@ -28,6 +28,7 @@ JOBS_TO_METHODS = {
     'delete-incidence-rule': WORKER.delete_incidence_rule,
     'update-incidence-rule': WORKER.update_incidence_rule,
     'change-database': WORKER.change_database,
+    'render-template': WORKER.render_template,
     # medium processes
     'send-reports': WORKER.send_reports,
     # scheduled processes

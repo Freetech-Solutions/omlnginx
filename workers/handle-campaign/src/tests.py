@@ -10,6 +10,8 @@ from decimal import Decimal
 
 import psycopg
 
+import json
+
 from gearman.job import GearmanJob
 from gearman.worker import GearmanWorker
 
@@ -26,13 +28,16 @@ class MyTestSuite(unittest.TestCase):
     def tearDown(self):
         self.clean_databases()
 
+    @classmethod
+    def encode_payload(cls, data):
+        return bytes(json.dumps(data), encoding="UTF8")
+
     def clean_databases(self):
         AverageWorker.connect_redis_dialer()
         AverageWorker.REDIS_DIALER_CONNECTION.flushdb()
         with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute('DELETE FROM campaign;')
-            cursor_dialer.execute('DELETE FROM campaign_historic;')
             cursor_dialer.execute('DELETE FROM contact;')
         AverageWorker.REDIS_DIALER_CONNECTION.close()
 
@@ -137,19 +142,24 @@ class MyTestSuite(unittest.TestCase):
             id_campaign = campaign_id_data[0]
             # testing start-campaign
             AverageWorker.process_campaign = MagicMock()
-            job = GearmanJob(None, None, None, None, b'4')
+            payload = {
+                'id_campaign': 4,
+                'sync_omnileads': False
+            }
+            payload_bytes = self.encode_payload(payload)
+            job = GearmanJob(None, None, None, None, payload_bytes)
             AverageWorker.start_campaign(worker, job)
             status_campaign = AverageWorker.get_campaign_status(id_campaign, cursor_dialer)
             self.assertEqual(status_campaign, ACTIVE)
 
             # testing pause-campaign
-            job = GearmanJob(None, None, None, None, b'4')
+            job = GearmanJob(None, None, None, None, payload_bytes)
             AverageWorker.pause_campaign(worker, job)
             status_campaign = AverageWorker.get_campaign_status(id_campaign, cursor_dialer)
             self.assertEqual(status_campaign, PAUSED)
 
             # testing resume-campaign
-            job = GearmanJob(None, None, None, None, b'4')
+            job = GearmanJob(None, None, None, None, payload_bytes)
             AverageWorker.resume_campaign(worker, job)
             status_campaign = AverageWorker.get_campaign_status(id_campaign, cursor_dialer)
             self.assertEqual(status_campaign, ACTIVE)
@@ -167,7 +177,7 @@ class MyTestSuite(unittest.TestCase):
             AverageWorker.GM_CLIENT.submit_job.reset_mock()
 
             # testing stop-campaign
-            job = GearmanJob(None, None, None, None, b'4')
+            job = GearmanJob(None, None, None, None, payload_bytes)
             AverageWorker.stop_campaign(worker, job)
             status_campaign = AverageWorker.get_campaign_status(id_campaign, cursor_dialer)
             self.assertEqual(status_campaign, FINALIZED)

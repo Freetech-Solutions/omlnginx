@@ -1,0 +1,18 @@
+<div class="modal-dialog modal-dialog-centered">
+    <input id="campaignInfo" class="d-none" name="" type="text" value="{{ id_campaign }}"/>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title">Statistics for campaign {{id_campaign}}</h5>
+        </div>
+        <div class="modal-body">
+            <ul class="list-group">
+                {% for key, value in statistics.items() %}
+                    <li class="list-group-item">{{ key }}: {{ value }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+    </div>
+</div>

@@ -47,8 +47,8 @@ POSTGRES_DIALER_DB=omnidialer
 RABBITMQ_OML_SERVER=oml-rabbit-mq
 
 # --- Gearman conn params
-GEARMAN_JOB_SERVERS=gearman_server:4730
-GEARMAN_JOBS=start-campaign|stop-campaign|resume-campaign|process-contact|schedule-contact|process-event|create-campaign|edit-campaign|pause-campaign|delete-campaign|send-reports|add-incidence-rule-disposition|create-incidence-rule|process-campaign
+GEARMAN_JOB_SERVERS=gearman_job_server_1:4730
+GEARMAN_JOBS=start-campaign|stop-campaign|resume-campaign|process-contact|schedule-contact|process-event|create-campaign|edit-campaign|pause-campaign|delete-campaign|send-reports|add-incidence-rule-disposition|create-incidence-rule|process-campaign|delete-incidence-rule|update-incidence-rule|schedule-agenda|change-database|render-template
 
 DIALER_ACD_HOST=pstn_gateway
 
@@ -70,7 +70,7 @@ PROCESS_EVENT_REPLICAS=3
 NETWORK=oml_omnileads
 
 # --- Dial through PSTN Gateway settings
-# --- In order to use this feature, you must have a PSTN Gateway configured 
+# --- In order to use this feature, you must have a PSTN Gateway configured
 # --- with SIP registration and authentication enabled.
 # PSTNGW_REGISTER=yes
 # PSTNGW_SIP_AUTH=yes
