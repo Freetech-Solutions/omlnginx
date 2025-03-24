@@ -128,6 +128,9 @@ services:
     image: ${WORKER_IMG}
     deploy:
       replicas: 3
+    stop_signal: SIGINT
+    tty: true
+    stdin_open: true
     env_file: .env
     environment:
       - GEARMAN_JOBS=process-contact
@@ -142,6 +145,9 @@ services:
     env_file: .env
     deploy:
       replicas: 5
+    stop_signal: SIGINT
+    tty: true
+    stdin_open: true
     environment:
       - GEARMAN_JOBS=process-campaign
       - CAPS=${CAPS}
@@ -152,6 +158,9 @@ services:
     image: ${WORKER_IMG}
     container_name: create-campaign-1
     env_file: .env
+    stop_signal: SIGINT
+    tty: true
+    stdin_open: true
     depends_on:
       - job_server
       - postgresql
@@ -257,6 +266,8 @@ services:
     image: ${WORKER_IMG}
     container_name: add-incidence-rule-disposition-1
     env_file: .env
+    tty: true
+    stdin_open: true
     depends_on:
       - job_server
       - postgresql
