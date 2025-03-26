@@ -17,6 +17,7 @@ services:
       - postgresql
     environment:
       - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
+      - WEBSOCKET_SERVER=${WEBSOCKET_SERVER}
 
   job_server:
     image: artefactual/gearmand:1.1.18-alpine

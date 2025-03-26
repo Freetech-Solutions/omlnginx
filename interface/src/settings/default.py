@@ -2,4 +2,4 @@ import os
 
 GEARMAN_JOB_SERVERS = os.getenv('GEARMAN_JOB_SERVERS').split('|')
 
-WEBSOCKET_SERVER = 'wss://localhost/channels/omnidialer'
+WEBSOCKET_SERVER = os.getenv('WEBSOCKET_SERVER')
