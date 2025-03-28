@@ -692,16 +692,27 @@ class AverageWorker(DialerWorker):
     def process_contact(cls, worker, job):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
-        logger.debug(f'Attempting to make a contact in campaign {id_campaign}')
-        if cls.campaign_is_active(id_campaign):
-            cls.attempt_contact_asterisk(data['contact'], id_campaign)
-            cls.connect_redis_dialer()
-            cls.REDIS_DIALER_CONNECTION.hincrby(
-                f'CAMP:{id_campaign}:COUNTER',
-                'ATTEMPTED_CALLS',
-            )
-            return b'Contact was called'
-        return b'Aborted call, campaign is not active'
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            status_campaign = cls.get_campaign_status(id_campaign, cursor_dialer)
+            if status_campaign == ACTIVE:
+                logger.debug(f'Attempting to make a contact in campaign {id_campaign}')
+                cls.attempt_contact_asterisk(data['contact'], id_campaign)
+                cls.connect_redis_dialer()
+                cls.REDIS_DIALER_CONNECTION.hincrby(
+                    f'CAMP:{id_campaign}:COUNTER',
+                    'ATTEMPTED_CALLS',
+                )
+                return b'Contact was called'
+            elif status_campaign == PAUSED:
+                # TODO: pause the call and make it later
+                pass
+            else:
+                # status_campaign == FINALIZED
+                # TODO: abort the call and clean all the relevant counters so
+                # it can be reactivated later
+                pass
+            return b'Aborted call, campaign is not active'
 
     @classmethod
     def attempt_contact_asterisk(cls, contact_info, id_campaign):
