@@ -821,16 +821,16 @@ class AverageWorker(DialerWorker):
             cursor_dialer.execute('SELECT metadata FROM ONLY campaign WHERE id = %s',
                                   (id_campaign,))
             metadata = json.loads(cursor_dialer.fetchone()[0])
-            phone_number_indexes = metadata['cols_telefono']
+            phone_number_indexes = metadata['cols_telefono'][1:]
             cursor_dialer.execute(
                 """SELECT co.data FROM ONLY contact_in_campaign AS cc
                 INNER JOIN contact AS co on cc.id_contact = co.id
                 WHERE cc.id_campaign = %s AND cc.id_contact = %s;""", (id_campaign, contact_id))
-            data = [phone_number] + json.loads(cursor_dialer.fetchone()[0])
+            data = json.loads(cursor_dialer.fetchone()[0])
             phone_number_index = 0
-            phone_numbers = []
+            phone_numbers = [phone_number]
             for i in phone_number_indexes:
-                phone_numbers.append(data[i])
+                phone_numbers.append(data[i - 1])
             cursor_dialer.execute('UPDATE contact_in_campaign SET phone_numbers_list = %s WHERE'
                                   ' id_campaign = %s AND id_contact = %s;',
                                   (phone_numbers, id_campaign, contact_id))
