@@ -643,6 +643,9 @@ class AverageWorker(DialerWorker):
             return 0
         campaign_max_available_channels = cls.get_campaign_max_available_channels(id_campaign)
         num_available_channels = campaign_max_available_channels - active_channels
+        # ensure num_available_channels is not affected by changes in the config
+        # in the middle of the campaign process
+        num_available_channels = max(num_available_channels, 0)
         logger.debug("Campaign {0}: active_channels={1}".format(id_campaign, active_channels))
         logger.debug("Campaign {0}: campaign_max_available_channels={1}".format(
             id_campaign, campaign_max_available_channels))
