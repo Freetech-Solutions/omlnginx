@@ -705,13 +705,13 @@ class AverageWorker(DialerWorker):
                 )
                 return b'Contact was called'
             elif status_campaign == PAUSED:
+                logger.debug(f'Campaign {id_campaign} is paused, aborting call')
                 # TODO: pause the call and make it later
-                pass
             else:
+                logger.debug(f'Campaign {id_campaign} is finalized, aborting call')
                 # status_campaign == FINALIZED
                 # TODO: abort the call and clean all the relevant counters so
                 # it can be reactivated later
-                pass
             return b'Aborted call, campaign is not active'
 
     @classmethod
