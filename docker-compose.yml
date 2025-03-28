@@ -234,6 +234,12 @@ services:
     image: ${WORKER_IMG}
     container_name: process-event-1
     env_file: .env
+    depends_on:
+      - job_server
+      - postgresql
+    stop_signal: SIGINT
+    tty: true
+    stdin_open: true
     environment:
       - GEARMAN_JOBS=process-event
     networks:
