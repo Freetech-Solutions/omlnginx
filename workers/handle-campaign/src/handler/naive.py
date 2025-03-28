@@ -669,11 +669,13 @@ class AverageWorker(DialerWorker):
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute("""UPDATE contact_in_campaign as cc
-                                     SET status = %s
+                                     SET status = %s,
+                                     schedule_aborted = false
                                      FROM contact as co
                                      WHERE cc.id IN (SELECT id
                                      FROM ONLY contact_in_campaign
-                                     WHERE id_campaign = %s and status = %s
+                                     WHERE id_campaign = %s and
+                                     (status = %s OR schedule_aborted = true)
                                      LIMIT %s) AND co.id = cc.id_contact
                                      RETURNING cc.id_contact, cc.id_campaign, co.phone;""",
                                   (STATUS_SELECTED_CALL, id_campaign, STATUS_CREATED,
@@ -692,12 +694,13 @@ class AverageWorker(DialerWorker):
     def process_contact(cls, worker, job):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
+        contact = data['contact']
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             status_campaign = cls.get_campaign_status(id_campaign, cursor_dialer)
             if status_campaign == ACTIVE:
                 logger.debug(f'Attempting to make a contact in campaign {id_campaign}')
-                cls.attempt_contact_asterisk(data['contact'], id_campaign)
+                cls.attempt_contact_asterisk(contact, id_campaign)
                 cls.connect_redis_dialer()
                 cls.REDIS_DIALER_CONNECTION.hincrby(
                     f'CAMP:{id_campaign}:COUNTER',
@@ -706,12 +709,13 @@ class AverageWorker(DialerWorker):
                 return b'Contact was called'
             elif status_campaign == PAUSED:
                 logger.debug(f'Campaign {id_campaign} is paused, aborting call')
-                # TODO: pause the call and make it later
             else:
                 logger.debug(f'Campaign {id_campaign} is finalized, aborting call')
                 # status_campaign == FINALIZED
-                # TODO: abort the call and clean all the relevant counters so
-                # it can be reactivated later
+            id_contact = contact[0]
+            cursor_dialer.execute('UPDATE contact_in_campaign SET schedule_aborted = true'
+                                  ' WHERE id_contact = %s AND id_campaign = %s',
+                                  (id_contact, id_campaign))
             return b'Aborted call, campaign is not active'
 
     @classmethod

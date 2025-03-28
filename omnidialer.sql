@@ -125,6 +125,7 @@ CREATE TABLE public.contact_in_campaign (
     id integer NOT NULL,
     status integer NOT NULL,
     final_status integer NOT NULL,
+    schedule_aborted boolean NOT NULL DEFAULT false,
     disposition_option integer,
     history text[],
     phone_numbers_list text[],
