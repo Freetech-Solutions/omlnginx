@@ -1010,10 +1010,18 @@ class AverageWorker(DialerWorker):
         status_code = NAME_TO_STATUS[status]
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
-            cursor_dialer.execute(
-                'UPDATE contact_in_campaign SET status = %s, history = array_append(history, %s)'
-                ' WHERE id_campaign = %s AND id_contact = %s;',
-                (status_code, str((status_code, type_status)), id_campaign, contact_id))
+            if status == STATUS_ANSWERED_PSTN:
+                cursor_dialer.execute(
+                    'UPDATE contact_in_campaign SET status_pstn = true, '
+                    'history = array_append(history, %s)'
+                    ' WHERE id_campaign = %s AND id_contact = %s;',
+                    (str((status_code, type_status)), id_campaign, contact_id))
+            else:
+                cursor_dialer.execute(
+                    'UPDATE contact_in_campaign SET status = %s, '
+                    'history = array_append(history, %s)'
+                    ' WHERE id_campaign = %s AND id_contact = %s;',
+                    (status_code, str((status_code, type_status)), id_campaign, contact_id))
             cls.connect_redis_dialer()
             cls.REDIS_DIALER_CONNECTION.rpush(
                 f'CONTACT:{contact_id}:CAMP:{id_campaign}:HISTORY', str((status_code, type_status)))
