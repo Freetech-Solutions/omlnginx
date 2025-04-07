@@ -1010,7 +1010,7 @@ class AverageWorker(DialerWorker):
         status_code = NAME_TO_STATUS[status]
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
-            if status == STATUS_ANSWERED_PSTN:
+            if status_code == STATUS_ANSWERED_PSTN:
                 cursor_dialer.execute(
                     'UPDATE contact_in_campaign SET status_pstn = true, '
                     'history = array_append(history, %s)'
