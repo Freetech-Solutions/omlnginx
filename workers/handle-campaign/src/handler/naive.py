@@ -4,6 +4,7 @@ from .basic import DialerWorker
 from .ari_manager import ARI
 from .utils import timed_lru_cache
 
+import re
 import json
 import os
 import redis
@@ -982,7 +983,14 @@ class AverageWorker(DialerWorker):
 
     @classmethod
     def decode_fail_event(cls, ari_event_data):
-        pass
+        dialstatus = ari_event_data.get('dialstatus')
+        if dialstatus != "NOANSWER":
+            return dialstatus
+        dialstring = ari_event_data.get('dialstring')
+        pattern_timeout = r'^camp_\d+@omlacd$'
+        if re.match(pattern_timeout, dialstring):
+            return "TIMEOUT"
+        return "NOANSWER"
 
     @classmethod
     def handle_fail_event(cls, ari_event_data, id_campaign, contact_id, phone_number):
