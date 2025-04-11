@@ -24,6 +24,7 @@ class MyTestSuite(unittest.TestCase):
 
     def setUp(self):
         self.fetchmany_counter = 0
+        self._create_campaign()
 
     def tearDown(self):
         self.clean_databases()
@@ -115,7 +116,6 @@ class MyTestSuite(unittest.TestCase):
         pass
 
     def test_handle_campaign_general(self):
-        self._create_campaign()
         # check campaign entry creation and related tables too
         with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
