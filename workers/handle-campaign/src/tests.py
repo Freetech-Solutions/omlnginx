@@ -110,7 +110,20 @@ class MyTestSuite(unittest.TestCase):
         # mark one contact to SELECT_CALL status
         # run resume_campaign
         # ensure the contact has now CREATED status
-        pass
+        AverageWorker.GM_CLIENT.submit_job = MagicMock()
+        with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute('UPDATE contact_in_campaign SET status = %s WHERE id_contact = %s'
+                                  ' AND id_campaign = %s;',
+                                  (STATUS_SELECTED_CALL, 1, 4))
+        job = GearmanJob(None, None, None, None,
+                         b'{"id_campaign": "4", "sync_omnileads": "false"}')
+        AverageWorker.resume_campaign(self.worker, job)
+        with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute('SELECT COUNT(*) FROM contact_in_campaign WHERE id_campaign = 4'
+                                  ' AND status = %s;', (STATUS_CREATED,))
+        self.assertEqual(cursor_dialer.fetchone()[0], 2)
 
     def test_incidence_rules(self):
         # make sure if an event came to process event and there is an incidence rule attached to it
@@ -118,7 +131,7 @@ class MyTestSuite(unittest.TestCase):
         pass
 
     def test_incidence_rules_disposition(self):
-        # make sure if a disposition came to the disposition endpoint abd there is an incidence rule
+        # make sure if a disposition came to the disposition endpoint and there is an incidence rule
         # disposition attached to it  will schedule a call if the contact has still a valid number
         # of attempts
         pass
