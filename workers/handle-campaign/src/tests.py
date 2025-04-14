@@ -68,7 +68,7 @@ class MyTestSuite(unittest.TestCase):
         # mocking get_campaign_data
         self.campaign_id_data = (
             4, 2, 'test_dialer_01', datetime.date(2024, 8, 21),
-            datetime.date(2024, 8, 21), 2, 10, 'rrmemory', 10, False, Decimal('1.0'), 1, False,
+            datetime.datetime.now().date(), 2, 10, 'rrmemory', 10, False, Decimal('1.0'), 1, False,
             True, False, False, False, False, False, datetime.time(15, 51), datetime.time(15, 51),
             [1, 3, 4], 1,
             '"{\\"prim_fila_enc\\": false, \\"cant_col\\": 6, \\"nombres_de_columnas\\": '
