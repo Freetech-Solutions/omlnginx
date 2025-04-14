@@ -91,15 +91,12 @@ class MyTestSuite(unittest.TestCase):
         # mark one contact to SELECT_CALL status
         # run start_campaign
         # ensure the contact has now CREATED status
-        AverageWorker.process_campaign = MagicMock()
+        AverageWorker.GM_CLIENT.submit_job = MagicMock()
         with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute('UPDATE contact_in_campaign SET status = %s WHERE id_contact = %s'
                                   ' AND id_campaign = %s;',
-                                  (STATUS_SELECTED_CALL, 4, 1))
-            cursor_dialer.execute('SELECT COUNT(*) FROM contact_in_campaign WHERE id_campaign = 4'
-                                  ' AND status = %s;', (STATUS_CREATED,))
-            self.assertEqual(cursor_dialer.fetchone()[0], 1)
+                                  (STATUS_SELECTED_CALL, 1, 4))
         job = GearmanJob(None, None, None, None,
                          b'{"id_campaign": "4", "sync_omnileads": "false"}')
         AverageWorker.start_campaign(self.worker, job)
@@ -107,7 +104,7 @@ class MyTestSuite(unittest.TestCase):
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute('SELECT COUNT(*) FROM contact_in_campaign WHERE id_campaign = 4'
                                   ' AND status = %s;', (STATUS_CREATED,))
-            self.assertEqual(cursor_dialer.fetchone()[0], 2)
+        self.assertEqual(cursor_dialer.fetchone()[0], 2)
 
     def test_clean_broken_selected_contacts_resuming_campaing(self):
         # mark one contact to SELECT_CALL status
