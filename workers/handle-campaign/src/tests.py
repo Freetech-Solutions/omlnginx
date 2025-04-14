@@ -136,7 +136,19 @@ class MyTestSuite(unittest.TestCase):
         pass
 
     def test_call_is_tagged_as_aborted_if_campaign_not_active(self):
-        pass
+        with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute("UPDATE campaign SET dialer_status = %s WHERE id = 4;",
+                                  (PAUSED,))
+        job = GearmanJob(None, None, None, None,
+                         bytes(json.dumps({"contact": [1, 4, 6093017590], "id_campaign": 4}),
+                               encoding="utf8"))
+        AverageWorker.process_contact(self.worker, job)
+        with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute("SELECT schedule_aborted FROM contact_in_campaign"
+                                  " WHERE id_contact = 1;")
+            self.assertEqual(cursor_dialer.fetchone()[0], True)
 
     def test_campaign_is_paused_if_expired(self):
         with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
