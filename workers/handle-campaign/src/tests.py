@@ -133,7 +133,15 @@ class MyTestSuite(unittest.TestCase):
         # make sure if a disposition came to the disposition endpoint and there is an incidence rule
         # disposition attached to it  will schedule a call if the contact has still a valid number
         # of attempts
-        pass
+        AverageWorker.GM_CLIENT.submit_job = MagicMock()
+        job = GearmanJob(None, None, None, None,
+                         bytes(json.dumps({"id_campaign": "4", "disposition_option": 7,
+                                           "id_contact": 1}), encoding="UTF8"))
+        AverageWorker.add_incidence_rule_disposition(self.worker, job)
+        # check that a job was submitted to 'schedule-contact'
+        self.assertEqual(AverageWorker.GM_CLIENT.submit_job.call_count, 1)
+        self.assertEqual(AverageWorker.GM_CLIENT.submit_job.call_args_list[0][0][0],
+                         'schedule-contact')
 
     def test_call_is_tagged_as_aborted_if_campaign_not_active(self):
         with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
