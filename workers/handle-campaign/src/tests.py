@@ -80,7 +80,6 @@ class MyTestSuite(unittest.TestCase):
                                 self.incidence_rules_disposition_data)
         AverageWorker.get_campaign_data = MagicMock(
             return_value=campaign_mocked_data)
-        AverageWorker.process_campaign = MagicMock()
         AverageWorker.get_contacts_campaign = MagicMock(side_effect=self.mocked_psycopg_fetchmany)
         self.worker = GearmanWorker()
         job = GearmanJob(None, None, None, None,
@@ -140,9 +139,26 @@ class MyTestSuite(unittest.TestCase):
         pass
 
     def test_campaign_is_paused_if_expired(self):
-        pass
+        with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            # make sure the campaign is expired
+            # and marked as PAUSED after started
+            cursor_dialer.execute("UPDATE campaign SET"
+                                  " start_date = CURRENT_DATE - INTERVAL '2 day',"
+                                  "end_date = CURRENT_DATE - INTERVAL '1 day'"
+                                  " WHERE id = 4;")
+        job = GearmanJob(None, None, None, None,
+                         b'{"id_campaign": "4"}')
+        AverageWorker.process_campaign(self.worker, job)
+        with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            # make sure the campaign is expired
+            # and marked as PAUSED after started
+            cursor_dialer.execute("SELECT dialer_status from campaign WHERE id = 4;")
+            self.assertEqual(cursor_dialer.fetchone()[0], PAUSED)
 
     def test_handle_campaign_general(self):
+        AverageWorker.process_campaign = MagicMock()
         # check campaign entry creation and related tables too
         with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
