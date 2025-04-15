@@ -47,3 +47,7 @@ Troubleshooting:
 For run the unit tests just do:
 
 bash run-tests.bash
+
+Note: pass an argument if you don't want to rebuild the code for changes
+
+bash run-tests.bash no-build

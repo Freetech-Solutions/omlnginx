@@ -4,6 +4,7 @@ from .basic import DialerWorker
 from .ari_manager import ARI
 from .utils import timed_lru_cache
 
+import re
 import json
 import os
 import redis
@@ -92,13 +93,15 @@ AVAILABLE_NEXT_STATUSES = {
 
 # contact status, in sync with OML's incidence_rules statuses
 # TODO: see the remaining statuses
-STATUS_CREATED = 2
-STATUS_SELECTED_CALL = 5
+STATUS_CREATED = 12
+STATUS_SELECTED_CALL = 15
 STATUS_ANSWERED_AGENT = 6
 STATUS_ANSWERED_PSTN = 7
 STATUS_BUSY = 1
 STATUS_NOANSWER = 3
 STATUS_CONGESTION = 4
+STATUS_TERMINATED = 2
+STATUS_TIMEOUT = 5
 
 NAME_TO_STATUS = {
     "BUSY": STATUS_BUSY,
@@ -106,6 +109,8 @@ NAME_TO_STATUS = {
     "CONGESTION": STATUS_CONGESTION,
     "ANSWERED_PSTN": STATUS_ANSWERED_PSTN,
     "ANSWERED_AGENT": STATUS_ANSWERED_AGENT,
+    "TERMINATED": STATUS_TERMINATED,
+    "TIMEOUT": STATUS_TIMEOUT,
 }
 
 # contact final status
@@ -424,11 +429,30 @@ class AverageWorker(DialerWorker):
         return bytes(response, encoding='UTF8')
 
     @classmethod
+    def clean_selected_contacts(cls, id_campaign):
+        # set contacts marked as SELECTED_CALL back to
+        # CREATED status, so they can be consumed by the process campaign
+        # this is due to these contacts were marked and not called
+        # or at least we didn't receive events from Asterisk to change their state
+        logger.debug(f'Campaign {id_campaign}: cleaning broken selected contacts')
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                'UPDATE contact_in_campaign SET status = %s WHERE'
+                ' id_campaign = %s and status = %s;',
+                (STATUS_CREATED, id_campaign, STATUS_SELECTED_CALL))
+            row_count = cursor.rowcount
+            if row_count > 0:
+                logger.debug(
+                    f"Campaign {id_campaign}: cleaned broken selected contacts={row_count}")
+
+    @classmethod
     @exception_handler_decorator
     def start_campaign(cls, worker, job):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
         sync_omnileads = data['sync_omnileads']
+        cls.clean_selected_contacts(id_campaign)
         logger.debug(f'Campaign {id_campaign}: starting the campaign')
         cls.set_campaign_status(id_campaign, ACTIVE, sync_omnileads=sync_omnileads)
         message = json.dumps({'id_campaign': id_campaign})
@@ -767,6 +791,7 @@ class AverageWorker(DialerWorker):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
         sync_omnileads = data['sync_omnileads']
+        cls.clean_selected_contacts(id_campaign)
         logger.debug(f'Campaign {id_campaign} resuming the campaign')
         cls.set_campaign_status(id_campaign, ACTIVE, sync_omnileads=sync_omnileads)
         message = json.dumps({'id_campaign': id_campaign})
@@ -957,8 +982,19 @@ class AverageWorker(DialerWorker):
         return type_event == 'Dial' and dialstatus in FAIL_EVENTS
 
     @classmethod
+    def decode_fail_event(cls, ari_event_data):
+        dialstatus = ari_event_data.get('dialstatus')
+        if dialstatus != "NOANSWER":
+            return dialstatus
+        dialstring = ari_event_data.get('dialstring')
+        pattern_timeout = r'^camp_\d+@omlacd$'
+        if re.match(pattern_timeout, dialstring):
+            return "TIMEOUT"
+        return "NOANSWER"
+
+    @classmethod
     def handle_fail_event(cls, ari_event_data, id_campaign, contact_id, phone_number):
-        event = ari_event_data.get('dialstatus')
+        event = cls.decode_fail_event(ari_event_data)
         logger.debug(f'Campaign {id_campaign}: receiving {event}')
         cls.set_contact_status(id_campaign, contact_id, event)
         cls.handle_incidence_rules(event, id_campaign, contact_id, phone_number)
@@ -986,10 +1022,18 @@ class AverageWorker(DialerWorker):
         status_code = NAME_TO_STATUS[status]
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
-            cursor_dialer.execute(
-                'UPDATE contact_in_campaign SET status = %s, history = array_append(history, %s)'
-                ' WHERE id_campaign = %s AND id_contact = %s;',
-                (status_code, str((status_code, type_status)), id_campaign, contact_id))
+            if status_code == STATUS_ANSWERED_PSTN:
+                cursor_dialer.execute(
+                    'UPDATE contact_in_campaign SET status_pstn = true, '
+                    'history = array_append(history, %s)'
+                    ' WHERE id_campaign = %s AND id_contact = %s;',
+                    (str((status_code, type_status)), id_campaign, contact_id))
+            else:
+                cursor_dialer.execute(
+                    'UPDATE contact_in_campaign SET status = %s, '
+                    'history = array_append(history, %s)'
+                    ' WHERE id_campaign = %s AND id_contact = %s;',
+                    (status_code, str((status_code, type_status)), id_campaign, contact_id))
             cls.connect_redis_dialer()
             cls.REDIS_DIALER_CONNECTION.rpush(
                 f'CONTACT:{contact_id}:CAMP:{id_campaign}:HISTORY', str((status_code, type_status)))
