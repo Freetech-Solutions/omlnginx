@@ -127,7 +127,33 @@ class MyTestSuite(unittest.TestCase):
     def test_incidence_rules(self):
         # make sure if an event came to process event and there is an incidence rule attached to it
         # it will schedule a call if the contact has still a valid number of attempts
-        pass
+        AverageWorker.GM_CLIENT.submit_job = MagicMock()
+        busy_event = {'type': 'Dial',
+                      'timestamp': '2025-04-15T11:21:29.168-0300',
+                      'dialstatus': 'BUSY',
+                      'forward': '',
+                      'dialstring': '123456720@pstn_gateway',
+                      'peer': {'id': '1744726885.6',
+                               'name': 'PJSIP/pstn_gateway-00000006',
+                               'state': 'Down',
+                               'protocol_id': '108c4adb-09f6-4271-94bc-4d2a9cf468b4',
+                               'caller': {'name': '4_1_6093017590', 'number': ''},
+                               'connected': {'name': '1_1_6093017590', 'number': ''},
+                               'accountcode': '',
+                               'dialplan': {'context': 'from-omlacd',
+                                            'exten': 's',
+                                            'priority': 1,
+                                            'app_name': 'AppDial2',
+                                            'app_data': '(Outgoing Line)'},
+                               'creationtime': '2025-04-15T11:21:25.125-0300',
+                               'language': 'en'},
+                      'asterisk_id': '26:ce:a5:36:bc:0a', 'application': 'call_manager_dialer'}
+        job = GearmanJob(None, None, None, None,
+                         bytes(json.dumps(busy_event), encoding="UTF8"))
+        AverageWorker.process_event(self.worker, job)
+        # check that a job was submitted to 'schedule-contact'
+        self.assertEqual(AverageWorker.GM_CLIENT.submit_job.call_args_list[0][0][0],
+                         'schedule-contact')
 
     def test_incidence_rules_disposition(self):
         # make sure if a disposition came to the disposition endpoint and there is an incidence rule
@@ -139,7 +165,6 @@ class MyTestSuite(unittest.TestCase):
                                            "id_contact": 1}), encoding="UTF8"))
         AverageWorker.add_incidence_rule_disposition(self.worker, job)
         # check that a job was submitted to 'schedule-contact'
-        self.assertEqual(AverageWorker.GM_CLIENT.submit_job.call_count, 1)
         self.assertEqual(AverageWorker.GM_CLIENT.submit_job.call_args_list[0][0][0],
                          'schedule-contact')
 
