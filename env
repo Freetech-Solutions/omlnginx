@@ -31,7 +31,7 @@ REDIS_DIALER_PORT=6379
 REDIS_DB=3
 
 # --- OML Websocket channel path (adjust if OML is running in other host)
-WEBSOCKET_SERVER=wss://localhost/channels/omnidialer
+WEBSOCKET_SERVER=wss://localhost/channels/omnidialer/0mn1d14l3r
 
 # --- Postgres OML & dialer conn params
 POSTGRES_OML_USER=omnileads
