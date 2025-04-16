@@ -16,7 +16,7 @@ htmx.defineExtension('ws-transform-data', {
     transformResponse: function(response, xhr, elt) {
         if (!xhr && ( elt.hasAttribute('ws-connect') || elt.hasAttribute('ws-send') )) {
             var responseJson = JSON.parse(response);
-            switch (responseJson.type) {
+            switch (responseJson.args.type) {
             case 'DELETE':
                 $datatable
                     .row($('#actions-'+responseJson['camp_id']).parents('tr'))
@@ -33,12 +33,12 @@ htmx.defineExtension('ws-transform-data', {
                 var $modalNode = $(".modal-body");
                 var idCampaign = $("#campaignInfo").val();
                 if (idCampaign == responseJson['camp_id']) {
-                    $modalNode.html(responseJson.admin);
+                    $modalNode.html(responseJson.args.admin);
                 }
                 break;
             default:
-                if (responseJson.admin !== undefined) {
-                    response = responseJson.admin;
+                if (responseJson.args.admin !== undefined) {
+                    response = responseJson.args.admin;
                 }
             }
         }
