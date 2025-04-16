@@ -32,3 +32,6 @@ INSERT INTO ominicontacto_app_actuacionvigente values (1, True, True, True, True
 watch -n1 "docker exec -it oml-pstn-emulator asterisk -rx 'core show channels'"
 ** Command to see the active channels number in Redis every 1 sec
 watch -n1 "docker exec -it oml-redis redis-cli --raw GET 'dialer_pstn_calls'"
+** For getting the websockets messages locally
+$ docker exec -it oml-app bash
+ea499e431cf3:/opt/omnileads/ominicontacto# python manage.py omnidialer_events_listener
