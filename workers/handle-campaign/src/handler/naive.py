@@ -995,7 +995,7 @@ class AverageWorker(DialerWorker):
     @classmethod
     def handle_fail_event(cls, ari_event_data, id_campaign, contact_id, phone_number):
         event = cls.decode_fail_event(ari_event_data)
-        logger.debug(f'Campaign {id_campaign}: receiving {event}')
+        logger.debug(f'Campaign {id_campaign}: receiving {event} for contact {contact_id}')
         cls.set_contact_status(id_campaign, contact_id, event)
         cls.handle_incidence_rules(event, id_campaign, contact_id, phone_number)
 
