@@ -144,6 +144,9 @@ services:
   process_campaign_worker:
     image: ${WORKER_IMG}
     env_file: .env
+    depends_on:
+      - job_server
+      - postgresql
     deploy:
       replicas: 5
     stop_signal: SIGINT
