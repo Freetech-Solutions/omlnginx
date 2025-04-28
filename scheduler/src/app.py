@@ -18,7 +18,7 @@ scheduler = BackgroundScheduler()
 
 scheduler.add_jobstore(
     'redis', jobs_key='scheduler.jobs', run_times_key='scheduler.run_times',
-    host=REDIS_DIALER_SERVER, port=REDIS_DIALER_PORT,
+    host=REDIS_DIALER_SERVER, port=REDIS_DIALER_PORT, db=3
 )
 
 GM_CLIENT = gearman.GearmanClient(GEARMAN_JOB_SERVERS)
