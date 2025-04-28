@@ -12,6 +12,15 @@ import gearman.client
 
 import json
 
+import logging
+
+logging.basicConfig()
+
+logger = logging.getLogger('apscheduler')
+
+logger.setLevel(logging.DEBUG)
+
+
 app = Flask(__name__)
 
 scheduler = BackgroundScheduler()
@@ -25,7 +34,9 @@ GM_CLIENT = gearman.GearmanClient(GEARMAN_JOB_SERVERS)
 
 
 def schedule_contact(campaign_name, phone_number, id_campaign, id_contact):
-    message = json.dumps({'contact': id_contact, 'id_campaign': id_campaign})
+    logger.debug(f'Campaign {id_campaign}: calling scheduled agenda for contact {id_contact}')
+    message = json.dumps({'contact': [id_contact, id_campaign, phone_number],
+                          'id_campaign': id_campaign})
     GM_CLIENT.submit_job('process-contact', message)
     return 'GD!!!'
 
