@@ -32,7 +32,7 @@ htmx.defineExtension('ws-transform-data', {
             case 'STATS':
                 var $modalNode = $(".modal-body");
                 var idCampaign = $("#campaignInfo").val();
-                if (idCampaign == responseJson['camp_id']) {
+                if (idCampaign == responseJson.args['camp_id']) {
                     $modalNode.html(responseJson.args.admin);
                 }
                 break;
