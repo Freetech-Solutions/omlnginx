@@ -719,11 +719,13 @@ class AverageWorker(DialerWorker):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
         contact = data['contact']
+        id_contact = contact[0]
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             status_campaign = cls.get_campaign_status(id_campaign, cursor_dialer)
             if status_campaign == ACTIVE:
-                logger.debug(f'Attempting to make a contact in campaign {id_campaign}')
+                logger.debug(
+                    f'Attempting to make a contact in campaign {id_campaign} to {id_contact}')
                 cls.attempt_contact_asterisk(contact, id_campaign)
                 cls.connect_redis_dialer()
                 cls.REDIS_DIALER_CONNECTION.hincrby(
@@ -732,11 +734,10 @@ class AverageWorker(DialerWorker):
                 )
                 return b'Contact was called'
             elif status_campaign == PAUSED:
-                logger.debug(f'Campaign {id_campaign} is paused, aborting call')
+                logger.debug(f'Campaign {id_campaign} is paused, aborting call to {id_contact}')
             else:
-                logger.debug(f'Campaign {id_campaign} is finalized, aborting call')
+                logger.debug(f'Campaign {id_campaign} is finalized, aborting call to {id_contact}')
                 # status_campaign == FINALIZED
-            id_contact = contact[0]
             cursor_dialer.execute('UPDATE contact_in_campaign SET schedule_aborted = true'
                                   ' WHERE id_contact = %s AND id_campaign = %s',
                                   (id_contact, id_campaign))
