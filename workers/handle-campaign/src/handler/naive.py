@@ -725,7 +725,8 @@ class AverageWorker(DialerWorker):
             status_campaign = cls.get_campaign_status(id_campaign, cursor_dialer)
             if status_campaign == ACTIVE:
                 logger.debug(
-                    f'Attempting to make a contact in campaign {id_campaign} to {id_contact}')
+                    f'Attempting to make a contact in campaign {id_campaign} '
+                    f'to contact {id_contact}')
                 cls.attempt_contact_asterisk(contact, id_campaign)
                 cls.connect_redis_dialer()
                 cls.REDIS_DIALER_CONNECTION.hincrby(
@@ -734,9 +735,11 @@ class AverageWorker(DialerWorker):
                 )
                 return b'Contact was called'
             elif status_campaign == PAUSED:
-                logger.debug(f'Campaign {id_campaign} is paused, aborting call to {id_contact}')
+                logger.debug(
+                    f'Campaign {id_campaign} is paused, aborting call to contact {id_contact}')
             else:
-                logger.debug(f'Campaign {id_campaign} is finalized, aborting call to {id_contact}')
+                logger.debug(
+                    f'Campaign {id_campaign} is finalized, aborting call to contact {id_contact}')
                 # status_campaign == FINALIZED
             cursor_dialer.execute('UPDATE contact_in_campaign SET schedule_aborted = true'
                                   ' WHERE id_contact = %s AND id_campaign = %s',
