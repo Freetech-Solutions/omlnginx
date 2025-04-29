@@ -192,17 +192,23 @@ class AverageWorker(DialerWorker):
                 contacts_attempts_number = cls.allowed_parallel_contact_attempts(id_campaign)
                 initial_time = datetime.datetime.now()
                 caps_calls_counter = 0
-                for contact in cls.take_contacts(contacts_attempts_number, id_campaign):
+                contacts = cls.take_contacts(contacts_attempts_number, id_campaign)
+                for contact in contacts:
                     current_time = datetime.datetime.now()
                     current_delta = current_time - initial_time
                     if current_delta >= timedelta(seconds=1):
+                        logger.debug(f"Campaign {id_campaign}: CAPS init")
                         caps_calls_counter = 0
                         initial_time = current_time
                     else:
                         if caps_calls_counter < CAPS:
+                            logger.debug(
+                                f"Campaign {id_campaign}: attempt to call selected contacts")
+                            # TODO: mark contacts as SELECTED_CALL
                             cls.attempt_contact(contact, id_campaign)
                             caps_calls_counter += 1
                         else:
+                            logger.debug(f"Campaign {id_campaign}: CAPS sleep")
                             remaining = (timedelta(seconds=1) - current_delta).total_seconds()
                             sleep(remaining)
 
