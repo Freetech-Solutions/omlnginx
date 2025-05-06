@@ -192,19 +192,27 @@ class AverageWorker(DialerWorker):
                 contacts_attempts_number = cls.allowed_parallel_contact_attempts(id_campaign)
                 initial_time = datetime.datetime.now()
                 caps_calls_counter = 0
-                for contact in cls.take_contacts(contacts_attempts_number, id_campaign):
-                    current_time = datetime.datetime.now()
-                    current_delta = current_time - initial_time
-                    if current_delta >= timedelta(seconds=1):
-                        caps_calls_counter = 0
-                        initial_time = current_time
-                    else:
-                        if caps_calls_counter < CAPS:
-                            cls.attempt_contact(contact, id_campaign)
-                            caps_calls_counter += 1
+                contacts = cls.take_contacts(contacts_attempts_number, id_campaign)
+                for contact in contacts:
+                    while True:
+                        # we need to ensure the selected contact is eventually called
+                        current_time = datetime.datetime.now()
+                        current_delta = current_time - initial_time
+                        if current_delta >= timedelta(seconds=1):
+                            logger.debug(f"Campaign {id_campaign}: CAPS init")
+                            caps_calls_counter = 0
+                            initial_time = current_time
                         else:
-                            remaining = (timedelta(seconds=1) - current_delta).total_seconds()
-                            sleep(remaining)
+                            if caps_calls_counter < CAPS:
+                                logger.debug(
+                                    f"Campaign {id_campaign}: attempt to call selected contact")
+                                cls.attempt_contact(contact, id_campaign)
+                                caps_calls_counter += 1
+                                break
+                            else:
+                                logger.debug(f"Campaign {id_campaign}: CAPS sleep")
+                                remaining = (timedelta(seconds=1) - current_delta).total_seconds()
+                                sleep(remaining)
 
     @classmethod
     def connect_redis_oml(cls):
@@ -711,6 +719,7 @@ class AverageWorker(DialerWorker):
     @classmethod
     def attempt_contact(cls, contact, id_campaign):
         message = json.dumps({'contact': contact, 'id_campaign': id_campaign})
+        # TODO: think if the following could be a background job call
         cls.GM_CLIENT.submit_job('process-contact', message)
 
     @classmethod
