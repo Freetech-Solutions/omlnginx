@@ -1,0 +1,31 @@
+
+networks:
+  omlswarm:
+    external: true
+
+volumes:
+  postgresql:
+
+services:
+  postgresql:
+    image: ${POSTGRES_IMG}
+    environment:
+      - TZ=${TZ}
+      - POSTGRES_USER=${POSTGRES_DIALER_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_DIALER_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DIALER_DB}
+      - PGPORT=${POSTGRES_DIALER_PORT}
+    volumes:
+      - postgresql:/var/lib/postgresql/data
+      - ./omnidialer.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - omlswarm
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.db == true
+      restart_policy:
+        condition: on-failure
+        delay: 10s

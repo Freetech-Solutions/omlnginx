@@ -1,0 +1,67 @@
+networks:
+  omlswarm:
+    external: true
+
+services:
+
+  acd-server:
+    image: ${TEL_ACD_DIALER_SERVER}
+    hostname: ${ASTERISK_HOST}
+    dns:
+      - 8.8.8.8
+    environment:
+      TZ: "${TZ}"
+      RABBITMQ_OML_SERVER: "${RABBITMQ_OML_SERVER}"   
+      OMLACD_SIP_SERVER: "${OMLACD_SIP_SERVER}"
+      PSTNGW_REGISTER: "${PSTNGW_REGISTER}"
+      PSTNGW_SIP_AUTH: "${PSTNGW_SIP_AUTH}" 
+      PSTNGW_SIP_USER: "${PSTNGW_SIP_USER}" 
+      PSTNGW_SIP_PASS:  "${PSTNGW_SIP_PASS}"
+      PSTNGW_HOSTNAME: "${KAMAILIO_PSTN_HOSTNAME}" 
+      ASTERISK_USER: "${ASTERISK_USER}" 
+      ASTERISK_PASS: "${ASTERISK_PASS}"
+      ASTERISK_HOST: "${ASTERISK_USER}"
+      ASTERISK_PORT: "${ASTERISK_USER}"
+    networks:
+      - omlswarm
+    working_dir: /etc/asterisk
+    #volumes:
+      # - ./pjsip_wizard.conf:/etc/asterisk/pjsip_wizard.conf
+      # - ./pjsip.conf:/etc/asterisk/pjsip.conf
+    stop_grace_period: 30s
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      update_config:
+        parallelism: 1
+        delay: 10s
+
+  acd-app-dialer:
+    image: ${DIALPLAN_IMG}
+    dns:
+      - 8.8.8.8
+    environment:
+      REDIS_OML_SERVER: "${REDIS_DIALER_SERVER}"
+      REDIS_OML_PORT: "${REDIS_OML_PORT}"
+      REDIS_DIALER_SERVER: "${REDIS_DIALER_SERVER}"
+      REDIS_DIALER_PORT : "${REDIS_DIALER_PORT}"
+      REDIS_DB: "${REDIS_DB}"
+      RABBITMQ_OML_SERVER: "${RABBITMQ_OML_SERVER}"   
+      PSTNGW_HOSTNAME: "${KAMAILIO_PSTN_HOSTNAME}"
+      ASTERISK_USER: "${ASTERISK_USER}" 
+      ASTERISK_PASS: "${ASTERISK_PASS}"
+      ASTERISK_HOST: "${ASTERISK_HOST}"
+      ASTERISK_PORT: "${ASTERISK_PORT}"
+    networks:
+      - omlswarm
+    stop_grace_period: 10s
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 0  
+
