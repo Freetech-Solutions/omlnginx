@@ -36,6 +36,14 @@ htmx.defineExtension('ws-transform-data', {
                     $modalNode.html(responseJson.args.admin);
                 }
                 break;
+            case 'PAUSE_BULK':
+                // for pause of all active campaigns
+                // TODO: use Datatables API or see if with HTMX it is possible to something
+                location.reload(true);
+                break;
+            case 'SYSTEM_STOPPED':
+                $.growl.error({ message: "Operation forbidden: the dialer is stopped" });
+                break;
             default:
                 if (responseJson.args.admin !== undefined) {
                     response = responseJson.args.admin;

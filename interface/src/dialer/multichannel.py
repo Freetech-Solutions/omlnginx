@@ -180,6 +180,13 @@ class GearmanDialer(Dialer):
         return json.dumps({'msg': 'Database was changed'})
 
     @classmethod
+    def manage_dialer(cls, action):
+        payload = {'action': action}
+        payload_bytes = cls.encode_payload(payload)
+        job_request = cls.GM_CLIENT.submit_job('manage-dialer', payload_bytes)
+        return cls.decode_payload(job_request.result)
+
+    @classmethod
     def render_template(cls, data):
         job_request = cls.GM_CLIENT.submit_job('render-template', cls.encode_payload(data))
         return cls.decode_payload(job_request.result)

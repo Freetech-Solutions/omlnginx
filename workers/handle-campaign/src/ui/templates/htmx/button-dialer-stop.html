@@ -1,0 +1,14 @@
+<div class="col-auto">
+    <button
+      {% if running %}
+        class="btn btn-danger"
+        hx-post="/htmx/manage-dialer"
+        hx-vals='{"action": "stop"}'
+        hx-target="#status-dialer"
+        hx-trigger="click once"
+      {% else %}
+        class="btn btn-danger disabled"
+      {% endif %}>
+        <i class="bi bi-stop-fill"></i> Stop
+    </button>
+</div>

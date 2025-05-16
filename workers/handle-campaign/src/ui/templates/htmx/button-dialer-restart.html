@@ -1,0 +1,14 @@
+<div class="col-auto">
+    <button
+      {% if running %}
+        class="btn btn-warning"
+        hx-post="/htmx/manage-dialer"
+        hx-vals='{"action": "restart"}'
+        hx-target="#status-dialer"
+        hx-trigger="click once"
+      {% else %}
+        class="btn btn-warning disabled"
+      {% endif %}>
+        <i class="bi bi-arrow-repeat"></i> Restart
+    </button>
+</div>

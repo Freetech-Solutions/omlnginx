@@ -15,7 +15,7 @@ import json
 from gearman.job import GearmanJob
 from gearman.worker import GearmanWorker
 
-from handler.naive import (AverageWorker, ACTIVE, PAUSED, FINALIZED, STATUS_SELECTED_CALL,
+from handler.naive import (AverageWorker, ACTIVE, PAUSED, CREATED, FINALIZED, STATUS_SELECTED_CALL,
                            STATUS_CREATED)
 
 
@@ -44,6 +44,7 @@ class MyTestSuite(unittest.TestCase):
             cursor_dialer.execute('DELETE FROM incidence_rules;')
             cursor_dialer.execute('DELETE FROM incidence_rules_disposition;')
             cursor_dialer.execute('DELETE FROM contact_in_campaign;')
+            cursor_dialer.execute('UPDATE system_control SET is_active = true;')
         AverageWorker.REDIS_DIALER_CONNECTION.close()
 
     def mocked_psycopg_fetchmany(self, cursor, size):
@@ -195,6 +196,52 @@ class MyTestSuite(unittest.TestCase):
         job = GearmanJob(None, None, None, None,
                          b'{"id_campaign": "4"}')
         AverageWorker.process_campaign(self.worker, job)
+        with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            # make sure the campaign is expired
+            # and marked as PAUSED after started
+            cursor_dialer.execute("SELECT dialer_status from campaign WHERE id = 4;")
+            self.assertEqual(cursor_dialer.fetchone()[0], PAUSED)
+
+    def test_campaign_is_forbidden_to_start_if_dialer_stopped(self):
+        with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute("UPDATE system_control SET is_active = false;")
+
+        job = GearmanJob(None, None, None, None,
+                         b'{"id_campaign": "4"}')
+        AverageWorker.start_campaign(self.worker, job)
+        with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            # make sure the campaign is expired
+            # and marked as PAUSED after started
+            cursor_dialer.execute("SELECT dialer_status from campaign WHERE id = 4;")
+            self.assertEqual(cursor_dialer.fetchone()[0], CREATED)
+
+    def test_campaign_is_forbidden_to_resume_if_dialer_stopped(self):
+        with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute("UPDATE system_control SET is_active = false;")
+            cursor_dialer.execute("UPDATE campaign SET dialer_status = %s WHERE id = 4;", (PAUSED,))
+
+        job = GearmanJob(None, None, None, None,
+                         b'{"id_campaign": "4"}')
+        AverageWorker.resume_campaign(self.worker, job)
+        with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            # make sure the campaign is expired
+            # and marked as PAUSED after started
+            cursor_dialer.execute("SELECT dialer_status from campaign WHERE id = 4;")
+            self.assertEqual(cursor_dialer.fetchone()[0], PAUSED)
+
+    def test_campaign_is_paused_if_active_after_dialer_stop(self):
+        with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute("UPDATE campaign SET dialer_status = %s WHERE id = 4;", (ACTIVE,))
+
+        job = GearmanJob(None, None, None, None,
+                         b'{"action": "stop"}')
+        AverageWorker.manage_dialer(self.worker, job)
         with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             # make sure the campaign is expired

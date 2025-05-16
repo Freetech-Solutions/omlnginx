@@ -14,6 +14,7 @@ INIT_TEMPLATE = ENVIRONMENT.get_template("htmx/init.html")
 ROW_TEMPLATE = ENVIRONMENT.get_template("htmx/campaign_row.html")
 STATS_TEMPLATE = ENVIRONMENT.get_template("htmx/statistics.html")
 STATS_INNER_TEMPLATE = ENVIRONMENT.get_template("htmx/statistics_inner.html")
+DIALER_STATUS_TEMPLATE = ENVIRONMENT.get_template("htmx/status-dialer.html")
 
 ENVIRONMENT.globals['STATUS_TO_ACTION_URLS'] = STATUS_TO_ACTION_URLS
 ENVIRONMENT.globals['STATUS_TO_ACTION'] = STATUS_TO_ACTION
@@ -21,8 +22,8 @@ ENVIRONMENT.globals['STATUS_TO_ACTION'] = STATUS_TO_ACTION
 
 class AdminRender():
     @classmethod
-    def render_init(cls, campaigns):
-        return INIT_TEMPLATE.render(campaigns=campaigns)
+    def render_init(cls, campaigns, running):
+        return INIT_TEMPLATE.render(campaigns=campaigns, running=running)
 
     @classmethod
     def render_status_change(cls, id_campaign, new_status, new_status_str, actions_campaign):
@@ -45,4 +46,10 @@ class AdminRender():
         return STATS_INNER_TEMPLATE.render(
             id_campaign=id_campaign,
             statistics=stats_for_render
+        )
+
+    @classmethod
+    def render_status_dialer(cls, running):
+        return DIALER_STATUS_TEMPLATE.render(
+            running=running
         )

@@ -1,0 +1,14 @@
+<div class="col-auto">
+    <button
+      {% if running %}
+        class="btn btn-success disabled"
+      {% else %}
+        class="btn btn-success"
+        hx-post="/htmx/manage-dialer"
+        hx-vals='{"action": "start"}'
+        hx-target="#status-dialer"
+        hx-trigger="click once"
+      {% endif %}>
+        <i class="bi bi-play-fill"></i> Start
+    </button>
+</div>

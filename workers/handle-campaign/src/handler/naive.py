@@ -184,6 +184,13 @@ class AverageWorker(DialerWorker):
     )
 
     @classmethod
+    def system_is_active(cls):
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute('SELECT is_active FROM system_control;')
+            return cursor_dialer.fetchone()[0]
+
+    @classmethod
     def process_campaign_inside(cls, id_campaign):
         while cls.campaign_is_active(id_campaign):
             logger.debug(f'\nCampaign {id_campaign} is active')
@@ -457,6 +464,13 @@ class AverageWorker(DialerWorker):
     @classmethod
     @exception_handler_decorator
     def start_campaign(cls, worker, job):
+        cls.connect_redis_oml()
+        if not cls.system_is_active():
+            cls.REDIS_OML_CONNECTION.publish(
+                'OML:CHANNEL:DIALER',
+                json.dumps({'type': 'SYSTEM_STOPPED',
+                            'camp_id': 'all'}))
+            return b'Forbidden operation'
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
         sync_omnileads = data['sync_omnileads']
@@ -801,6 +815,13 @@ class AverageWorker(DialerWorker):
     @classmethod
     @exception_handler_decorator
     def resume_campaign(cls, worker, job):
+        cls.connect_redis_oml()
+        if not cls.system_is_active():
+            cls.REDIS_OML_CONNECTION.publish(
+                'OML:CHANNEL:DIALER',
+                json.dumps({'type': 'SYSTEM_STOPPED',
+                            'camp_id': 'all'}))
+            return b'Forbidden operation'
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
         sync_omnileads = data['sync_omnileads']
@@ -1381,9 +1402,73 @@ class AverageWorker(DialerWorker):
                 campaigns = [(id_camp, name, CAMPAIGN_STATUS_TO_NAME[status],
                               AVAILABLE_NEXT_STATUSES[status])
                              for (id_camp, name, status) in campaigns]
-                return AdminRender.render_init(campaigns)
+                cursor_dialer.execute('SELECT is_active FROM system_control;')
+                running = cursor_dialer.fetchone()[0]
+                return AdminRender.render_init(campaigns, running)
         if data['type'] == 'stats':
             id_campaign = data['id_campaign']
             cls.connect_redis_dialer()
             stats = cls.REDIS_DIALER_CONNECTION.hgetall(f'CAMP:{id_campaign}:COUNTER')
             return AdminRender.render_stats(id_campaign, stats)
+
+    @classmethod
+    def stop_dialer(cls):
+        logger.debug('Stopping dialer')
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            with conn_dialer.transaction():
+                cursor_dialer = conn_dialer.cursor()
+                with psycopg.connect(cls.POSTGRES_OML_CONNECTION_STR) as conn_oml:
+                    cursor_oml = conn_oml.cursor()
+                    cursor_dialer.execute(
+                        'UPDATE system_control SET is_active = false, updated_at = now()'
+                        ' WHERE id = true;')
+                    logger.debug('Pausing all active campaigns')
+                    cursor_dialer.execute(
+                        'UPDATE campaign SET dialer_status = %s WHERE dialer_status = %s'
+                        ' RETURNING id;',
+                        (PAUSED, ACTIVE))
+                    cursor_oml.execute(
+                        'UPDATE ominicontacto_app_campana SET estado = %s WHERE estado = %s;',
+                        (PAUSED, ACTIVE))
+                    cls.connect_redis_oml()
+                    cls.REDIS_OML_CONNECTION.publish(
+                        "OML:CHANNEL:DIALER",
+                        json.dumps({'type': 'PAUSE_BULK',
+                                    'camp_id': 'all'})
+                    )
+
+    @classmethod
+    def start_dialer(cls):
+        logger.debug('Starting dialer')
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute(
+                'UPDATE system_control SET is_active = true, updated_at = now() WHERE id = true;')
+
+    @classmethod
+    def handle_dialer_action(cls, action):
+        if action == 'start':
+            cls.start_dialer()
+        elif action == 'stop':
+            cls.stop_dialer()
+        else:
+            cls.stop_dialer()
+            cls.start_dialer()
+
+    @classmethod
+    @exception_handler_decorator
+    def manage_dialer(cls, worker, job):
+        data = cls.decode_payload(job.data)
+        action = data['action']
+        cls.handle_dialer_action(action)
+        cls.connect_redis_oml()
+        cls.REDIS_OML_CONNECTION.publish(
+            'OML:CHANNEL:DIALER',
+            json.dumps({'type': 'DIALER_STATUS_CHANGE',
+                        'action': action,
+                        'camp_id': 'all'})
+        )
+        running = True
+        if action == "stop":
+            running = False
+        return AdminRender.render_status_dialer(running)

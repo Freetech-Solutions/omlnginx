@@ -125,7 +125,7 @@ def change_database(id_campaign):
 app.jinja_env.globals['WEBSOCKET_SERVER'] = WEBSOCKET_SERVER
 
 
-# TODO: move this endpoint it to the workers
+# TODO: move this endpoint to the workers
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -143,6 +143,12 @@ def stats(id_campaign):
     return DIALER.render_template(
         {'type': 'stats', 'id_campaign': id_campaign}
     )
+
+
+@app.route('/htmx/manage-dialer/', methods=['POST'])
+def manage_dialer():
+    action = request.form.get('action')
+    return DIALER.manage_dialer(action)
 
 
 if __name__ == '__main__':
