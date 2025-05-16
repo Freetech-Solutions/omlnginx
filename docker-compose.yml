@@ -370,8 +370,8 @@ services:
     env_file:
       - .env
     networks:
-      network1:
-          ipv4_address: ${ASTERISK_IPV4}
+      - network1
+          # ipv4_address: ${ASTERISK_IPV4}
     privileged: true
     restart: on-failure
     stop_grace_period: 30s
@@ -427,8 +427,9 @@ services:
 
 networks:
   network1:
-    name: ${NETWORK}
-    external: true
+    name: pepe
+    driver: bridge
+    # external: true
 
 volumes:
   omnidialer-postgresql:
