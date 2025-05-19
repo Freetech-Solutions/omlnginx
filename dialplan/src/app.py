@@ -4,7 +4,7 @@ import json
 import logging
 import requests
 import os
-import gearman
+import pika
 import signal
 import sys
 import traceback
@@ -41,12 +41,21 @@ class CallManager:
         self.pstn_channel_ids = set()
         self.agent_to_pstn = {}
         self.channel_dialstatus = {}
+        # Configuración de RabbitMQ
+        self.RABBITMQ_OML_SERVER = os.getenv("RABBITMQ_OML_SERVER", "localhost")
+        self.rabbitmq_queue = 'call_log_processor'
+        self.pstngw_hostname = os.getenv("PSTNGW_HOSTNAME")
 
-        self.gearman_task = os.getenv('GEARMAN_TASK', 'call_log_processor')
-        gm_host = os.getenv('GEARMAN_SERVER', 'localhost')
-        gm_port = int(os.getenv('GEARMAN_PORT', 4730))
-        self.gearman_client = gearman.GearmanClient([f'{gm_host}:{gm_port}'])
-        logging.info("Conectado a Gearman en %s:%s", gm_host, gm_port)
+        # Establecemos conexión y canal persistentes con RabbitMQ
+        self.rabbit_connection = pika.BlockingConnection(
+            pika.ConnectionParameters(
+                host=self.RABBITMQ_OML_SERVER,
+                heartbeat=600,
+                blocked_connection_timeout=300
+            )
+        )
+        self.rabbit_channel = self.rabbit_connection.channel()
+        self.rabbit_channel.queue_declare(queue=self.rabbitmq_queue, durable=True)
 
     def client(self):
         try:
@@ -645,13 +654,9 @@ class CallManager:
             logging.warning("PSTNGW_HOSTNAME not set. Message not published.")
             return
 
-        allowed_dialstatuses = {
-            "ANSWER", "CANCEL", "BUSY", "CONGESTION",
-            "AMD", "NOANSWER", "DIAL"
-        }
+        allowed_dialstatuses = {"ANSWER", "CANCEL", "BUSY", "CONGESTION", "AMD", "NOANSWER", "DIAL"}
         if event_type not in allowed_dialstatuses:
-            logging.info(
-                "Dialstatus %s no permitido. Mensaje no publicado.", event_type)
+            logging.info(f"Dialstatus {event_type} is not in allowed list. Message not published.")
             return
 
         msg = {
@@ -671,28 +676,26 @@ class CallManager:
             'numero_extra': '-1'
         }
 
-        self.publish_to_gearman(msg)
+        self.publish_to_rabbitmq(msg)
 
-    def publish_to_gearman(self, message: dict) -> bool:
-        """
-        Envía el mensaje al Job Server Gearman como tarea en segundo plano.
-        Retorna True si el envío fue aceptado, False si hubo error.
-        """
+    def publish_to_rabbitmq(self, message):
         try:
             message_json = json.dumps(message)
-            self.gearman_client.submit_job(
-                self.gearman_task,
-                message_json.encode(),
-                background=True,            # fire-and-forget
-                timeout=10
+            self.rabbit_channel.basic_publish(
+                exchange='',
+                routing_key=self.rabbitmq_queue,
+                body=message_json,
+                properties=pika.BasicProperties(
+                    delivery_mode=pika.DeliveryMode.Persistent
+                )
             )
-            logging.info("Mensaje enviado a Gearman")
+            logging.info(f"Mensaje publicado en RabbitMQ: {message_json}")
             return True
-        except gearman.errors.ServerUnavailable:
-            logging.error("No se pudo conectar al Job Server Gearman")
+        except pika.exceptions.AMQPConnectionError as e:
+            logging.error(f"Error de conexión con RabbitMQ: {e}")
             return False
         except Exception as e:
-            logging.error("Error inesperado enviando a Gearman: %s", e)
+            logging.error(f"Error inesperado: {e}")
             return False
 
 
