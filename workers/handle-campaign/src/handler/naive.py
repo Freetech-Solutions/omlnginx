@@ -152,13 +152,22 @@ AVAILABLE_NEXT_STATUSES = {
     FINALIZED: [ACTIVE]
 }
 
+JOB_STARTED = 1
+JOB_FAILED = 2
 
-def exception_handler_decorator(method):
+
+def job_handler_decorator(method):
     def wrapper(*args, **kwargs):
+        worker_class = args[0]
+        job = args[2]
+        id_job = worker_class.insert_job(job)
         try:
-            return method(*args, **kwargs)
+            result = method(*args, **kwargs)
+            worker_class.remove_job(id_job)
+            return result
         except Exception as e:
             logger.exception(f"An error occurred in {method.__name__}: {e}")
+            worker_class.save_job_error(id_job, str(e))
             raise e
     return wrapper
 
@@ -182,6 +191,30 @@ class AverageWorker(DialerWorker):
         host=ASTERISK_HOST,
         port=int(ASTERISK_PORT)
     )
+
+    @classmethod
+    def insert_job(cls, job):
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+            cursor = conn.cursor()
+            job_unique = job.unique.decode('utf8')
+            job_name = job.task.decode('utf8')
+            cursor.execute(
+                'INSERT INTO jobs (job_id, job_name, status) VALUES (%s, %s, %s) RETURNING id;',
+                (job_unique, job_name, JOB_STARTED))
+            return cursor.fetchone()[0]
+
+    @classmethod
+    def save_job_error(cls, id_job, exception):
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+            cursor = conn.cursor()
+            cursor.execute('UPDATE jobs SET status = %s, error = %s WHERE id = %s;',
+                           (JOB_FAILED, exception, id_job))
+
+    @classmethod
+    def remove_job(cls, id_job):
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM jobs WHERE id = %s;', (id_job,))
 
     @classmethod
     def system_is_active(cls):
@@ -291,7 +324,7 @@ class AverageWorker(DialerWorker):
         return campaign_id_data, incidence_rules_data, incidence_rules_disposition_data
 
     @classmethod
-    @exception_handler_decorator
+    @job_handler_decorator
     def edit_campaign(cls, worker, job):
         # assumes the dialer campaign exists in OML with all the required tables and fields created
         data = cls.decode_payload(job.data)
@@ -386,7 +419,7 @@ class AverageWorker(DialerWorker):
                      NO_DISPOSITION_OPTION))
 
     @classmethod
-    @exception_handler_decorator
+    @job_handler_decorator
     def create_campaign(cls, worker, job):
         # assumes the dialer campaign exists in OML with all the required tables and fields created
         data = cls.decode_payload(job.data)
@@ -462,7 +495,7 @@ class AverageWorker(DialerWorker):
                     f"Campaign {id_campaign}: cleaned broken selected contacts={row_count}")
 
     @classmethod
-    @exception_handler_decorator
+    @job_handler_decorator
     def start_campaign(cls, worker, job):
         cls.connect_redis_oml()
         if not cls.system_is_active():
@@ -737,7 +770,7 @@ class AverageWorker(DialerWorker):
         cls.GM_CLIENT.submit_job('process-contact', message)
 
     @classmethod
-    @exception_handler_decorator
+    @job_handler_decorator
     def process_contact(cls, worker, job):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
@@ -801,7 +834,7 @@ class AverageWorker(DialerWorker):
         logger.debug(response)
 
     @classmethod
-    @exception_handler_decorator
+    @job_handler_decorator
     def pause_campaign(cls, worker, job):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
@@ -813,7 +846,7 @@ class AverageWorker(DialerWorker):
         return bytes(response, encoding='UTF8')
 
     @classmethod
-    @exception_handler_decorator
+    @job_handler_decorator
     def resume_campaign(cls, worker, job):
         cls.connect_redis_oml()
         if not cls.system_is_active():
@@ -835,7 +868,7 @@ class AverageWorker(DialerWorker):
         return bytes(response, encoding='UTF8')
 
     @classmethod
-    @exception_handler_decorator
+    @job_handler_decorator
     def process_campaign(cls, worker, job):
         id_campaign = cls.decode_payload(job.data)['id_campaign']
         logger.debug(f'Campaign {id_campaign}: resuming the campaign')
@@ -845,7 +878,7 @@ class AverageWorker(DialerWorker):
         return bytes(response, encoding='UTF8')
 
     @classmethod
-    @exception_handler_decorator
+    @job_handler_decorator
     def schedule_contact(cls, worker, job):
         # TODO: include checks to see if is possible to call according to agents
         # and available channels
@@ -981,7 +1014,7 @@ class AverageWorker(DialerWorker):
                 PHONE_TYPE, phone_number)
 
     @classmethod
-    @exception_handler_decorator
+    @job_handler_decorator
     def process_event(cls, worker, job):
         ari_event_data = cls.decode_payload(job.data)
         id_campaign, contact_id, phone_number = cls.get_contact_data(ari_event_data)
@@ -1077,7 +1110,7 @@ class AverageWorker(DialerWorker):
             )
 
     @classmethod
-    @exception_handler_decorator
+    @job_handler_decorator
     def delete_campaign(cls, worker, job):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
@@ -1131,7 +1164,7 @@ class AverageWorker(DialerWorker):
                             AVAILABLE_NEXT_STATUSES[new_status])}))
 
     @classmethod
-    @exception_handler_decorator
+    @job_handler_decorator
     def stop_campaign(cls, worker, job):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
@@ -1149,7 +1182,7 @@ class AverageWorker(DialerWorker):
             cls.REDIS_DIALER_CONNECTION.hset(f'CAMP:{id_campaign}:COUNTER_PREV', key, value)
 
     @classmethod
-    @exception_handler_decorator
+    @job_handler_decorator
     def send_reports(cls, worker, job):
         cls.connect_redis_dialer()
         ari_event_data = cls.decode_payload(job.data)
@@ -1226,7 +1259,7 @@ class AverageWorker(DialerWorker):
             return b'Success!'
 
     @classmethod
-    @exception_handler_decorator
+    @job_handler_decorator
     def add_incidence_rule_disposition(cls, worker, job):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
@@ -1265,7 +1298,7 @@ class AverageWorker(DialerWorker):
             return b'Disposition for incidence rule was added!'
 
     @classmethod
-    @exception_handler_decorator
+    @job_handler_decorator
     def create_incidence_rule(cls, worker, job):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
@@ -1296,7 +1329,7 @@ class AverageWorker(DialerWorker):
             return b'Incidence rule was added'
 
     @classmethod
-    @exception_handler_decorator
+    @job_handler_decorator
     def delete_incidence_rule(cls, worker, job):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
@@ -1316,7 +1349,7 @@ class AverageWorker(DialerWorker):
             return b'Incidence rule was deleted'
 
     @classmethod
-    @exception_handler_decorator
+    @job_handler_decorator
     def update_incidence_rule(cls, worker, job):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
@@ -1347,7 +1380,7 @@ class AverageWorker(DialerWorker):
             return b'Incidence rule was updated'
 
     @classmethod
-    @exception_handler_decorator
+    @job_handler_decorator
     def schedule_agenda(cls, worker, job):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
@@ -1358,7 +1391,7 @@ class AverageWorker(DialerWorker):
         return b'Agenda was scheduled'
 
     @classmethod
-    @exception_handler_decorator
+    @job_handler_decorator
     def change_database(cls, worker, job):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
@@ -1388,7 +1421,7 @@ class AverageWorker(DialerWorker):
         return b'Database was updated'
 
     @classmethod
-    @exception_handler_decorator
+    @job_handler_decorator
     def render_template(cls, worker, job):
         # Job dedicated to HTMX rendering
         data = cls.decode_payload(job.data)
@@ -1456,7 +1489,7 @@ class AverageWorker(DialerWorker):
             cls.start_dialer()
 
     @classmethod
-    @exception_handler_decorator
+    @job_handler_decorator
     def manage_dialer(cls, worker, job):
         data = cls.decode_payload(job.data)
         action = data['action']
