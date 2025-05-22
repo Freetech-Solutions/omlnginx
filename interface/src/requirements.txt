@@ -1,2 +1,2 @@
 flask
-gearman3
+git+https://github.com/alejandrozf/python-gearman.git@azf-fix-python-3.12.8#egg=gearman3
