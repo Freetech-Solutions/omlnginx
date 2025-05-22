@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1.4
-FROM python:3.8-alpine as builder
+FROM python:3.12-alpine as builder
 
 WORKDIR /app
 
-RUN apk add gcc musl-dev
+RUN apk add gcc musl-dev git
 COPY requirements.txt /app
 RUN  pip3 install -r requirements.txt
 
-FROM python:3.8-alpine AS run
+FROM python:3.12-alpine AS run
 
 WORKDIR /app
 
