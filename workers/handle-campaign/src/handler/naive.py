@@ -878,21 +878,6 @@ class AverageWorker(DialerWorker):
         return bytes(response, encoding='UTF8')
 
     @classmethod
-    @job_handler_decorator
-    def schedule_contact(cls, worker, job):
-        # TODO: include checks to see if is possible to call according to agents
-        # and available channels
-        data = cls.decode_payload(job.data)
-        (contact_id, id_campaign, phone_number) = data['contact_info']
-        delay = data['delay']
-        logger.debug(f'Attempting to schedule contact {contact_id} with phone number {phone_number}'
-                     f' in campaign {id_campaign}')
-        process_contact_subcommand = f'python caller.py {contact_id} {id_campaign} {phone_number}'
-        command = f'nohup sh -c "sleep {delay}; {process_contact_subcommand}" &'
-        os.system(command)
-        return b'The contact was scheduled'
-
-    @classmethod
     @timed_lru_cache(seconds=600, maxsize=128)
     def get_incidence_rule(cls, id_campaign, status):
         logger.debug(f'Campaign {id_campaign}: getting the incidence rule for {status}')
@@ -975,15 +960,21 @@ class AverageWorker(DialerWorker):
             if attempt_number <= max_attempt:
                 phone_number = cls.get_next_phone_number(
                     cursor_dialer, id_campaign, contact_id, phone_number)
-                contact = (contact_id, id_campaign, phone_number)
                 retry_later = cls.get_delay(retry_later, type_incidence_rule, attempt_number)
-                message = json.dumps({'contact_info': contact, 'delay': retry_later})
+                datetime_retry_later = datetime.datetime.now(datetime.UTC) + timedelta(seconds=retry_later)
+                message = json.dumps({'id_campaign': str(id_campaign),
+                                      'id_contact': contact_id,
+                                      'phone_number': phone_number,
+                                      'datetime_agenda': datetime_retry_later.strftime(
+                                          '%d/%m/%y %H:%M:%S'),
+                                      'type': 'incidence_rule',
+                                      })
                 cursor_dialer.execute('UPDATE contact_in_campaign SET final_status = %s WHERE'
                                       ' id_campaign = %s and id_contact = %s;',
                                       (PENDING_ATTEMPTS, id_campaign, contact_id))
                 cls.REDIS_DIALER_CONNECTION.hset(
                     f'CONTACT:{contact_id}:CAMP:{id_campaign}', 'STATUS', PENDING_ATTEMPTS)
-                cls.GM_CLIENT.submit_job('schedule-contact', message)
+                cls.GM_CLIENT.submit_job('schedule-agenda', message)
                 return True
             else:
                 cursor_dialer.execute('UPDATE contact_in_campaign SET final_status = %s'

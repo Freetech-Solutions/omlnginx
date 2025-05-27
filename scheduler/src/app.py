@@ -23,17 +23,24 @@ logger.setLevel(logging.DEBUG)
 
 app = Flask(__name__)
 
-scheduler = BackgroundScheduler()
+scheduler_agendas = BackgroundScheduler()
 
-scheduler.add_jobstore(
+scheduler_incidence_rules = BackgroundScheduler()
+
+scheduler_agendas.add_jobstore(
     'redis', jobs_key='scheduler.jobs', run_times_key='scheduler.run_times',
+    host=REDIS_DIALER_SERVER, port=REDIS_DIALER_PORT, db=3
+)
+
+scheduler_incidence_rules.add_jobstore(
+    'redis', jobs_key='scheduler.jobs', run_times_key='scheduler_incidence_rules.run_times',
     host=REDIS_DIALER_SERVER, port=REDIS_DIALER_PORT, db=3
 )
 
 GM_CLIENT = gearman.GearmanClient(GEARMAN_JOB_SERVERS)
 
 
-def schedule_contact(campaign_name, phone_number, id_campaign, id_contact):
+def schedule_contact(phone_number, id_campaign, id_contact):
     logger.debug(f'Campaign {id_campaign}: calling scheduled agenda for contact {id_contact}')
     message = json.dumps({'contact': [id_contact, id_campaign, phone_number],
                           'id_campaign': id_campaign})
@@ -46,18 +53,24 @@ def add_agenda(id_campaign):
     datetime_agenda_str = request.get_json().get('datetime_agenda', '')
     # datetime_agenda_str = '19/09/22 13:55:26' ## for example
     datetime_agenda = datetime.strptime(datetime_agenda_str, '%d/%m/%y %H:%M:%S')
-    campaign_name = request.get_json().get('campaign_name', '')
     phone_number = request.get_json().get('phone_number', '')
     id_contact = request.get_json().get('id_contact', '')
-    scheduler.add_job(
-        schedule_contact, 'date', run_date=datetime_agenda,
-        args=[campaign_name, phone_number, id_campaign, id_contact]
-    )
+    schedule_type = request.get_json().get('type', '')
+    if schedule_type == 'incidence_rule':
+        scheduler_incidence_rules.add_job(
+            schedule_contact, 'date', run_date=datetime_agenda,
+            args=[phone_number, id_campaign, id_contact]
+        )
+    else:
+        scheduler_agendas.add_job(
+            schedule_contact, 'date', run_date=datetime_agenda,
+            args=[phone_number, id_campaign, id_contact]
+        )
     return json.dumps({'msg': 'Contact was scheduled'})
 
 
-scheduler.start()
-
+scheduler_agendas.start()
+scheduler_incidence_rules.start()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=1441, debug=True)

@@ -24,8 +24,6 @@ bash add-worker-single-job.bash delete-campaign delete-campaign-1 $1
 
 bash add-worker-single-job.bash process-event process-event-1 $1
 
-bash add-worker-single-job.bash schedule-contact schedule-contact-1 $1
-
 bash add-worker-single-job.bash send-reports send-reports-1 $1
 
 bash add-worker-single-job.bash add-incidence-rule-disposition add-incidence-rule-disposition-1 $1
@@ -42,4 +40,4 @@ bash add-worker-single-job.bash change-database change-database-1 $1
 
 bash add-worker-single-job.bash render-template render-template-1 $1
 
-bash add-worker-single-job.bash stop-dialer stop-dialer-1 $1
+bash add-worker-single-job.bash manage-dialer manage-dialer-1 $1
