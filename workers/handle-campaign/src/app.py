@@ -33,7 +33,6 @@ JOBS_TO_METHODS = {
     # medium processes
     'send-reports': WORKER.send_reports,
     # scheduled processes
-    'schedule-contact': WORKER.schedule_contact,
     'schedule-agenda': WORKER.schedule_agenda
 }
 
