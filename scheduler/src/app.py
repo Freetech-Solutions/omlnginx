@@ -3,6 +3,7 @@
 from flask import Flask, request
 
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.executors.pool import ThreadPoolExecutor
 
 from datetime import datetime
 
@@ -23,7 +24,11 @@ logger.setLevel(logging.DEBUG)
 
 app = Flask(__name__)
 
-scheduler = BackgroundScheduler()
+executors = {
+    'default': ThreadPoolExecutor(1)
+}
+
+scheduler = BackgroundScheduler(executors=executors)
 
 scheduler.add_jobstore(
     'redis', jobs_key='scheduler.jobs', run_times_key='scheduler.run_times',

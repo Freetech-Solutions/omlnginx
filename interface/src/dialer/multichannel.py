@@ -166,7 +166,8 @@ class GearmanDialer(Dialer):
             'id_contact': id_contact,
             'campaign_name': campaign_name,
             'datetime_agenda': datetime_agenda,
-            'phone_number': phone_number
+            'phone_number': phone_number,
+            'type': 'agenda'
         }
         payload_bytes = cls.encode_payload(payload)
         cls.GM_CLIENT.submit_job('schedule-agenda', payload_bytes, background=True)
