@@ -23,19 +23,13 @@ logger.setLevel(logging.DEBUG)
 
 app = Flask(__name__)
 
-scheduler_agendas = BackgroundScheduler()
+scheduler = BackgroundScheduler()
 
-scheduler_incidence_rules = BackgroundScheduler()
-
-scheduler_agendas.add_jobstore(
+scheduler.add_jobstore(
     'redis', jobs_key='scheduler.jobs', run_times_key='scheduler.run_times',
     host=REDIS_DIALER_SERVER, port=REDIS_DIALER_PORT, db=3
 )
 
-scheduler_incidence_rules.add_jobstore(
-    'redis', jobs_key='scheduler.jobs', run_times_key='scheduler_incidence_rules.run_times',
-    host=REDIS_DIALER_SERVER, port=REDIS_DIALER_PORT, db=3
-)
 
 GM_CLIENT = gearman.GearmanClient(GEARMAN_JOB_SERVERS)
 
@@ -56,21 +50,15 @@ def add_agenda(id_campaign):
     phone_number = request.get_json().get('phone_number', '')
     id_contact = request.get_json().get('id_contact', '')
     schedule_type = request.get_json().get('type', '')
-    if schedule_type == 'incidence_rule':
-        scheduler_incidence_rules.add_job(
-            schedule_contact, 'date', run_date=datetime_agenda,
-            args=[phone_number, id_campaign, id_contact]
-        )
-    else:
-        scheduler_agendas.add_job(
-            schedule_contact, 'date', run_date=datetime_agenda,
-            args=[phone_number, id_campaign, id_contact]
-        )
+    scheduler.add_job(
+        schedule_contact, 'date', run_date=datetime_agenda,
+        args=[phone_number, id_campaign, id_contact],
+        name=schedule_type
+    )
     return json.dumps({'msg': 'Contact was scheduled'})
 
 
-scheduler_agendas.start()
-scheduler_incidence_rules.start()
+scheduler.start()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=1441, debug=True)

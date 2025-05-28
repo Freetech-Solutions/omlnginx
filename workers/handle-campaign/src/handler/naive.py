@@ -961,7 +961,7 @@ class AverageWorker(DialerWorker):
                 phone_number = cls.get_next_phone_number(
                     cursor_dialer, id_campaign, contact_id, phone_number)
                 retry_later = cls.get_delay(retry_later, type_incidence_rule, attempt_number)
-                datetime_retry_later = datetime.datetime.now(datetime.UTC) + timedelta(
+                datetime_retry_later = datetime.datetime.now() + timedelta(
                     seconds=retry_later)
                 message = json.dumps({'id_campaign': str(id_campaign),
                                       'id_contact': contact_id,
