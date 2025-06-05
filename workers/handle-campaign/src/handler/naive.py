@@ -67,6 +67,8 @@ POSTGRES_DIALER_PASSWORD = os.getenv('POSTGRES_DIALER_PASSWORD')
 
 DIALER_ACD_HOST = os.getenv('DIALER_ACD_HOST', 'omlacd')
 
+SCHEDULER_API_HOST = os.getenv('SCHEDULER_API_HOST', 'scheduler-api')
+
 WEEK_DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
 
 CAPS = int(os.getenv('CAPS', 3))
@@ -1376,9 +1378,8 @@ class AverageWorker(DialerWorker):
     def schedule_agenda(cls, worker, job):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
-        host = 'omnidialer-scheduler'
-        port = 1441
-        uri = f'http://{host}:{port}/add-agenda/{id_campaign}'
+        host = SCHEDULER_API_HOST
+        uri = f'http://{host}/add-agenda/{id_campaign}'
         requests.post(uri, json=data)
         return b'Agenda was scheduled'
 

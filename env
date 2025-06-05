@@ -44,6 +44,8 @@ DIALER_ASTERISK_IPV4=10.55.22.199
 # When omnidialer run in other host, you must set the OMNIDIALER_HOST variable with 
 # the IP or hostname of the host
 OMNIDIALER_HOST=dialer-api:1440
+# --- Scheduler API connection params
+SCHEDULER_API_HOST=scheduler-api:1441
 
 # --- Dialer API connection params
 DIALER_API_EXT_BIND_IP=${OML_HOSTNAME}
