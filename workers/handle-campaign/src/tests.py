@@ -157,7 +157,7 @@ class MyTestSuite(unittest.TestCase):
         AverageWorker.process_event(self.worker, job)
         # check that a job was submitted to 'schedule-contact'
         self.assertEqual(AverageWorker.GM_CLIENT.submit_job.call_args_list[0][0][0],
-                         'schedule-contact')
+                         'schedule-agenda')
 
     def test_incidence_rules_disposition(self):
         # make sure if a disposition came to the disposition endpoint and there is an incidence rule
@@ -171,7 +171,7 @@ class MyTestSuite(unittest.TestCase):
         AverageWorker.add_incidence_rule_disposition(self.worker, job)
         # check that a job was submitted to 'schedule-contact'
         self.assertEqual(AverageWorker.GM_CLIENT.submit_job.call_args_list[0][0][0],
-                         'schedule-contact')
+                         'schedule-agenda')
 
     def test_call_is_tagged_as_aborted_if_campaign_not_active(self):
         with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:

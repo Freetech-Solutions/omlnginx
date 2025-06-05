@@ -248,18 +248,6 @@ services:
     networks:
       - network1
 
-  schedule_contact_worker:
-    image: ${WORKER_IMG}
-    container_name: schedule-contact-1
-    env_file: .env
-    depends_on:
-      - job_server
-      - postgresql
-    environment:
-      - GEARMAN_JOBS=schedule-contact
-    networks:
-      - network1
-
   send_reports_worker:
     image: ${WORKER_IMG}
     container_name: send-reports-1
