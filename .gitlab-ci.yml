@@ -18,17 +18,14 @@ container-image:
     - |-
       if [ "${CI_COMMIT_BRANCH}" == "master-2.0" ]; then
         echo "${DOCKER_SECRET}" | docker login --username "${DOCKER_USERNAME}" --password-stdin
-        IMAGE_VERSION=$(cat version.txt)
+        IMAGE_VERSION="$(date +%Y%m%d)-${CI_COMMIT_SHORT_SHA}"
         docker tag run omnileads/nginx:$IMAGE_VERSION
         docker push docker.io/omnileads/nginx:$IMAGE_VERSION
       else
         echo "${DOCKER_PASSWORD}" | docker login --username "${DOCKER_USER}" --password-stdin
-        IMAGE_VERSION=$(cat version.txt)
+        IMAGE_VERSION="$(date +%Y%m%d)-${CI_COMMIT_SHORT_SHA}"
         docker tag run freetechsolutions/nginx:$IMAGE_VERSION
         docker push docker.io/freetechsolutions/nginx:$IMAGE_VERSION
       fi
   rules:
-    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master-2.0"
-    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "develop-2.0"
-    - if: '$CI_COMMIT_REF_NAME =~ /build/'
     - if: $CI_PIPELINE_SOURCE == "web"
