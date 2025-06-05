@@ -1,4 +1,4 @@
-FROM omnileads/asterisk_base_img:241115.01 as run
+FROM omnileads/asterisk_base_img:250422.01 AS run
 
 COPY conf/* /etc/asterisk/
 COPY build/docker-entrypoint.sh /docker-entrypoint.sh

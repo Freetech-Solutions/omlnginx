@@ -26,12 +26,12 @@ test:
       echo "Pushing image ${IMAGE_NAME}..."
       if [ "${CI_COMMIT_BRANCH}" == "main" ]; then
         echo "${DOCKER_SECRET}" | docker login --username "${DOCKER_USERNAME}" --password-stdin
-        IMAGE_VERSION=$(cat ${VERSION_FILE})
+        IMAGE_VERSION="$(date +%Y%m%d)-${CI_COMMIT_SHORT_SHA}"
         docker tag ${IMAGE_NAME} docker.io/omnileads/${IMAGE_NAME}:$IMAGE_VERSION
         docker push docker.io/omnileads/${IMAGE_NAME}:$IMAGE_VERSION
       else
         echo "${DOCKER_PASSWORD}" | docker login --username "${DOCKER_USER}" --password-stdin
-        IMAGE_VERSION=$(cat ${VERSION_FILE})
+        IMAGE_VERSION="$(date +%Y%m%d)-${CI_COMMIT_SHORT_SHA}"
         docker tag ${IMAGE_NAME} docker.io/freetechsolutions/${IMAGE_NAME}:$IMAGE_VERSION
         docker push docker.io/freetechsolutions/${IMAGE_NAME}:$IMAGE_VERSION
       fi
@@ -46,7 +46,6 @@ container-image-asterisk:
   variables:
     IMAGE_NAME: "dialer_asterisk"
     DOCKERFILE_PATH: "asterisk/Dockerfile"
-    VERSION_FILE: "asterisk/version.txt"
     BUILD_CONTEXT: "asterisk"
 
 container-image-dialplan:
@@ -55,7 +54,6 @@ container-image-dialplan:
   variables:
     IMAGE_NAME: "dialer_dialplan"
     DOCKERFILE_PATH: "dialplan/Dockerfile"
-    VERSION_FILE: "dialplan/version.txt"
     BUILD_CONTEXT: "dialplan"
 
 container-image-api:
@@ -64,7 +62,6 @@ container-image-api:
   variables:
     IMAGE_NAME: "dialer_api"
     DOCKERFILE_PATH: "interface/src/Dockerfile"
-    VERSION_FILE: "interface/src/version.txt"
     BUILD_CONTEXT: "interface/src"
 
 container-image-worker:
@@ -73,7 +70,6 @@ container-image-worker:
   variables:
     IMAGE_NAME: "dialer_worker"
     DOCKERFILE_PATH: "workers/handle-campaign/src/Dockerfile"
-    VERSION_FILE: "workers/handle-campaign/src/version.txt"
     BUILD_CONTEXT: "workers/handle-campaign/src"
 
 container-image-scheduler:
@@ -82,7 +78,6 @@ container-image-scheduler:
   variables:
     IMAGE_NAME: "dialer_scheduler"
     DOCKERFILE_PATH: "scheduler/src/Dockerfile"
-    VERSION_FILE: "scheduler/src/version.txt"
     BUILD_CONTEXT: "scheduler/src"
 
 container-image-websocket_ari:
@@ -91,5 +86,4 @@ container-image-websocket_ari:
   variables:
     IMAGE_NAME: "dialer_listener"
     DOCKERFILE_PATH: "websocket_ari/src/Dockerfile"
-    VERSION_FILE: "websocket_ari/src/version.txt"
     BUILD_CONTEXT: "websocket_ari/src"
