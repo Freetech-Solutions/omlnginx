@@ -1,439 +1,771 @@
+networks:
+  omnileads:
+    name: ${NETWORK}
+    external: true
+
+
+
+volumes:
+
+  dialer-postgresql: 
+
 services:
-  api:
+
+  dialer-api:
     build:
       target: run
       context: ./interface/src
     image: ${API_IMG}
-    container_name: omnidialer-api
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:1440/"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 30s
     ports:
-      - '1440:1440'
+      - ${DIALER_API_EXT_BIND_IP:-0.0.0.0}:${DIALER_API_EXT_PORT:-1440}:1440/tcp
     networks:
-      - network1
+      - omnileads
     stop_signal: SIGINT
     tty: true
     stdin_open: true
     depends_on:
-      - job_server
-      - postgresql
+      - dialer-postgresql
     environment:
       - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
       - WEBSOCKET_SERVER=${WEBSOCKET_SERVER}
-
-  job_server:
-    image: artefactual/gearmand:1.1.18-alpine
-    container_name: gearman_job_server_1
-    ports:
-      - '4730:4730'
-    networks:
-      - network1
-    command: gearmand -t 1
 
   scheduler:
     build:
       context: ./scheduler/src
     image: ${SCHEDULER_IMG}
-    container_name: omnidialer-scheduler
-    volumes:
-      - ./scheduler/src:/app
     ports:
-      - '1441:1441'
+      - ${DIALER_SCHEDULER_EXT_BIND_IP:-0.0.0.0}:${DIALER_SCHEDULER_EXT_PORT:-1441}:1441/tcp
     networks:
-      - network1
+      - omnileads
     stop_signal: SIGINT
     tty: true
     stdin_open: true
-    depends_on:
-      - job_server
     environment:
       - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
       - REDIS_DIALER_SERVER=${REDIS_DIALER_SERVER}
       - REDIS_DIALER_PORT=${REDIS_DIALER_PORT}
       - TZ=${TZ}
 
-  websocket_ari:
-    container_name: omnidialer_websocket_ari
+  listener:
     build:
       context: ./websocket_ari/src
     image: ${LISTENER_IMG}
     networks:
-      - network1
+      - omnileads
     tty: true
     stdin_open: true
     environment:
-      - ASTERISK_HOST=${ASTERISK_HOST}
-      - ASTERISK_PORT=${ASTERISK_PORT}
-      - ASTERISK_USER=${ASTERISK_USER}
-      - ASTERISK_PASS=${ASTERISK_PASS}
-      - ASTERISK_APP=${ASTERISK_APP}
-      - ASTERISK_APP_DIALER=${ASTERISK_APP_DIALER}
+      - ASTERISK_HOST=${ASTERISK_DIALER_HOSTNAME}
+      - ASTERISK_PORT=${ASTERISK_DIALER_ARI_PORT}
+      - ASTERISK_USER=${AMI_USER}
+      - ASTERISK_PASS=${AMI_PASSWORD}
+      - ASTERISK_APP=call_manager
+      - ASTERISK_APP_DIALER=call_manager_dialer
       - TZ=${TZ}
       - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
     depends_on:
-      - job_server
-      - postgresql
-      - worker
+      dialer-postgresql:
+        condition: service_healthy
+        required: true
+      start-campaign:
+        condition: service_started
+        required: true
+      dialer-acd:
+        condition: service_started
+        required: true
 
-  redisinsight:
-    container_name: omnidialer-redisinsight
-    dns: 8.8.8.8
-    environment:
-      - TZ=${TZ}
-      - BIND_IP=0.0.0.0
-    networks:
-      - network1
-    ports:
-      - '5540:5540'
-    expose:
-      - '5540'
-    image: redis/redisinsight:latest
-    privileged: true
-    restart: on-failure
-    stop_grace_period: 1m30s
-    volumes:
-      - redis_redisinsight:/data
-
-  worker:
+  start-campaign:
     build:
       context: ./workers/handle-campaign/src
     image: ${WORKER_IMG}
     networks:
-      - network1
+      - omnileads
     tty: true
     stdin_open: true
     environment:
-      - ASTERISK_HOST=${ASTERISK_HOST}
-      - ASTERISK_PORT=${ASTERISK_PORT}
-      - ASTERISK_USER=${ASTERISK_USER}
-      - ASTERISK_PASS=${ASTERISK_PASS}
-      - ASTERISK_APP=${ASTERISK_APP}
-      - REDIS_OML_SERVER=${REDIS_OML_SERVER}
-      - REDIS_OML_PORT=${REDIS_OML_PORT}
-      - REDIS_DIALER_SERVER=${REDIS_DIALER_SERVER}
-      - REDIS_DIALER_PORT=${REDIS_DIALER_PORT}
-      - POSTGRES_OML_PASSWORD=${POSTGRES_OML_PASSWORD}
-      - POSTGRES_OML_SERVER=${POSTGRES_OML_SERVER}
-      - POSTGRES_OML_PORT=${POSTGRES_OML_PORT}
-      - POSTGRES_DIALER_PASSWORD=${POSTGRES_DIALER_PASSWORD}
+      - GEARMAN_JOBS=start-campaign
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
+      - ASTERISK_HOST=${ASTERISK_DIALER_HOSTNAME}
+      - ASTERISK_PORT=${ASTERISK_DIALER_ARI_PORT}
+      - ASTERISK_USER=${AMI_USER}
+      - ASTERISK_PASS=${AMI_PASSWORD}
+      - ASTERISK_APP=call_manager
+      - CAPS=${DIALER_CAPS}
+      - DIALER_ACD_HOST=pstn_gateway           
+      - POSTGRES_OML_SERVER=${PGHOST}
+      - POSTGRES_OML_PORT=${PGPORT}
+      - POSTGRES_OML_USER=${PGUSER}
+      - POSTGRES_OML_PASSWORD=${PGPASSWORD}  
       - POSTGRES_DIALER_SERVER=${POSTGRES_DIALER_SERVER}
       - POSTGRES_DIALER_PORT=${POSTGRES_DIALER_PORT}
-      - TZ=${TZ}
-      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
-      - GEARMAN_JOBS=start-campaign
+      - POSTGRES_DIALER_USER=${POSTGRES_DIALER_USER}  
+      - POSTGRES_DIALER_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_DB=${POSTGRES_DIALER_DB}
+      - REDIS_OML_SERVER=${REDIS_HOSTNAME}
+      - REDIS_OML_PORT=${REDIS_PORT}
+      - REDIS_DIALER_SERVER=${REDIS_HOSTNAME}
+      - REDIS_DIALER_PORT=${REDIS_PORT}
       - PYTHON_LOGLEVEL=${PYTHON_LOGLEVEL}
-      - DIALER_ACD_HOST=${DIALER_ACD_HOST}
     depends_on:
-      - job_server
-      - postgresql
+      - dialer-postgresql
 
-  process_contact_worker:
+  process-contact-worker:
     image: ${WORKER_IMG}
     deploy:
-      replicas: 3
+      replicas: ${PROCESS_CONTACT_REPLICAS}
     stop_signal: SIGINT
     tty: true
     stdin_open: true
-    env_file: .env
     environment:
       - GEARMAN_JOBS=process-contact
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
+      - ASTERISK_HOST=${ASTERISK_DIALER_HOSTNAME}
+      - ASTERISK_PORT=${ASTERISK_DIALER_ARI_PORT}
+      - ASTERISK_USER=${AMI_USER}
+      - ASTERISK_PASS=${AMI_PASSWORD}
+      - ASTERISK_APP=call_manager
+      - CAPS=${DIALER_CAPS}
+      - DIALER_ACD_HOST=pstn_gateway           
+      - POSTGRES_OML_SERVER=${PGHOST}
+      - POSTGRES_OML_PORT=${PGPORT}
+      - POSTGRES_OML_USER=${PGUSER}
+      - POSTGRES_OML_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_SERVER=${POSTGRES_DIALER_SERVER}
+      - POSTGRES_DIALER_PORT=${POSTGRES_DIALER_PORT}
+      - POSTGRES_DIALER_USER=${POSTGRES_DIALER_USER}  
+      - POSTGRES_DIALER_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_DB=${POSTGRES_DIALER_DB}
+      - REDIS_OML_SERVER=${REDIS_HOSTNAME}
+      - REDIS_OML_PORT=${REDIS_PORT}
+      - REDIS_DIALER_SERVER=${REDIS_HOSTNAME}
+      - REDIS_DIALER_PORT=${REDIS_PORT}
+      - PYTHON_LOGLEVEL=${PYTHON_LOGLEVEL}
     depends_on:
-      - job_server
-      - postgresql
+      - dialer-postgresql
     networks:
-      - network1
+      - omnileads
 
-  process_campaign_worker:
+  process-campaign-worker:
     image: ${WORKER_IMG}
-    env_file: .env
     depends_on:
-      - job_server
-      - postgresql
+      - dialer-postgresql
     deploy:
-      replicas: 5
+      replicas: ${PROCESS_CAMPAIGN_REPLICAS}
     stop_signal: SIGINT
     tty: true
     stdin_open: true
     environment:
       - GEARMAN_JOBS=process-campaign
-      - CAPS=${CAPS}
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
+      - ASTERISK_HOST=${ASTERISK_DIALER_HOSTNAME}
+      - ASTERISK_PORT=${ASTERISK_DIALER_ARI_PORT}
+      - ASTERISK_USER=${AMI_USER}
+      - ASTERISK_PASS=${AMI_PASSWORD}
+      - ASTERISK_APP=call_manager
+      - CAPS=${DIALER_CAPS}
+      - DIALER_ACD_HOST=pstn_gateway           
+      - POSTGRES_OML_SERVER=${PGHOST}
+      - POSTGRES_OML_PORT=${PGPORT}
+      - POSTGRES_OML_USER=${PGUSER}
+      - POSTGRES_OML_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_SERVER=${POSTGRES_DIALER_SERVER}
+      - POSTGRES_DIALER_PORT=${POSTGRES_DIALER_PORT}
+      - POSTGRES_DIALER_USER=${POSTGRES_DIALER_USER}  
+      - POSTGRES_DIALER_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_DB=${POSTGRES_DIALER_DB}
+      - REDIS_OML_SERVER=${REDIS_HOSTNAME}
+      - REDIS_OML_PORT=${REDIS_PORT}
+      - REDIS_DIALER_SERVER=${REDIS_HOSTNAME}
+      - REDIS_DIALER_PORT=${REDIS_PORT}
+      - PYTHON_LOGLEVEL=${PYTHON_LOGLEVEL}
     networks:
-      - network1
+      - omnileads
 
-  create_campaign_worker:
+  create-campaign-worker:
     image: ${WORKER_IMG}
-    container_name: create-campaign-1
-    env_file: .env
     stop_signal: SIGINT
     tty: true
     stdin_open: true
     depends_on:
-      - job_server
-      - postgresql
+      - dialer-postgresql
     environment:
       - GEARMAN_JOBS=create-campaign
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
+      - ASTERISK_HOST=${ASTERISK_DIALER_HOSTNAME}
+      - ASTERISK_PORT=${ASTERISK_DIALER_ARI_PORT}
+      - ASTERISK_USER=${AMI_USER}
+      - ASTERISK_PASS=${AMI_PASSWORD}
+      - ASTERISK_APP=call_manager
+      - CAPS=${DIALER_CAPS}
+      - DIALER_ACD_HOST=pstn_gateway           
+      - POSTGRES_OML_SERVER=${PGHOST}
+      - POSTGRES_OML_PORT=${PGPORT}
+      - POSTGRES_OML_USER=${PGUSER}
+      - POSTGRES_OML_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_SERVER=${POSTGRES_DIALER_SERVER}
+      - POSTGRES_DIALER_PORT=${POSTGRES_DIALER_PORT}
+      - POSTGRES_DIALER_USER=${POSTGRES_DIALER_USER}  
+      - POSTGRES_DIALER_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_DB=${POSTGRES_DIALER_DB}
+      - REDIS_OML_SERVER=${REDIS_HOSTNAME}
+      - REDIS_OML_PORT=${REDIS_PORT}
+      - REDIS_DIALER_SERVER=${REDIS_HOSTNAME}
+      - REDIS_DIALER_PORT=${REDIS_PORT}
+      - PYTHON_LOGLEVEL=${PYTHON_LOGLEVEL}
     networks:
-      - network1
+      - omnileads
 
-  resume_campaign_worker:
+  resume-campaign-worker:
     image: ${WORKER_IMG}
-    container_name: resume-campaign-1
-    env_file: .env
     depends_on:
-      - job_server
-      - postgresql
+      - dialer-postgresql
     environment:
       - GEARMAN_JOBS=resume-campaign
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
+      - ASTERISK_HOST=${ASTERISK_DIALER_HOSTNAME}
+      - ASTERISK_PORT=${ASTERISK_DIALER_ARI_PORT}
+      - ASTERISK_USER=${AMI_USER}
+      - ASTERISK_PASS=${AMI_PASSWORD}
+      - ASTERISK_APP=call_manager
+      - CAPS=${DIALER_CAPS}
+      - DIALER_ACD_HOST=pstn_gateway           
+      - POSTGRES_OML_SERVER=${PGHOST}
+      - POSTGRES_OML_PORT=${PGPORT}
+      - POSTGRES_OML_USER=${PGUSER}
+      - POSTGRES_OML_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_SERVER=${POSTGRES_DIALER_SERVER}
+      - POSTGRES_DIALER_PORT=${POSTGRES_DIALER_PORT}
+      - POSTGRES_DIALER_USER=${POSTGRES_DIALER_USER}  
+      - POSTGRES_DIALER_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_DB=${POSTGRES_DIALER_DB}
+      - REDIS_OML_SERVER=${REDIS_HOSTNAME}
+      - REDIS_OML_PORT=${REDIS_PORT}
+      - REDIS_DIALER_SERVER=${REDIS_HOSTNAME}
+      - REDIS_DIALER_PORT=${REDIS_PORT}
+      - PYTHON_LOGLEVEL=${PYTHON_LOGLEVEL}      
     networks:
-      - network1
+      - omnileads
 
-  edit_campaign_worker:
+  edit-campaign-worker:
     image: ${WORKER_IMG}
-    container_name: edit-campaign-1
-    env_file: .env
     depends_on:
-      - job_server
-      - postgresql
+      - dialer-postgresql
     environment:
       - GEARMAN_JOBS=edit-campaign
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
+      - ASTERISK_HOST=${ASTERISK_DIALER_HOSTNAME}
+      - ASTERISK_PORT=${ASTERISK_DIALER_ARI_PORT}
+      - ASTERISK_USER=${AMI_USER}
+      - ASTERISK_PASS=${AMI_PASSWORD}
+      - ASTERISK_APP=call_manager
+      - CAPS=${DIALER_CAPS}
+      - DIALER_ACD_HOST=pstn_gateway           
+      - POSTGRES_OML_SERVER=${PGHOST}
+      - POSTGRES_OML_PORT=${PGPORT}
+      - POSTGRES_OML_USER=${PGUSER}
+      - POSTGRES_OML_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_SERVER=${POSTGRES_DIALER_SERVER}
+      - POSTGRES_DIALER_PORT=${POSTGRES_DIALER_PORT}
+      - POSTGRES_DIALER_USER=${POSTGRES_DIALER_USER}  
+      - POSTGRES_DIALER_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_DB=${POSTGRES_DIALER_DB}
+      - REDIS_OML_SERVER=${REDIS_HOSTNAME}
+      - REDIS_OML_PORT=${REDIS_PORT}
+      - REDIS_DIALER_SERVER=${REDIS_HOSTNAME}
+      - REDIS_DIALER_PORT=${REDIS_PORT}
+      - PYTHON_LOGLEVEL=${PYTHON_LOGLEVEL}      
     networks:
-      - network1
+      - omnileads
 
-  stop_campaign_worker:
+  stop-campaign-worker:
     image: ${WORKER_IMG}
-    container_name: stop-campaign-1
-    env_file: .env
     depends_on:
-      - job_server
-      - postgresql
+      - dialer-postgresql
     environment:
       - GEARMAN_JOBS=stop-campaign
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
+      - ASTERISK_HOST=${ASTERISK_DIALER_HOSTNAME}
+      - ASTERISK_PORT=${ASTERISK_DIALER_ARI_PORT}
+      - ASTERISK_USER=${AMI_USER}
+      - ASTERISK_PASS=${AMI_PASSWORD}
+      - ASTERISK_APP=call_manager
+      - CAPS=${DIALER_CAPS}
+      - DIALER_ACD_HOST=pstn_gateway           
+      - POSTGRES_OML_SERVER=${PGHOST}
+      - POSTGRES_OML_PORT=${PGPORT}
+      - POSTGRES_OML_USER=${PGUSER}
+      - POSTGRES_OML_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_SERVER=${POSTGRES_DIALER_SERVER}
+      - POSTGRES_DIALER_PORT=${POSTGRES_DIALER_PORT}
+      - POSTGRES_DIALER_USER=${POSTGRES_DIALER_USER}  
+      - POSTGRES_DIALER_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_DB=${POSTGRES_DIALER_DB}
+      - REDIS_OML_SERVER=${REDIS_HOSTNAME}
+      - REDIS_OML_PORT=${REDIS_PORT}
+      - REDIS_DIALER_SERVER=${REDIS_HOSTNAME}
+      - REDIS_DIALER_PORT=${REDIS_PORT}
+      - PYTHON_LOGLEVEL=${PYTHON_LOGLEVEL}
     networks:
-      - network1
+      - omnileads
 
-  pause_campaign_worker:
+  pause-campaign-worker:
     image: ${WORKER_IMG}
-    container_name: pause-campaign-1
-    env_file: .env
     depends_on:
-      - job_server
-      - postgresql
+      - dialer-postgresql
     environment:
       - GEARMAN_JOBS=pause-campaign
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
+      - ASTERISK_HOST=${ASTERISK_DIALER_HOSTNAME}
+      - ASTERISK_PORT=${ASTERISK_DIALER_ARI_PORT}
+      - ASTERISK_USER=${AMI_USER}
+      - ASTERISK_PASS=${AMI_PASSWORD}
+      - ASTERISK_APP=call_manager
+      - CAPS=${DIALER_CAPS}
+      - DIALER_ACD_HOST=pstn_gateway           
+      - POSTGRES_OML_SERVER=${PGHOST}
+      - POSTGRES_OML_PORT=${PGPORT}
+      - POSTGRES_OML_USER=${PGUSER}
+      - POSTGRES_OML_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_SERVER=${POSTGRES_DIALER_SERVER}
+      - POSTGRES_DIALER_PORT=${POSTGRES_DIALER_PORT}
+      - POSTGRES_DIALER_USER=${POSTGRES_DIALER_USER}  
+      - POSTGRES_DIALER_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_DB=${POSTGRES_DIALER_DB}
+      - REDIS_OML_SERVER=${REDIS_HOSTNAME}
+      - REDIS_OML_PORT=${REDIS_PORT}
+      - REDIS_DIALER_SERVER=${REDIS_HOSTNAME}
+      - REDIS_DIALER_PORT=${REDIS_PORT}
+      - PYTHON_LOGLEVEL=${PYTHON_LOGLEVEL}
     networks:
-      - network1
+      - omnileads
 
-  delete_campaign_worker:
+  delete-campaign-worker:
     image: ${WORKER_IMG}
-    container_name: delete-campaign-1
-    env_file: .env
     depends_on:
-      - job_server
-      - postgresql
+      - dialer-postgresql
     environment:
       - GEARMAN_JOBS=delete-campaign
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
+      - ASTERISK_HOST=${ASTERISK_DIALER_HOSTNAME}
+      - ASTERISK_PORT=${ASTERISK_DIALER_ARI_PORT}
+      - ASTERISK_USER=${AMI_USER}
+      - ASTERISK_PASS=${AMI_PASSWORD}
+      - ASTERISK_APP=call_manager
+      - CAPS=${DIALER_CAPS}
+      - DIALER_ACD_HOST=pstn_gateway           
+      - POSTGRES_OML_SERVER=${PGHOST}
+      - POSTGRES_OML_PORT=${PGPORT}
+      - POSTGRES_OML_USER=${PGUSER}
+      - POSTGRES_OML_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_SERVER=${POSTGRES_DIALER_SERVER}
+      - POSTGRES_DIALER_PORT=${POSTGRES_DIALER_PORT}
+      - POSTGRES_DIALER_USER=${POSTGRES_DIALER_USER}  
+      - POSTGRES_DIALER_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_DB=${POSTGRES_DIALER_DB}
+      - REDIS_OML_SERVER=${REDIS_HOSTNAME}
+      - REDIS_OML_PORT=${REDIS_PORT}
+      - REDIS_DIALER_SERVER=${REDIS_HOSTNAME}
+      - REDIS_DIALER_PORT=${REDIS_PORT}
+      - PYTHON_LOGLEVEL=${PYTHON_LOGLEVEL}      
     networks:
-      - network1
+      - omnileads
 
-  process_event_worker:
+  process-event-worker:
     image: ${WORKER_IMG}
-    container_name: process-event-1
-    env_file: .env
     depends_on:
-      - job_server
-      - postgresql
+      - dialer-postgresql
+    deploy: 
+        replicas: ${PROCESS_EVENT_REPLICAS}
     stop_signal: SIGINT
     tty: true
     stdin_open: true
     environment:
       - GEARMAN_JOBS=process-event
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
+      - ASTERISK_HOST=${ASTERISK_DIALER_HOSTNAME}
+      - ASTERISK_PORT=${ASTERISK_DIALER_ARI_PORT}
+      - ASTERISK_USER=${AMI_USER}
+      - ASTERISK_PASS=${AMI_PASSWORD}
+      - ASTERISK_APP=call_manager
+      - CAPS=${DIALER_CAPS}
+      - DIALER_ACD_HOST=pstn_gateway           
+      - POSTGRES_OML_SERVER=${PGHOST}
+      - POSTGRES_OML_PORT=${PGPORT}
+      - POSTGRES_OML_USER=${PGUSER}
+      - POSTGRES_OML_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_SERVER=${POSTGRES_DIALER_SERVER}
+      - POSTGRES_DIALER_PORT=${POSTGRES_DIALER_PORT}
+      - POSTGRES_DIALER_USER=${POSTGRES_DIALER_USER}  
+      - POSTGRES_DIALER_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_DB=${POSTGRES_DIALER_DB}
+      - REDIS_OML_SERVER=${REDIS_HOSTNAME}
+      - REDIS_OML_PORT=${REDIS_PORT}
+      - REDIS_DIALER_SERVER=${REDIS_HOSTNAME}
+      - REDIS_DIALER_PORT=${REDIS_PORT}
+      - PYTHON_LOGLEVEL=${PYTHON_LOGLEVEL}      
     networks:
-      - network1
+      - omnileads
 
-  send_reports_worker:
+  send-reports-worker:
     image: ${WORKER_IMG}
-    container_name: send-reports-1
-    env_file: .env
     depends_on:
-      - job_server
-      - postgresql
+      - dialer-postgresql
     environment:
       - GEARMAN_JOBS=send-reports
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
+      - ASTERISK_HOST=${ASTERISK_DIALER_HOSTNAME}
+      - ASTERISK_PORT=${ASTERISK_DIALER_ARI_PORT}
+      - ASTERISK_USER=${AMI_USER}
+      - ASTERISK_PASS=${AMI_PASSWORD}
+      - ASTERISK_APP=call_manager
+      - CAPS=${DIALER_CAPS}
+      - DIALER_ACD_HOST=pstn_gateway           
+      - POSTGRES_OML_SERVER=${PGHOST}
+      - POSTGRES_OML_PORT=${PGPORT}
+      - POSTGRES_OML_USER=${PGUSER}
+      - POSTGRES_OML_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_SERVER=${POSTGRES_DIALER_SERVER}
+      - POSTGRES_DIALER_PORT=${POSTGRES_DIALER_PORT}
+      - POSTGRES_DIALER_USER=${POSTGRES_DIALER_USER}  
+      - POSTGRES_DIALER_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_DB=${POSTGRES_DIALER_DB}
+      - REDIS_OML_SERVER=${REDIS_HOSTNAME}
+      - REDIS_OML_PORT=${REDIS_PORT}
+      - REDIS_DIALER_SERVER=${REDIS_HOSTNAME}
+      - REDIS_DIALER_PORT=${REDIS_PORT}
+      - PYTHON_LOGLEVEL=${PYTHON_LOGLEVEL}      
     networks:
-      - network1
+      - omnileads
 
-  add_incidence_rule_disposition_worker:
+  add-incidence-rule-disposition-worker:
     image: ${WORKER_IMG}
-    container_name: add-incidence-rule-disposition-1
-    env_file: .env
     tty: true
     stdin_open: true
     depends_on:
-      - job_server
-      - postgresql
+      - dialer-postgresql
     environment:
       - GEARMAN_JOBS=add-incidence-rule-disposition
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
+      - ASTERISK_HOST=${ASTERISK_DIALER_HOSTNAME}
+      - ASTERISK_PORT=${ASTERISK_DIALER_ARI_PORT}
+      - ASTERISK_USER=${AMI_USER}
+      - ASTERISK_PASS=${AMI_PASSWORD}
+      - ASTERISK_APP=call_manager
+      - CAPS=${DIALER_CAPS}
+      - DIALER_ACD_HOST=pstn_gateway           
+      - POSTGRES_OML_SERVER=${PGHOST}
+      - POSTGRES_OML_PORT=${PGPORT}
+      - POSTGRES_OML_USER=${PGUSER}
+      - POSTGRES_OML_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_SERVER=${POSTGRES_DIALER_SERVER}
+      - POSTGRES_DIALER_PORT=${POSTGRES_DIALER_PORT}
+      - POSTGRES_DIALER_USER=${POSTGRES_DIALER_USER}  
+      - POSTGRES_DIALER_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_DB=${POSTGRES_DIALER_DB}
+      - REDIS_OML_SERVER=${REDIS_HOSTNAME}
+      - REDIS_OML_PORT=${REDIS_PORT}
+      - REDIS_DIALER_SERVER=${REDIS_HOSTNAME}
+      - REDIS_DIALER_PORT=${REDIS_PORT}
+      - PYTHON_LOGLEVEL=${PYTHON_LOGLEVEL}      
     networks:
-      - network1
+      - omnileads
 
-  change_database_worker:
+  change-database-worker:
     image: ${WORKER_IMG}
-    container_name: change-database-1
-    env_file: .env
     depends_on:
-      - job_server
-      - postgresql
+      - dialer-postgresql
     environment:
       - GEARMAN_JOBS=change-database
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
+      - ASTERISK_HOST=${ASTERISK_DIALER_HOSTNAME}
+      - ASTERISK_PORT=${ASTERISK_DIALER_ARI_PORT}
+      - ASTERISK_USER=${AMI_USER}
+      - ASTERISK_PASS=${AMI_PASSWORD}
+      - ASTERISK_APP=call_manager
+      - CAPS=${DIALER_CAPS}
+      - DIALER_ACD_HOST=pstn_gateway           
+      - POSTGRES_OML_SERVER=${PGHOST}
+      - POSTGRES_OML_PORT=${PGPORT}
+      - POSTGRES_OML_USER=${PGUSER}
+      - POSTGRES_OML_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_SERVER=${POSTGRES_DIALER_SERVER}
+      - POSTGRES_DIALER_PORT=${POSTGRES_DIALER_PORT}
+      - POSTGRES_DIALER_USER=${POSTGRES_DIALER_USER}  
+      - POSTGRES_DIALER_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_DB=${POSTGRES_DIALER_DB}
+      - REDIS_OML_SERVER=${REDIS_HOSTNAME}
+      - REDIS_OML_PORT=${REDIS_PORT}
+      - REDIS_DIALER_SERVER=${REDIS_HOSTNAME}
+      - REDIS_DIALER_PORT=${REDIS_PORT}
+      - PYTHON_LOGLEVEL=${PYTHON_LOGLEVEL}
     networks:
-      - network1
+      - omnileads
 
-  create_incidence_rule_worker:
+  create-incidence-rule-worker:
     image: ${WORKER_IMG}
-    container_name: create-incidence-rule-1
-    env_file: .env
     depends_on:
-      - job_server
-      - postgresql
+      - dialer-postgresql
     environment:
       - GEARMAN_JOBS=create-incidence-rule
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
+      - ASTERISK_HOST=${ASTERISK_DIALER_HOSTNAME}
+      - ASTERISK_PORT=${ASTERISK_DIALER_ARI_PORT}
+      - ASTERISK_USER=${AMI_USER}
+      - ASTERISK_PASS=${AMI_PASSWORD}
+      - ASTERISK_APP=call_manager
+      - CAPS=${DIALER_CAPS}
+      - DIALER_ACD_HOST=pstn_gateway           
+      - POSTGRES_OML_SERVER=${PGHOST}
+      - POSTGRES_OML_PORT=${PGPORT}
+      - POSTGRES_OML_USER=${PGUSER}
+      - POSTGRES_OML_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_SERVER=${POSTGRES_DIALER_SERVER}
+      - POSTGRES_DIALER_PORT=${POSTGRES_DIALER_PORT}
+      - POSTGRES_DIALER_USER=${POSTGRES_DIALER_USER}  
+      - POSTGRES_DIALER_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_DB=${POSTGRES_DIALER_DB}
+      - REDIS_OML_SERVER=${REDIS_HOSTNAME}
+      - REDIS_OML_PORT=${REDIS_PORT}
+      - REDIS_DIALER_SERVER=${REDIS_HOSTNAME}
+      - REDIS_DIALER_PORT=${REDIS_PORT}
+      - PYTHON_LOGLEVEL=${PYTHON_LOGLEVEL}
     networks:
-      - network1
+      - omnileads
 
-  delete_incidence_rule_worker:
+  delete-incidence-rule-worker:
     image: ${WORKER_IMG}
-    container_name: delete-incidence-rule-1
-    env_file: .env
     depends_on:
-      - job_server
-      - postgresql
+      - dialer-postgresql
     environment:
       - GEARMAN_JOBS=delete-incidence-rule
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
+      - ASTERISK_HOST=${ASTERISK_DIALER_HOSTNAME}
+      - ASTERISK_PORT=${ASTERISK_DIALER_ARI_PORT}
+      - ASTERISK_USER=${AMI_USER}
+      - ASTERISK_PASS=${AMI_PASSWORD}
+      - ASTERISK_APP=call_manager
+      - CAPS=${DIALER_CAPS}
+      - DIALER_ACD_HOST=pstn_gateway           
+      - POSTGRES_OML_SERVER=${PGHOST}
+      - POSTGRES_OML_PORT=${PGPORT}
+      - POSTGRES_OML_USER=${PGUSER}
+      - POSTGRES_OML_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_SERVER=${POSTGRES_DIALER_SERVER}
+      - POSTGRES_DIALER_PORT=${POSTGRES_DIALER_PORT}
+      - POSTGRES_DIALER_USER=${POSTGRES_DIALER_USER}  
+      - POSTGRES_DIALER_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_DB=${POSTGRES_DIALER_DB}
+      - REDIS_OML_SERVER=${REDIS_HOSTNAME}
+      - REDIS_OML_PORT=${REDIS_PORT}
+      - REDIS_DIALER_SERVER=${REDIS_HOSTNAME}
+      - REDIS_DIALER_PORT=${REDIS_PORT}
+      - PYTHON_LOGLEVEL=${PYTHON_LOGLEVEL}
     networks:
-      - network1
+      - omnileads
 
-  update_incidence_rule_worker:
+  update-incidence-rule-worker:
     image: ${WORKER_IMG}
-    container_name: update-incidence-rule-1
-    env_file: .env
     depends_on:
-      - job_server
-      - postgresql
+      - dialer-postgresql
     environment:
       - GEARMAN_JOBS=update-incidence-rule
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
+      - ASTERISK_HOST=${ASTERISK_DIALER_HOSTNAME}
+      - ASTERISK_PORT=${ASTERISK_DIALER_ARI_PORT}
+      - ASTERISK_USER=${AMI_USER}
+      - ASTERISK_PASS=${AMI_PASSWORD}
+      - ASTERISK_APP=call_manager
+      - CAPS=${DIALER_CAPS}
+      - DIALER_ACD_HOST=pstn_gateway           
+      - POSTGRES_OML_SERVER=${PGHOST}
+      - POSTGRES_OML_PORT=${PGPORT}
+      - POSTGRES_OML_USER=${PGUSER}
+      - POSTGRES_OML_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_SERVER=${POSTGRES_DIALER_SERVER}
+      - POSTGRES_DIALER_PORT=${POSTGRES_DIALER_PORT}
+      - POSTGRES_DIALER_USER=${POSTGRES_DIALER_USER}  
+      - POSTGRES_DIALER_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_DB=${POSTGRES_DIALER_DB}
+      - REDIS_OML_SERVER=${REDIS_HOSTNAME}
+      - REDIS_OML_PORT=${REDIS_PORT}
+      - REDIS_DIALER_SERVER=${REDIS_HOSTNAME}
+      - REDIS_DIALER_PORT=${REDIS_PORT}
+      - PYTHON_LOGLEVEL=${PYTHON_LOGLEVEL}    
     networks:
-      - network1
+      - omnileads
 
   schedule-agenda:
     image: ${WORKER_IMG}
-    container_name: schedule-agenda-1
-    env_file: .env
     depends_on:
-      - job_server
-      - postgresql
+      - dialer-postgresql
     environment:
       - GEARMAN_JOBS=schedule-agenda
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
+      - ASTERISK_HOST=${ASTERISK_DIALER_HOSTNAME}
+      - ASTERISK_PORT=${ASTERISK_DIALER_ARI_PORT}
+      - ASTERISK_USER=${AMI_USER}
+      - ASTERISK_PASS=${AMI_PASSWORD}
+      - ASTERISK_APP=call_manager
+      - CAPS=${DIALER_CAPS}
+      - DIALER_ACD_HOST=pstn_gateway           
+      - POSTGRES_OML_SERVER=${PGHOST}
+      - POSTGRES_OML_PORT=${PGPORT}
+      - POSTGRES_OML_USER=${PGUSER}
+      - POSTGRES_OML_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_SERVER=${POSTGRES_DIALER_SERVER}
+      - POSTGRES_DIALER_PORT=${POSTGRES_DIALER_PORT}
+      - POSTGRES_DIALER_USER=${POSTGRES_DIALER_USER}  
+      - POSTGRES_DIALER_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_DB=${POSTGRES_DIALER_DB}
+      - REDIS_OML_SERVER=${REDIS_HOSTNAME}
+      - REDIS_OML_PORT=${REDIS_PORT}
+      - REDIS_DIALER_SERVER=${REDIS_HOSTNAME}
+      - REDIS_DIALER_PORT=${REDIS_PORT}
+      - PYTHON_LOGLEVEL=${PYTHON_LOGLEVEL}
     networks:
-      - network1
+      - omnileads
 
   render-template:
     image: ${WORKER_IMG}
-    container_name: render-template-1
     env_file: .env
     stop_signal: SIGINT
     tty: true
     stdin_open: true
     depends_on:
-      - job_server
-      - postgresql
+      - dialer-postgresql
     environment:
       - GEARMAN_JOBS=render-template
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
+      - ASTERISK_HOST=${ASTERISK_DIALER_HOSTNAME}
+      - ASTERISK_PORT=${ASTERISK_DIALER_ARI_PORT}
+      - ASTERISK_USER=${AMI_USER}
+      - ASTERISK_PASS=${AMI_PASSWORD}
+      - ASTERISK_APP=call_manager
+      - CAPS=${DIALER_CAPS}
+      - DIALER_ACD_HOST=pstn_gateway           
+      - POSTGRES_OML_SERVER=${PGHOST}
+      - POSTGRES_OML_PORT=${PGPORT}
+      - POSTGRES_OML_USER=${PGUSER}
+      - POSTGRES_OML_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_SERVER=${POSTGRES_DIALER_SERVER}
+      - POSTGRES_DIALER_PORT=${POSTGRES_DIALER_PORT}
+      - POSTGRES_DIALER_USER=${POSTGRES_DIALER_USER}  
+      - POSTGRES_DIALER_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_DB=${POSTGRES_DIALER_DB}
+      - REDIS_OML_SERVER=${REDIS_HOSTNAME}
+      - REDIS_OML_PORT=${REDIS_PORT}
+      - REDIS_DIALER_SERVER=${REDIS_HOSTNAME}
+      - REDIS_DIALER_PORT=${REDIS_PORT}
+      - PYTHON_LOGLEVEL=${PYTHON_LOGLEVEL}
     networks:
-      - network1
+      - omnileads
 
   manage-dialer:
-    image: ${WORKER_IMG}
-    container_name: manage-dialer-1
-    env_file: .env
+    image: ${WORKER_IMG}    
     stop_signal: SIGINT
     tty: true
     stdin_open: true
     depends_on:
-      - job_server
-      - postgresql
+      - dialer-postgresql
     environment:
       - GEARMAN_JOBS=manage-dialer
+      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
+      - ASTERISK_HOST=${ASTERISK_DIALER_HOSTNAME}
+      - ASTERISK_PORT=${ASTERISK_DIALER_ARI_PORT}
+      - ASTERISK_USER=${AMI_USER}
+      - ASTERISK_PASS=${AMI_PASSWORD}
+      - ASTERISK_APP=call_manager
+      - CAPS=${DIALER_CAPS}
+      - DIALER_ACD_HOST=pstn_gateway           
+      - POSTGRES_OML_SERVER=${PGHOST}
+      - POSTGRES_OML_PORT=${PGPORT}
+      - POSTGRES_OML_USER=${PGUSER}
+      - POSTGRES_OML_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_SERVER=${POSTGRES_DIALER_SERVER}
+      - POSTGRES_DIALER_PORT=${POSTGRES_DIALER_PORT}
+      - POSTGRES_DIALER_USER=${POSTGRES_DIALER_USER}  
+      - POSTGRES_DIALER_PASSWORD=${PGPASSWORD}  
+      - POSTGRES_DIALER_DB=${POSTGRES_DIALER_DB}
+      - REDIS_OML_SERVER=${REDIS_HOSTNAME}
+      - REDIS_OML_PORT=${REDIS_PORT}
+      - REDIS_DIALER_SERVER=${REDIS_HOSTNAME}
+      - REDIS_DIALER_PORT=${REDIS_PORT}
+      - PYTHON_LOGLEVEL=${PYTHON_LOGLEVEL}
     networks:
-      - network1
+      - omnileads
 
-  dialer_asterisk:
+  dialer-acd:
     build:
       context: ./asterisk/
     image: ${ASTERISK_IMG}
-    container_name: dialer_asterisk
+    environment:
+      - ASTERISK_HOST=${ASTERISK_DIALER_HOSTNAME}
+      - ASTERISK_PORT=${ASTERISK_DIALER_ARI_PORT}
+      - ASTERISK_USER=${AMI_USER}
+      - ASTERISK_PASS=${AMI_PASSWORD}
+      - OMLACD_SIP_SERVER=${OMLACD_SIP_SERVER}
+      - PSTNGW_REGISTER=${PSTNGW_REGISTER}
+      - PSTNGW_SIP_AUTH=${PSTNGW_SIP_AUTH}
+      - PSTNGW_SIP_USER=${PSTNGW_SIP_USER}
+      - PSTNGW_SIP_PASS=${PSTNGW_SIP_PASS}
     dns: 8.8.8.8
-    env_file:
-      - .env
     networks:
-      network1:
-          ipv4_address: ${ASTERISK_IPV4}
+      omnileads:
+        ipv4_address: ${DIALER_ASTERISK_IPV4}
     privileged: true
     restart: on-failure
     stop_grace_period: 30s
     working_dir: /etc/asterisk
 
-  dialer_dialplan:
+  dialer-dialplan:
     build:
       target: run
       context: ./dialplan/
     image: ${DIALPLAN_IMG}
-    container_name: omnidialer-dialplan
     depends_on:
-      - dialer_asterisk
-    env_file:
-      - .env
+      - dialer-acd
     environment:
       - TZ=${TZ}
-      - RABBITMQ_HOST=${RABBITMQ_OML_SERVER}
-      - REDIS_HOSTNAME=${REDIS_OML_SERVER}
-      - REDIS_PORT=${REDIS_OML_PORT}
-      - ARI_HOST=${ASTERISK_HOST}
-      - ARI_PORT=${ASTERISK_PORT}
-      - ARI_USER=${ASTERISK_USER}
-      - ARI_PASS=${ASTERISK_PASS}
+      - GEARMAN_HOST=${GEARMAN_HOSTNAME}
+      - REDIS_DIALER_SERVER=${REDIS_HOSTNAME}
+      - REDIS_DIALER_PORT=${REDIS_PORT}
+      - REDIS_DB=${REDIS_DIALER_DB}
+      - ASTERISK_HOST=${ASTERISK_DIALER_HOSTNAME}
+      - ASTERISK_PORT=${ASTERISK_DIALER_ARI_PORT}
+      - ASTERISK_USER=${AMI_USER}
+      - ASTERISK_PASS=${AMI_PASSWORD}
+      - ASTERISK_APP=call_manager
     restart: on-failure
-    stop_grace_period: 30s
+    stop_grace_period: 30s    
     networks:
-      - network1
+      - omnileads
 
-  postgresql:
-    container_name: dialer-postgres
+  dialer-postgresql:
     dns: 8.8.8.8
     environment:
       - TZ=${TZ}
       - POSTGRES_USER=${POSTGRES_DIALER_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_DIALER_PASSWORD}
+      - POSTGRES_PASSWORD=${PGPASSWORD}
       - POSTGRES_DB=${POSTGRES_DIALER_DB}
       - PGPORT=5433
     image: ${POSTGRES_IMG}
     networks:
-      - network1
-    expose:
-      - "5433"
-    ports:
-      - ${POSTGRES_DIALER_PORT}:5433
+      - omnileads
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_DIALER_USER} -d ${POSTGRES_DIALER_DB} -q"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s  
     privileged: true
     restart: on-failure
     stop_grace_period: 1m30s
     volumes:
-      - omnidialer-postgresql:/var/lib/postgresql/data
-      - ./omnidialer.sql:/docker-entrypoint-initdb.d/init.sql
-
-
-networks:
-  network1:
-    name: ${NETWORK}
-    external: true
-
-volumes:
-  omnidialer-postgresql:
-  redis_redisinsight:
-  redis_omnidialer:
+      - dialer-postgresql:/var/lib/postgresql/data
+      - ../omnidialer.sql:/docker-entrypoint-initdb.d/init.sql

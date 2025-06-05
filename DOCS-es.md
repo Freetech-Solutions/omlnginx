@@ -10,7 +10,7 @@ El uso de Gearman permite escalar horizontalmente el sistema de manera sencilla 
 El sistema está diseñado para ejecutarse en cualquier sistema GNU/Linux que soporte bash, docker y docker-compose.
 
 Puede ejecutarse en el mismo host en el que se ejecuta OML o en un host externo configurando las variables de entorno presentes en el archivo env.
-Las variables de entorno relevantes en este caso son: *REDIS_OML_SERVER*, *REDIS_OML_PORT*, *ASTERISK_APP*, *ASTERISK_USER*, *ASTERISK_PASS*, *ASTERISK_HOST*, *ASTERISK_PORT*, *DIALER_ACD_HOST*, *POSTGRES_OML_PASSWORD*, *POSTGRES_OML_SERVER* y *POSTGRES_OML_PORT* .
+Las variables de entorno relevantes en este caso son: *GEARMAN_OML_SERVER*, *GEARMAN_OML_PORT*, *REDIS_OML_SERVER*, *REDIS_OML_PORT*, *ASTERISK_APP*, *ASTERISK_USER*, *ASTERISK_PASS*, *ASTERISK_HOST*, *ASTERISK_PORT*, *DIALER_ACD_HOST*, *POSTGRES_OML_PASSWORD*, *POSTGRES_OML_SERVER* y *POSTGRES_OML_PORT* .
 
 Uso:
 

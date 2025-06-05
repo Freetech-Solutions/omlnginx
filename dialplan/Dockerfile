@@ -1,11 +1,11 @@
-FROM python:3.12-alpine as build
+FROM python:3.8-alpine AS build
 
 WORKDIR /app
 
 COPY requirements.txt /app/
 RUN pip install -r ./requirements.txt
 
-FROM python:3.12-alpine as run
+FROM python:3.8-alpine AS run
 
 WORKDIR /app
 COPY --from=build /usr/local /usr/local
