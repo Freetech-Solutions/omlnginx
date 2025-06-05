@@ -35,7 +35,7 @@ services:
       - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
       - WEBSOCKET_SERVER=${WEBSOCKET_SERVER}
 
-  scheduler:
+  scheduler-api:
     build:
       context: ./scheduler/src
     image: ${SCHEDULER_IMG}
