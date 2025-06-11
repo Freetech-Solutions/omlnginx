@@ -50,10 +50,21 @@ class MyTestSuite(unittest.TestCase):
             cursor_dialer.execute('DELETE FROM jobs;')
         AverageWorker.REDIS_DIALER_CONNECTION.close()
 
-    def mocked_psycopg_fetchmany(self, cursor, size):
+    def mocked_get_contacts_campaign(self, cursor, size):
         if self.fetchmany_counter == 0:
             self.fetchmany_counter += 1
             return [(1, '6093017590',
+                     '["Amanda Jenkins", "Gregory Henson", "7147034", "4067530816", "5273724517"]',
+                     True),
+                    (2, '5143016455',
+                     '["Ashley Barrett", "Edward Townsend", "8718745", "5618936401", "1075763364"]',
+                     True)]
+        return []
+
+    def mocked_get_contacts_campaign_no_phone(self, cursor, size):
+        if self.fetchmany_counter == 0:
+            self.fetchmany_counter += 1
+            return [(1, '',
                      '["Amanda Jenkins", "Gregory Henson", "7147034", "4067530816", "5273724517"]',
                      True),
                     (2, '5143016455',
@@ -84,7 +95,8 @@ class MyTestSuite(unittest.TestCase):
                                 self.incidence_rules_disposition_data)
         AverageWorker.get_campaign_data = MagicMock(
             return_value=campaign_mocked_data)
-        AverageWorker.get_contacts_campaign = MagicMock(side_effect=self.mocked_psycopg_fetchmany)
+        AverageWorker.get_contacts_campaign = MagicMock(
+            side_effect=self.mocked_get_contacts_campaign)
         self.worker = GearmanWorker()
         job = GearmanJob(None, None, b'create-campaign', bytes(str(uuid.uuid4()), encoding='utf8'),
                          b'{"id_campaign": "4", "contact_strategy": [1, 3, 4]}')
@@ -253,6 +265,15 @@ class MyTestSuite(unittest.TestCase):
             cursor_dialer.execute("SELECT dialer_status from campaign WHERE id = 4;")
             self.assertEqual(cursor_dialer.fetchone()[0], PAUSED)
 
+    def test_campaign_is_deleted_correctly(self):
+        job = GearmanJob(None, None, None, None,
+                         b'{"id_campaign": "4"}')
+        AverageWorker.delete_campaign(self.worker, job)
+        with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute('SELECT * from campaign;')
+            self.assertEqual(cursor_dialer.fetchall(), [])
+
     def test_job_entry_is_removed_if_ok(self):
         job = GearmanJob(None, None, b'add-incidence-rule-disposition',
                          bytes(str(uuid.uuid4()), encoding='utf8'),
@@ -279,6 +300,18 @@ class MyTestSuite(unittest.TestCase):
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute('SELECT * from jobs;')
             self.assertEqual(len(cursor_dialer.fetchall()), 1)
+
+    def test_contacts_without_phone_not_imported(self):
+        self.fetchmany_counter = 0
+        AverageWorker.get_contacts_campaign = MagicMock(
+            side_effect=self.mocked_get_contacts_campaign_no_phone)
+        job = GearmanJob(None, None, None, None,
+                         b'{"id_campaign": "4"}')
+        AverageWorker.change_database(self.worker, job)
+        with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute('SELECT COUNT(*) from contact_in_campaign WHERE id_campaign = 4;')
+            self.assertEqual(cursor_dialer.fetchone()[0], 1)
 
     def test_handle_campaign_general(self):
         AverageWorker.process_campaign = MagicMock()
