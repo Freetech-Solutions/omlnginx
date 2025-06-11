@@ -428,6 +428,7 @@ class AverageWorker(DialerWorker):
         id_campaign = data['id_campaign']
         logger.debug(f'Creating the campaign {id_campaign}')
         contact_strategy = data['contact_strategy']
+        prefix = data['prefix']
         cls.connect_redis_dialer()
         cls.connect_redis_oml()
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
@@ -444,14 +445,15 @@ class AverageWorker(DialerWorker):
                         f'CAMP:{id_campaign}:CUSTOMDIALERDST', customdialerdst)
                     logger.debug(
                         f'Campaign {id_campaign}: inserting the campaign data into omnidialer')
+                    campaign_id_data = campaign_id_data + (prefix,)
                     cursor_dialer.execute(
                         """INSERT INTO campaign (id, oml_status, name, start_date, end_date,
                         duplicates_control, priority, strategy, wait, initial_predictive_model,
                         initial_boost_factor, max_channels, sunday, monday, tuesday, wednesday,
                         thursday, friday, saturday, hour_start, hour_ends, contact_strategy,
-                        dialer_status, metadata, customdialerdst) VALUES
+                        dialer_status, metadata, customdialerdst, prefix) VALUES
                          (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s, %s, %s);""", campaign_id_data)
+                        %s, %s, %s, %s, %s, %s, %s, %s);""", campaign_id_data)
                     logger.debug(
                         f'Campaign {id_campaign}: inserting the incidence_rules into omnidialer')
                     for incidence_rule in incidence_rules_data:
@@ -809,6 +811,9 @@ class AverageWorker(DialerWorker):
         logger.debug(f'Campaign {id_campaign}: trying to call the contact')
         id_customer = contact_info[0]
         phone_number = contact_info[2]
+        prefix = cls.get_prefix(id_campaign)
+        if prefix is not None:
+            phone_number = prefix[0] + phone_number
         queue_timeout = 20
         channel_type = 'to_omlacd_dialout'
         caller_id = f'{id_campaign}_{id_customer}_{phone_number}'
@@ -881,6 +886,18 @@ class AverageWorker(DialerWorker):
 
     @classmethod
     @timed_lru_cache(seconds=600, maxsize=128)
+    def get_prefix(cls, id_campaign):
+        logger.debug(f'Campaign {id_campaign}: getting prefix')
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute(
+                'SELECT prefix FROM campaign WHERE'
+                ' id = %s;',
+                (id_campaign,))
+            return cursor_dialer.fetchone()
+
+    @classmethod
+    @timed_lru_cache(seconds=6000, maxsize=128)
     def get_incidence_rule(cls, id_campaign, status):
         logger.debug(f'Campaign {id_campaign}: getting the incidence rule for {status}')
         status_code = NAME_TO_STATUS[status]
