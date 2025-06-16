@@ -139,7 +139,7 @@ DISPOSITION_TYPE = 2
 
 # fail statuses
 # TODO: incorporate the names of the other fail events
-FAIL_EVENTS = ['BUSY', 'NOANSWER', 'CONGESTION', 'TIMEOUT']
+FAIL_EVENTS = ['BUSY', 'NOANSWER', 'CONGESTION', 'TIMEOUT', 'TERMINATED']
 
 
 # incidence rules multinum behauviour
@@ -1271,12 +1271,10 @@ class AverageWorker(DialerWorker):
             return b'Success!'
 
     @classmethod
-    @job_handler_decorator
-    def add_incidence_rule_disposition(cls, worker, job):
-        data = cls.decode_payload(job.data)
+    def handle_disposition_option(cls, data):
         id_campaign = data['id_campaign']
-        disposition_option = data['disposition_option']
         id_contact = data['id_contact']
+        disposition_option = data['disposition_option']
         logger.debug(f'Adding disposition option {disposition_option} to contact {id_contact}'
                      f' in campaign {id_campaign}')
         cls.connect_redis_dialer()
@@ -1308,6 +1306,26 @@ class AverageWorker(DialerWorker):
                     message = json.dumps({'id_campaign': id_campaign})
                     cls.GM_CLIENT.submit_job('process-campaign', message, background=True)
             return b'Disposition for incidence rule was added!'
+
+    @classmethod
+    def handle_amd_option(cls, data):
+        event = 'TERMINATED'
+        id_campaign = data['id_campaign']
+        id_contact = data['id_contact']
+        phone_number = data['phone_number']
+        logger.debug(f'Campaign {id_campaign}: receiving {event} for contact {id_contact}')
+        cls.set_contact_status(id_campaign, id_contact, event)
+        cls.handle_incidence_rules(event, id_campaign, id_contact, phone_number)
+        return b'Disposition for AMD was handled'
+
+    @classmethod
+    @job_handler_decorator
+    def add_incidence_rule_disposition(cls, worker, job):
+        data = cls.decode_payload(job.data)
+        disposition_option = data['disposition_option']
+        if disposition_option == -2:
+            return cls.handle_amd_option(data)
+        return cls.handle_disposition_option(data)
 
     @classmethod
     @job_handler_decorator

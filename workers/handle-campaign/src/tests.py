@@ -99,7 +99,7 @@ class MyTestSuite(unittest.TestCase):
             side_effect=self.mocked_get_contacts_campaign)
         self.worker = GearmanWorker()
         job = GearmanJob(None, None, b'create-campaign', bytes(str(uuid.uuid4()), encoding='utf8'),
-                         b'{"id_campaign": "4", "contact_strategy": [1, 3, 4]}')
+                         b'{"id_campaign": "4", "contact_strategy": [1, 3, 4], "prefix": ""}')
         AverageWorker.create_campaign(self.worker, job)
 
     def test_clean_broken_selected_contacts_starting_campaing(self):
@@ -266,7 +266,8 @@ class MyTestSuite(unittest.TestCase):
             self.assertEqual(cursor_dialer.fetchone()[0], PAUSED)
 
     def test_campaign_is_deleted_correctly(self):
-        job = GearmanJob(None, None, None, None,
+        job = GearmanJob(None, None, b'delete-campaign',
+                         bytes(str(uuid.uuid4()), encoding='utf8'),
                          b'{"id_campaign": "4"}')
         AverageWorker.delete_campaign(self.worker, job)
         with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
@@ -305,13 +306,41 @@ class MyTestSuite(unittest.TestCase):
         self.fetchmany_counter = 0
         AverageWorker.get_contacts_campaign = MagicMock(
             side_effect=self.mocked_get_contacts_campaign_no_phone)
-        job = GearmanJob(None, None, None, None,
+        job = GearmanJob(None, None, b'change-database',
+                         bytes(str(uuid.uuid4()), encoding='utf8'),
                          b'{"id_campaign": "4"}')
         AverageWorker.change_database(self.worker, job)
         with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute('SELECT COUNT(*) from contact_in_campaign WHERE id_campaign = 4;')
             self.assertEqual(cursor_dialer.fetchone()[0], 1)
+
+    def test_amd_event_apply_incidence_rules(self):
+        AverageWorker.GM_CLIENT.submit_job = MagicMock()
+        with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute(
+                """INSERT INTO incidence_rules (id, status, status_custom, max_attempt,
+                retry_later, in_mode, campaign_id) VALUES
+                (%s, %s, %s, %s, %s, %s, %s);""",
+                (3, 2, 'terminated', 1, 7, 1, 4))
+        # testing endpoint add disposition for incidence rule
+        job = GearmanJob(
+            None, None, b'add-incidence-rule-disposition',
+            bytes(str(uuid.uuid4()), encoding='utf8'),
+            b'{"id_campaign": "4", "disposition_option": -2, "id_contact": 1, '
+            b'"phone_number": "12343556"}')
+
+        # a call is scheduled for the first time
+        AverageWorker.add_incidence_rule_disposition(self.worker, job)
+        self.assertTrue(AverageWorker.GM_CLIENT.submit_job.called)
+        AverageWorker.GM_CLIENT.submit_job.reset_mock()
+
+        # a call is not scheduled for the second time because the incidence rule counter was
+        # consumed
+        AverageWorker.add_incidence_rule_disposition(self.worker, job)
+        self.assertFalse(AverageWorker.GM_CLIENT.submit_job.called)
+        AverageWorker.GM_CLIENT.submit_job.reset_mock()
 
     def test_handle_campaign_general(self):
         AverageWorker.process_campaign = MagicMock()
