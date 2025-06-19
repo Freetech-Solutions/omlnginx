@@ -426,6 +426,7 @@ class CallManager:
             dialplan = channel.get('dialplan', {})
             app_data = dialplan.get('app_data', '')
 
+            # Variables iniciales
             id_camp = None
             id_customer = None
             channel_type = None
@@ -435,6 +436,7 @@ class CallManager:
             phone_number = None
             id_agent = None
             call_type = None
+            uniqueid = None  # NUEVA VARIABLE
 
             args = app_data.split(',')
 
@@ -466,6 +468,8 @@ class CallManager:
                         bridge_id = value
                     elif key == 'id_agent':
                         id_agent = value
+                    elif key == 'uniqueid':  # NUEVO PARSEO
+                        uniqueid = value
 
             logging.info("Extracted channel data: %s", {
                 'channel_id': channel_id,
@@ -478,6 +482,7 @@ class CallManager:
                 'bridge_id': bridge_id,
                 'id_agent': id_agent,
                 'call_type': call_type,
+                'uniqueid': uniqueid,  # LOG NUEVO
             })
 
             return {
@@ -491,7 +496,9 @@ class CallManager:
                 'bridge_id': bridge_id,
                 'id_agent': id_agent,
                 'call_type': call_type,
+                'uniqueid': uniqueid,  # DEVOLUCIÓN NUEVA
             }
+
         except Exception as e:
             logging.error("Error extracting channel data: %s", str(e))
             return None
@@ -554,10 +561,14 @@ class CallManager:
                 logging.error(f"No call data found for channel {channel_id}")
                 return
 
+            uniqueid = call_data.get("uniqueid", "UNKNOWN")  # fallback por si falta
+
             originate_data = {
                 'endpoint': f'PJSIP/camp_{call_data["id_camp"]}@omlacd',
-                'callerId': (f'{call_data["id_camp"]}_{call_data["id_customer"]}_'
-                             f'{call_data["tel_customer"]}'),
+                'callerId': (
+                    f'{call_data["id_camp"]}_{call_data["id_customer"]}_'
+                    f'{call_data["tel_customer"]}'
+                ),
                 'timeout': 12,
                 'app': ASTERISK_APP,
                 'appArgs': (f'id_camp: {call_data["id_camp"]},'
@@ -566,12 +577,14 @@ class CallManager:
                             f'channel_type: to_omlacd_dialqueue,'
                             f'id_calltype: 2,'
                             f'channel_id_pstn: {call_data["channel_id"]},'
-                            f'bridge_id: {call_data["bridge_id"]}'),
+                            f'bridge_id: {call_data["bridge_id"]},'
+                            f'uniqueid: {uniqueid}'),
                 'variables': {
                     'PJSIP_HEADER(add,Origin)': 'DIALER',
                     'PJSIP_HEADER(add,OMLCODCLI)': f'{call_data["id_customer"]}',
                     'PJSIP_HEADER(add,OMLCAMPID)': f'{call_data["id_camp"]}',
                     'PJSIP_HEADER(add,OMLOUTNUM)': f'{call_data["tel_customer"]}',
+                    'PJSIP_HEADER(add,OMLUNIQUEID)': uniqueid,
                 }
             }
 
@@ -587,8 +600,10 @@ class CallManager:
                 logging.info('Llamada generada exitosamente')
                 omlacd_channel_id = response['id']
                 self.agent_to_pstn[omlacd_channel_id] = call_data['channel_id']
-                logging.info(f"Mapped agent channel {omlacd_channel_id} to PSTN channel "
-                             f"{call_data['channel_id']}")
+                logging.info(
+                    f"Mapped agent channel {omlacd_channel_id} to PSTN channel "
+                    f"{call_data['channel_id']}"
+                )
                 call_data['omlacd_channel_id'] = omlacd_channel_id
                 self.calls[channel_id] = call_data
             else:

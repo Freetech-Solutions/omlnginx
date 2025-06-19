@@ -12,6 +12,7 @@ import psycopg
 import gearman.client
 import requests
 import datetime
+import time
 
 from datetime import timedelta
 from decimal import Decimal
@@ -815,6 +816,11 @@ class AverageWorker(DialerWorker):
         prefix = cls.get_prefix(id_campaign)
         if prefix is not None:
             phone_number = prefix[0] + phone_number
+
+        # callid generate
+        epoch = int(time.time())
+        callid = f"{epoch}.{contact_info[0]}"
+
         queue_timeout = 20
         channel_type = 'to_omlacd_dialout'
         caller_id = f'{id_campaign}_{id_customer}_{phone_number}'
@@ -822,15 +828,16 @@ class AverageWorker(DialerWorker):
             'PJSIP_HEADER(add,OMLCODCLI)': f'{id_customer}',
             'PJSIP_HEADER(add,OMLCAMPID)': f'{id_campaign}',
             'PJSIP_HEADER(add,OMLOUTNUM)': f'{phone_number}',
+            'PJSIP_HEADER(add,OMLUNIQUEID)': f'{callid}',
         }
         call_type = 2
         endpoint = f'PJSIP/{phone_number}@{DIALER_ACD_HOST}'
         appArgs = f"""id_camp: {id_campaign}, id_customer: {id_customer},
-        tel_customer: {phone_number}, queue_timeout: {queue_timeout},
-        channel_type: {channel_type}, call_type: {call_type}"""
+    tel_customer: {phone_number}, queue_timeout: {queue_timeout},
+    channel_type: {channel_type}, call_type: {call_type}, uniqueid: {callid}"""
 
         logger.debug(f"""Calling contact {id_customer} with phone {phone_number}
-        in campaign {id_campaign}""")
+    in campaign {id_campaign} using callid {callid}""")
 
         response = cls.ari.originate_channel(
             endpoint=endpoint,
