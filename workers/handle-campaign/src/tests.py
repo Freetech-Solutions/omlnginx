@@ -140,30 +140,43 @@ class MyTestSuite(unittest.TestCase):
                                   ' AND status = %s;', (STATUS_CREATED,))
         self.assertEqual(cursor_dialer.fetchone()[0], 2)
 
+    def gen_fail_event(self, event):
+        return {'type': 'Dial',
+                'timestamp': '2025-04-15T11:21:29.168-0300',
+                'dialstatus': event,
+                'forward': '',
+                'dialstring': '123456720@pstn_gateway',
+                'peer': {'id': '1744726885.6',
+                         'name': 'PJSIP/pstn_gateway-00000006',
+                         'state': 'Down',
+                         'protocol_id': '108c4adb-09f6-4271-94bc-4d2a9cf468b4',
+                         'caller': {'name': '4_1_6093017590', 'number': ''},
+                         'connected': {'name': '1_1_6093017590', 'number': ''},
+                         'accountcode': '',
+                         'dialplan': {'context': 'from-omlacd',
+                                      'exten': 's',
+                                      'priority': 1,
+                                      'app_name': 'AppDial2',
+                                      'app_data': '(Outgoing Line)'},
+                         'creationtime': '2025-04-15T11:21:25.125-0300',
+                         'language': 'en'},
+                'asterisk_id': '26:ce:a5:36:bc:0a', 'application': 'call_manager_dialer'}
+
+    def test_chanunavailable_events(self):
+        # make sure if an chanunavailable event came to process event a call won't be scheduled
+        AverageWorker.GM_CLIENT.submit_job = MagicMock()
+        chanunavail_event = self.gen_fail_event('CHANUNAVAIL')
+        job = GearmanJob(None, None, b'process-event', bytes(str(uuid.uuid4()), encoding='utf8'),
+                         bytes(json.dumps(chanunavail_event), encoding="UTF8"))
+        AverageWorker.process_event(self.worker, job)
+        self.assertNotEqual(AverageWorker.GM_CLIENT.submit_job.call_args_list[0][0][0],
+                            'schedule-agenda')
+
     def test_incidence_rules(self):
         # make sure if an event came to process event and there is an incidence rule attached to it
         # it will schedule a call if the contact has still a valid number of attempts
         AverageWorker.GM_CLIENT.submit_job = MagicMock()
-        busy_event = {'type': 'Dial',
-                      'timestamp': '2025-04-15T11:21:29.168-0300',
-                      'dialstatus': 'BUSY',
-                      'forward': '',
-                      'dialstring': '123456720@pstn_gateway',
-                      'peer': {'id': '1744726885.6',
-                               'name': 'PJSIP/pstn_gateway-00000006',
-                               'state': 'Down',
-                               'protocol_id': '108c4adb-09f6-4271-94bc-4d2a9cf468b4',
-                               'caller': {'name': '4_1_6093017590', 'number': ''},
-                               'connected': {'name': '1_1_6093017590', 'number': ''},
-                               'accountcode': '',
-                               'dialplan': {'context': 'from-omlacd',
-                                            'exten': 's',
-                                            'priority': 1,
-                                            'app_name': 'AppDial2',
-                                            'app_data': '(Outgoing Line)'},
-                               'creationtime': '2025-04-15T11:21:25.125-0300',
-                               'language': 'en'},
-                      'asterisk_id': '26:ce:a5:36:bc:0a', 'application': 'call_manager_dialer'}
+        busy_event = self.gen_fail_event('BUSY')
         job = GearmanJob(None, None, b'process-event', bytes(str(uuid.uuid4()), encoding='utf8'),
                          bytes(json.dumps(busy_event), encoding="UTF8"))
         AverageWorker.process_event(self.worker, job)
