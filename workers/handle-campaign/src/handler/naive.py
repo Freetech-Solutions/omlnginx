@@ -105,8 +105,10 @@ STATUS_NOANSWER = 3
 STATUS_CONGESTION = 4
 STATUS_TERMINATED = 2
 STATUS_TIMEOUT = 5
+STATUS_CHANUNAVAIL = 8
 
 NAME_TO_STATUS = {
+    "CHANUNAVAIL": STATUS_CHANUNAVAIL,
     "BUSY": STATUS_BUSY,
     "NOANSWER": STATUS_NOANSWER,
     "CONGESTION": STATUS_CONGESTION,
@@ -142,6 +144,8 @@ DISPOSITION_TYPE = 2
 # TODO: incorporate the names of the other fail events
 FAIL_EVENTS = ['BUSY', 'NOANSWER', 'CONGESTION', 'TIMEOUT', 'TERMINATED']
 
+# fail statuses with no incidence rules
+FAIL_NO_RULES_EVENTS = ['CHANUNAVAIL']
 
 # incidence rules multinum behauviour
 FIXED = 1
@@ -1065,7 +1069,8 @@ class AverageWorker(DialerWorker):
     def is_fail_event(cls, ari_event_data):
         dialstatus = ari_event_data.get('dialstatus')
         type_event = ari_event_data.get('type')
-        return type_event == 'Dial' and dialstatus in FAIL_EVENTS
+        return type_event == 'Dial' and  \
+            ((dialstatus in FAIL_EVENTS) or (dialstatus in FAIL_NO_RULES_EVENTS))
 
     @classmethod
     def decode_fail_event(cls, ari_event_data):
@@ -1083,7 +1088,8 @@ class AverageWorker(DialerWorker):
         event = cls.decode_fail_event(ari_event_data)
         logger.debug(f'Campaign {id_campaign}: receiving {event} for contact {contact_id}')
         cls.set_contact_status(id_campaign, contact_id, event)
-        cls.handle_incidence_rules(event, id_campaign, contact_id, phone_number)
+        if event in FAIL_EVENTS:
+            cls.handle_incidence_rules(event, id_campaign, contact_id, phone_number)
 
     @classmethod
     def is_answer_event(cls, ari_event_data):
