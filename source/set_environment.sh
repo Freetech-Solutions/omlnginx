@@ -53,6 +53,14 @@ location /static/ {
   try_files \$uri =404;
 }
 
+# Configuración para archivos media
+location /media/ {
+  alias /opt/omnileads/media/;
+  expires 1y;
+  add_header Cache-Control "public, immutable";
+  try_files \$uri =404;
+}
+
 # Configuración mejorada para WebSockets - Django Channels
 location ~ ^/(channels) {
   proxy_set_header X-Real-IP \$remote_addr;
