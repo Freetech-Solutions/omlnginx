@@ -234,7 +234,8 @@ class AverageWorker(DialerWorker):
     def process_campaign_inside(cls, id_campaign):
         while cls.campaign_is_active(id_campaign):
             logger.debug(f'\nCampaign {id_campaign} is active')
-            if cls.is_allowed_to_call(id_campaign):
+            allowed_to_call, extra_info = cls.is_allowed_to_call(id_campaign)
+            if allowed_to_call:
                 logger.debug(f'Campaign {id_campaign} is allowed to call')
                 contacts_attempts_number = cls.allowed_parallel_contact_attempts(id_campaign)
                 initial_time = datetime.datetime.now()
@@ -260,6 +261,45 @@ class AverageWorker(DialerWorker):
                                 logger.debug(f"Campaign {id_campaign}: CAPS sleep")
                                 remaining = (timedelta(seconds=1) - current_delta).total_seconds()
                                 sleep(remaining)
+            else:
+                # schedule process-campaign for the next time the campaign is allowed to run
+                next_allowed_date = cls.get_next_allowed_date(id_campaign, extra_info)
+                data = {'datetime_start': next_allowed_date.strftime('%d/%m/%y %H:%M:%S')}
+                host = SCHEDULER_API_HOST
+                uri = f'http://{host}/add-process-campaign/{id_campaign}'
+                requests.post(uri, json=data)
+                return None
+
+    @classmethod
+    def get_next_day_of_week_allowed(
+            cls, permission_days_campaign, day_of_week, current_date, hour_start):
+        # get next day of the week allowed in the campaign
+        # search for an allowed day
+        dow = (day_of_week + 1) % 7
+        while not permission_days_campaign[dow]:
+            dow = (dow + 1) % 7
+        # construct the datetime
+        days_until_next_day_allowed = (dow - day_of_week) % 7
+        date = current_date + timedelta(days_until_next_day_allowed)
+        return datetime.datetime.combine(date, hour_start)
+
+    @classmethod
+    def get_next_allowed_date(cls, id_campaign, extra_info):
+        (day_of_week_allowed, day_of_week, hour_match, current_date, hour,
+         minute, campaign_info) = extra_info
+        (hour_start, hour_end, monday, tuesday, wednesday, thursday, friday, saturday,
+         sunday) = campaign_info
+        permission_days_campaign = campaign_info[2:]
+        # if the day of the week is not allowed get the next day of week allowed with hour_start
+        if not day_of_week_allowed:
+            return cls.get_next_day_of_week_allowed(day_of_week, current_date, hour_start)
+        # if current time < hour_start, just use the same day with hour_start
+        # else, get the next day of week allowed with hour start
+        current_time = datetime.time(hour, minute)
+        if current_time < hour_start:
+            return datetime.datetime.combine(current_date, hour_start)
+        return cls.get_next_day_of_week_allowed(
+            permission_days_campaign, day_of_week, current_date, hour_start)
 
     @classmethod
     def connect_redis_oml(cls):
@@ -275,13 +315,9 @@ class AverageWorker(DialerWorker):
 
     @classmethod
     def is_allowed_to_call(cls, id_campaign):
-        # check if opening hours are ok
-        # TODO: a possible optimization here could be pause the campaign and place a scheduled task
-        # to resume it later at the following allowed opening hour
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             return cls.opening_hours_match(cursor_dialer, id_campaign)
-        return False
 
     @classmethod
     def get_campaign_data(cls, id_campaign, cursor_oml, contact_strategy):
@@ -527,7 +563,8 @@ class AverageWorker(DialerWorker):
     @classmethod
     def opening_hours_match(cls, cursor, id_campaign):
         cursor.execute('SELECT EXTRACT(DOW FROM CURRENT_DATE) AS day_of_week;')
-        day_of_week = WEEK_DAYS[int(cursor.fetchone()[0])]
+        day_of_week_int = int(cursor.fetchone()[0])
+        day_of_week = WEEK_DAYS[day_of_week_int]
         cursor.execute(f'SELECT {day_of_week} FROM ONLY campaign WHERE id = %s;', (id_campaign,))
         day_of_week_allowed = cursor.fetchone()[0]
         cursor.execute('SELECT * FROM ONLY campaign WHERE id = %s AND CURRENT_TIME BETWEEN'
@@ -537,7 +574,23 @@ class AverageWorker(DialerWorker):
             logger.debug(f'Campaign {id_campaign}: day week not allowed to call')
         elif not hour_match:
             logger.debug(f'Campaign {id_campaign}: in the current time is not allowed to call')
-        return day_of_week_allowed and hour_match
+        result = day_of_week_allowed and hour_match
+        extra_info = None
+        if not result:
+            cursor.execute('SELECT EXTRACT(HOUR FROM NOW()) AS current_hour, '
+                           'EXTRACT(MINUTE FROM NOW()) AS current_minute;')
+            hour, minute = cursor.fetchone()
+            hour = int(hour)
+            minute = int(minute)
+            cursor.execute('SELECT hour_start,hour_ends,'
+                           'monday,tuesday,wednesday,thursday,friday,saturday,sunday'
+                           ' FROM campaign where id = %s;', (id_campaign,))
+            campaign_info = cursor.fetchone()
+            cursor.execute('SELECT CURRENT_DATE;')
+            current_date = cursor.fetchone()[0]
+            extra_info = (day_of_week_allowed, day_of_week_int, hour_match, current_date, hour,
+                          minute, campaign_info)
+        return result, extra_info
 
     @classmethod
     def get_campaign_status(cls, id_campaign, dialer_cursor):
