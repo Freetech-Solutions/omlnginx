@@ -1,3 +1,8 @@
+location ^~ /webui-premiumreports {
+  alias ${PREMIUMREPORTS_WEBUI_PATH};
+  try_files $uri $uri/ /webui-wallboard/index.html;
+}
+
 location ^~ /webui-wallboard {
   alias ${WALLBOARD_WEBUI_PATH};
   try_files $uri $uri/ /webui-wallboard/index.html;
