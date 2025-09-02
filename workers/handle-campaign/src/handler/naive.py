@@ -570,6 +570,18 @@ class AverageWorker(DialerWorker):
                     f"Campaign {id_campaign}: cleaned broken selected contacts={row_count}")
 
     @classmethod
+    def check_running_job(cls, id_campaign):
+        first_running_job = cls.REDIS_DIALER_CONNECTION.set(
+            f'PROCESS-CAMPAIGN-{id_campaign}', 'True', nx=True)
+        if not first_running_job:
+            logger.debug(f'Campaign {id_campaign}: is already running')
+            cls.REDIS_OML_CONNECTION.publish(
+                'OML:CHANNEL:DIALER',
+                json.dumps({'type': 'ALREADY_RUNNING',
+                            'camp_id': id_campaign}))
+        return first_running_job
+
+    @classmethod
     @job_handler_decorator
     def start_campaign(cls, worker, job):
         cls.connect_redis_oml()
@@ -982,9 +994,15 @@ class AverageWorker(DialerWorker):
     @classmethod
     @job_handler_decorator
     def process_campaign(cls, worker, job):
+        cls.connect_redis_dialer()
+        cls.connect_redis_oml()
         id_campaign = cls.decode_payload(job.data)['id_campaign']
+        first_running_job = cls.check_running_job(id_campaign)
+        if not first_running_job:
+            return b'Campaign already running'
         logger.debug(f'Campaign {id_campaign}: resuming the campaign')
         cls.process_campaign_inside(id_campaign)
+        cls.REDIS_DIALER_CONNECTION.delete(f'PROCESS-CAMPAIGN-{id_campaign}')
         response = f'Campaign {id_campaign} process ended!'
         response = json.dumps({'msg': response})
         return bytes(response, encoding='UTF8')
