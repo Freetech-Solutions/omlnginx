@@ -53,9 +53,9 @@ POSTGRES_OML_PORT = os.getenv('POSTGRES_OML_PORT', '5432')
 
 POSTGRES_OML_PASSWORD = os.getenv('POSTGRES_OML_PASSWORD')
 
-POSTGRES_OML_USER = 'omnileads'
+POSTGRES_OML_USER = os.getenv('POSTGRES_OML_USER', 'omnileads')
 
-POSTGRES_OML_DB = 'omnileads'
+POSTGRES_OML_DB = os.getenv('POSTGRES_OML_DB', 'omnileads')
 
 POSTGRES_DIALER_SERVER = os.getenv('POSTGRES_DIALER_SERVER', 'dialer-postgres')
 
