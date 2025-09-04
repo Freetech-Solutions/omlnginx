@@ -260,8 +260,7 @@ class AverageWorker(DialerWorker):
                 contacts = cls.take_contacts(contacts_attempts_number, id_campaign)
                 if TIME_BETWEEN_CALLS:
                     if not contacts:
-                        sleep(int(TIME_BETWEEN_CALLS))
-                        continue
+                        sleep(float(TIME_BETWEEN_CALLS))
                 for contact in contacts:
                     while True:
                         # we need to ensure the selected contact is eventually called
