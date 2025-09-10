@@ -10,10 +10,6 @@ $ docker-compose up -d
 
 A flask server would be running at 0.0.0.0:1440 with a Gearman job server and the required Gearman workers.
 
-Another option is to run directly:
-
-$ docker-compose -f docker-compose-full.yml up -d
-
 Do:
 
 $ docker run --rm -itd -p 4731:4731 --network=<oml-docker-network> --name=gearman_job_server_1 artefactual/gearmand:1.1.18-alpine
@@ -43,6 +39,10 @@ Troubleshooting:
 - If artefactual/gearmand:1.1.18-alpine does not run in Mac M1, but you can build the image from their repository manually and use it directly (https://github.com/artefactual-labs/docker-gearmand)
 
 - If you are on another machine you need to modify the settings ASTERISK_HOST, REDIS_OML_SERVER and POSTGRES_OML_SERVER to point to the IP of OML's host.  Also, you need to modify the 'ari.conf' in the container 'oml-asterisk_dialer' to add your machine IP to the 'allowed_origins' in the [general] configuration section. After that, run 'reload' in the Asterisk console.
+
+- If some for some reason (maybe some unexpected error) you are starting a campaign and the process-campaign shows a message like: "Campaign <id_campaign>: is already running" you need to clear the Redis lock associated with that campaign, if there are many unexpected locks you can run the script  utility 'remove-locks.py' inside any of the containers for the job 'process-campaign' for delete those Redis keys.
+
+Unit tests:
 
 For run the unit tests just do:
 
