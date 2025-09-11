@@ -1002,11 +1002,15 @@ class AverageWorker(DialerWorker):
         if not first_running_job:
             return b'Campaign already running'
         logger.debug(f'Campaign {id_campaign}: resuming the campaign')
-        cls.process_campaign_inside(id_campaign)
-        cls.REDIS_DIALER_CONNECTION.delete(f'PROCESS-CAMPAIGN-{id_campaign}')
-        response = f'Campaign {id_campaign} process ended!'
-        response = json.dumps({'msg': response})
-        return bytes(response, encoding='UTF8')
+        try:
+            cls.process_campaign_inside(id_campaign)
+            response = f'Campaign {id_campaign} process ended!'
+            response = json.dumps({'msg': response})
+            return bytes(response, encoding='UTF8')
+        except Exception as e:
+            raise e
+        finally:
+            cls.REDIS_DIALER_CONNECTION.delete(f'PROCESS-CAMPAIGN-{id_campaign}')
 
     @classmethod
     @timed_lru_cache(seconds=600, maxsize=128)
