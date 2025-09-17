@@ -42,6 +42,8 @@ Troubleshooting:
 
 - If some for some reason (maybe some unexpected error) you are starting a campaign and the process-campaign shows a message like: "Campaign <id_campaign>: is already running" you need to clear the Redis lock associated with that campaign, if there are many unexpected locks you can run the script  utility 'remove-locks.py' inside any of the containers for the job 'process-campaign' for delete those Redis keys.
 
+- If you need to stop, start or restart the dialer system and for some reason you are unable to access the web admin, you can use the script 'admin.py' from the interface component.
+
 Unit tests:
 
 For run the unit tests just do:
