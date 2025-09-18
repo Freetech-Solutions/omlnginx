@@ -18,6 +18,7 @@ from apscheduler.executors.pool import ThreadPoolExecutor
 
 from datetime import timedelta
 from decimal import Decimal
+from math import floor
 from time import sleep
 
 from settings.default import (REDIS_DIALER_PORT, REDIS_DIALER_SERVER, GEARMAN_JOB_SERVERS,
@@ -250,13 +251,53 @@ class AverageWorker(DialerWorker):
             return cursor_dialer.fetchone()[0]
 
     @classmethod
+    def allowed_calls_prority_percentage(cls, id_campaign, contacts_attempts_number_prev):
+        # we add the numer of call to Redis so other campaigns can use it too
+        cls.REDIS_DIALER_CONNECTION.hset(
+            f'CAMP:{id_campaign}:DISTRIBUTION', 'CALLS', contacts_attempts_number_prev)
+        # and we apply the percentage to the total of calls
+        total_calls = 0
+        for key in cls.REDIS_DIALER_CONNECTION.scan_iter(match='CAMP:*:DISTRIBUTION', count=1000):
+            if cls.REDIS_DIALER_CONNECTION.hget(key, 'STATUS') == '1':
+                total_calls += int(cls.REDIS_DIALER_CONNECTION.hget(key, 'CALLS'))
+
+        percentage = float(cls.REDIS_DIALER_CONNECTION.hget(
+            f'CAMP:{id_campaign}:DISTRIBUTION', 'PERCENTAGE'))
+
+        assigned_calls = max(floor(percentage * total_calls), 1)
+
+        return min(assigned_calls, contacts_attempts_number_prev)
+
+    @classmethod
+    def update_percentages_priority_campaigns(cls, id_campaign, activate):
+        cls.connect_redis_dialer()
+        cls.REDIS_DIALER_CONNECTION.hset(
+            f'CAMP:{id_campaign}:DISTRIBUTION', 'STATUS', int(activate))
+        priority = int(cls.REDIS_DIALER_CONNECTION.hget(
+            f'CAMP:{id_campaign}:DISTRIBUTION', 'PRIORITY'))
+
+        if activate:
+            # update the percentages of all active campaigns
+            total_priority = 0
+            for key in cls.REDIS_DIALER_CONNECTION.scan_iter(
+                    match='CAMP:*:DISTRIBUTION', count=1000):
+                if cls.REDIS_DIALER_CONNECTION.hget(key, 'STATUS') == '1':
+                    total_priority += int(cls.REDIS_DIALER_CONNECTION.hget(key, 'PRIORITY'))
+            percentage = priority / total_priority
+            cls.REDIS_DIALER_CONNECTION.hset(
+                f'CAMP:{id_campaign}:DISTRIBUTION', 'PERCENTAGE', percentage)
+
+    @classmethod
     def process_campaign_inside(cls, id_campaign):
         while cls.campaign_is_active(id_campaign):
             logger.debug(f'\nCampaign {id_campaign} is active')
             allowed_to_call, extra_info = cls.is_allowed_to_call(id_campaign)
             if allowed_to_call:
+                cls.update_percentages_priority_campaigns(id_campaign, True)
                 logger.debug(f'Campaign {id_campaign} is allowed to call')
-                contacts_attempts_number = cls.allowed_parallel_contact_attempts(id_campaign)
+                contacts_attempts_number_prev = cls.allowed_parallel_contact_attempts(id_campaign)
+                contacts_attempts_number = cls.allowed_calls_prority_percentage(
+                    id_campaign, contacts_attempts_number_prev)
                 initial_time = datetime.datetime.now()
                 caps_calls_counter = 0
                 contacts = cls.take_contacts(contacts_attempts_number, id_campaign)
@@ -293,6 +334,7 @@ class AverageWorker(DialerWorker):
                 })
                 cls.GM_CLIENT.submit_job('schedule-agenda', message)
                 return None
+        cls.update_percentages_priority_campaigns(id_campaign, False)
 
     @classmethod
     def get_next_day_of_week_allowed(
@@ -311,12 +353,13 @@ class AverageWorker(DialerWorker):
     def get_next_allowed_date(cls, id_campaign, extra_info):
         (day_of_week_allowed, day_of_week, hour_match, current_date, hour,
          minute, campaign_info) = extra_info
-        (hour_start, hour_end, monday, tuesday, wednesday, thursday, friday, saturday,
+        (hour_start, __, monday, tuesday, wednesday, thursday, friday, saturday,
          sunday) = campaign_info
         permission_days_campaign = campaign_info[2:]
         # if the day of the week is not allowed get the next day of week allowed with hour_start
         if not day_of_week_allowed:
-            return cls.get_next_day_of_week_allowed(day_of_week, current_date, hour_start)
+            return cls.get_next_day_of_week_allowed(
+                permission_days_campaign, day_of_week, current_date, hour_start)
         # if current time < hour_start, just use the same day with hour_start
         # else, get the next day of week allowed with hour start
         current_time = datetime.time(hour, minute)
@@ -412,6 +455,7 @@ class AverageWorker(DialerWorker):
                     (campaign_id_data, incidence_rules_data,
                      incidence_rules_disposition_data) = cls.get_campaign_data(
                         id_campaign, cursor_oml, contact_strategy)
+                    priority = campaign_id_data[6]
                     # 1- update campaign table
                     logger.debug(
                         f'Campaign {id_campaign}: inserting the campaign data into omnidialer')
@@ -458,6 +502,9 @@ class AverageWorker(DialerWorker):
             cls.get_incidence_rule_disposition.cache_clear()
         except AttributeError:
             pass
+
+        cls.REDIS_DIALER_CONNECTION.hset(
+            f'CAMP:{id_campaign}:DISTRIBUTION', 'PRIORITY', priority)
 
         response = f'Campaign {id_campaign} with strategy {contact_strategy} succesfully updated!!!'
 
@@ -522,6 +569,7 @@ class AverageWorker(DialerWorker):
                     logger.debug(
                         f'Campaign {id_campaign}: inserting the campaign data into omnidialer')
                     campaign_id_data = campaign_id_data + (prefix,)
+                    priority = campaign_id_data[6]
                     cursor_dialer.execute(
                         """INSERT INTO campaign (id, oml_status, name, start_date, end_date,
                         duplicates_control, priority, strategy, wait, initial_predictive_model,
@@ -546,6 +594,8 @@ class AverageWorker(DialerWorker):
                             campaign_id) VALUES (%s, %s, %s, %s, %s, %s);""", incidence_rule)
                     cls.copy_contacts_from_oml(cursor_dialer, cursor_oml, id_campaign)
                     cls.REDIS_DIALER_CONNECTION.set(f'OML:CALLS:{id_campaign}:DIALER', 0)
+                    cls.REDIS_DIALER_CONNECTION.hset(
+                        f'CAMP:{id_campaign}:DISTRIBUTION', 'PRIORITY', priority)
                     cls.REDIS_OML_CONNECTION.publish(
                         'OML:CHANNEL:DIALER',
                         json.dumps({'type': 'CREATE',
@@ -895,7 +945,7 @@ class AverageWorker(DialerWorker):
             cursor_dialer = conn_dialer.cursor()
             status_campaign = cls.get_campaign_status(id_campaign, cursor_dialer)
             if status_campaign == ACTIVE:
-                if cls.is_allowed_to_call(id_campaign):
+                if cls.is_allowed_to_call(id_campaign)[0]:
                     logger.debug(
                         f'Attempting to make a contact in campaign {id_campaign} '
                         f'to contact {id_contact}')
