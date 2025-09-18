@@ -50,9 +50,6 @@ SCHEDULER_API_HOST=scheduler-api:1441
 # --- Dialer API connection params
 DIALER_API_EXT_BIND_IP=${OML_HOSTNAME}
 DIALER_API_EXT_PORT=1440
-DIALER_SCHEDULER_EXT_BIND_IP=${OML_HOSTNAME}
-DIALER_SCHEDULER_EXT_PORT=1441
-
 
 # --- Asterisk dialer container params
 # --- On test-env or dev-env you must set the ASTERISK_DIALER_HOSTNAME variable with "dialer-asterisk" string
