@@ -14,6 +14,7 @@ import psycopg
 
 import json
 
+from datetime import timedelta
 from gearman.job import GearmanJob
 from gearman.worker import GearmanWorker
 
@@ -365,7 +366,116 @@ class MyTestSuite(unittest.TestCase):
         self.assertFalse(AverageWorker.GM_CLIENT.submit_job.called)
         AverageWorker.GM_CLIENT.submit_job.reset_mock()
 
+    def test_suspend_campaign_schedules_call_next_day(self):
+        current_date = datetime.datetime.now().date()
+        extra_info = (False,                            # failed day of week match
+                      0,                                # Sunday
+                      False,                            # hour match
+                      current_date,                     # current_date,
+                      17,                               # hour,
+                      9,                                # minute,
+                      # campaign_info
+                      (datetime.time(17, 10), datetime.time(17, 17), True, True, True, True, True,
+                       True, True),
+                      )
+        AverageWorker.opening_hours_match = MagicMock(return_value=(False, extra_info))
+        AverageWorker.set_campaign_status(4, ACTIVE)
+        AverageWorker.GM_CLIENT.submit_job = MagicMock()
+        job = GearmanJob(None, None, b'process-campaign', bytes(str(uuid.uuid4()), encoding='utf8'),
+                         b'{"id_campaign": "4"}')
+        AverageWorker.process_campaign(self.worker, job)
+        expected_date = current_date + timedelta(days=1)
+        expected_datetime = datetime.datetime.combine(expected_date, datetime.time(17, 10))
+        self.assertTrue(AverageWorker.GM_CLIENT.submit_job.called)
+        self.assertEqual(AverageWorker.GM_CLIENT.submit_job.call_args[0][0], 'schedule-agenda')
+        params_scheduler = json.loads(AverageWorker.GM_CLIENT.submit_job.call_args[0][1])
+        self.assertEqual(params_scheduler['type'], 'process-campaign')
+        self.assertEqual(params_scheduler['datetime_start'],
+                         expected_datetime.strftime('%d/%m/%y %H:%M:%S'))
+
+    def test_suspend_campaign_schedules_same_day(self):
+        current_date = datetime.datetime.now().date()
+        extra_info = (True,                             # day matches
+                      0,                                # Sunday
+                      False,                            # hour not matches
+                      current_date,                     # current_date,
+                      17,                               # hour,
+                      9,                                # minute,
+                      # campaign_info
+                      (datetime.time(17, 10), datetime.time(17, 17), True, True, True, True, True,
+                       True, True),
+                      )
+        AverageWorker.opening_hours_match = MagicMock(return_value=(False, extra_info))
+        AverageWorker.GM_CLIENT.submit_job = MagicMock()
+        AverageWorker.set_campaign_status(4, ACTIVE)
+        job = GearmanJob(None, None, b'process-campaign', bytes(str(uuid.uuid4()), encoding='utf8'),
+                         b'{"id_campaign": "4"}')
+        AverageWorker.process_campaign(self.worker, job)
+        self.assertTrue(AverageWorker.GM_CLIENT.submit_job.called)
+        self.assertEqual(AverageWorker.GM_CLIENT.submit_job.call_args[0][0], 'schedule-agenda')
+        params_scheduler = json.loads(AverageWorker.GM_CLIENT.submit_job.call_args[0][1])
+        self.assertEqual(params_scheduler['type'], 'process-campaign')
+        expected_datetime = datetime.datetime.combine(current_date, datetime.time(17, 10))
+        self.assertEqual(params_scheduler['datetime_start'],
+                         expected_datetime.strftime('%d/%m/%y %H:%M:%S'))
+
+    def test_create_campaign_sets_priority(self):
+        priority = int(AverageWorker.REDIS_DIALER_CONNECTION.hget(
+            'CAMP:4:DISTRIBUTION', 'PRIORITY'))
+        self.assertEqual(priority, 10)  # from the initial campaign
+
+    def test_pause_campaign_inactive_campaign_redis(self):
+        AverageWorker.set_campaign_status(4, PAUSED)
+        job = GearmanJob(None, None, b'process-campaign', bytes(str(uuid.uuid4()), encoding='utf8'),
+                         b'{"id_campaign": "4"}')
+        AverageWorker.process_campaign(self.worker, job)
+        status = int(AverageWorker.REDIS_DIALER_CONNECTION.hget(
+            'CAMP:4:DISTRIBUTION', 'STATUS'))
+        self.assertEqual(status, 0)
+
+    def test_finalize_campaign_inactive_campaign_redis(self):
+        AverageWorker.set_campaign_status(4, FINALIZED)
+        job = GearmanJob(None, None, b'process-campaign', bytes(str(uuid.uuid4()), encoding='utf8'),
+                         b'{"id_campaign": "4"}')
+        AverageWorker.process_campaign(self.worker, job)
+        status = int(AverageWorker.REDIS_DIALER_CONNECTION.hget(
+            'CAMP:4:DISTRIBUTION', 'STATUS'))
+        self.assertEqual(status, 0)
+
+    def test_calculation_percentage_priority_active_ones(self):
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:1:DISTRIBUTION', 'STATUS', 0)
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:1:DISTRIBUTION', 'PRIORITY', 3)
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:2:DISTRIBUTION', 'STATUS', 1)
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:2:DISTRIBUTION', 'PRIORITY', 10)
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:3:DISTRIBUTION', 'STATUS', 1)
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:3:DISTRIBUTION', 'PRIORITY', 5)
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:4:DISTRIBUTION', 'STATUS', 1)
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:4:DISTRIBUTION', 'PRIORITY', 1)
+        AverageWorker.update_percentages_priority_campaigns(4, True)
+        percentage = float(AverageWorker.REDIS_DIALER_CONNECTION.hget(
+            'CAMP:4:DISTRIBUTION', 'PERCENTAGE'))
+        self.assertEqual(percentage, 0.0625)
+
+    def test_distribution_according_priority(self):
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:1:DISTRIBUTION', 'STATUS', 0)
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:1:DISTRIBUTION', 'PRIORITY', 3)
+
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:2:DISTRIBUTION', 'STATUS', 1)
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:2:DISTRIBUTION', 'PRIORITY', 10)
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:2:DISTRIBUTION', 'CALLS', 20)
+
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:3:DISTRIBUTION', 'STATUS', 1)
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:3:DISTRIBUTION', 'PRIORITY', 5)
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:3:DISTRIBUTION', 'CALLS', 30)
+
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:4:DISTRIBUTION', 'STATUS', 1)
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:4:DISTRIBUTION', 'PRIORITY', 1)
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:4:DISTRIBUTION', 'PERCENTAGE', 0.0625)
+        allowed_calls = AverageWorker.allowed_calls_prority_percentage(4, 50)
+        self.assertEqual(allowed_calls, 6)
+
     def test_handle_campaign_general(self):
+        process_campaign_cm = AverageWorker.process_campaign
         AverageWorker.process_campaign = MagicMock()
         # check campaign entry creation and related tables too
         with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
@@ -469,6 +579,8 @@ class MyTestSuite(unittest.TestCase):
             AverageWorker.stop_campaign(self.worker, job)
             status_campaign = AverageWorker.get_campaign_status(id_campaign, cursor_dialer)
             self.assertEqual(status_campaign, FINALIZED)
+
+            AverageWorker.process_campaign = process_campaign_cm
 
 
 if __name__ == '__main__':
