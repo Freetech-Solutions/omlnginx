@@ -3,8 +3,6 @@ networks:
     name: ${NETWORK}
     external: true
 
-
-
 volumes:
 
   dialer-postgresql:
@@ -34,23 +32,6 @@ services:
     environment:
       - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
       - WEBSOCKET_SERVER=${WEBSOCKET_SERVER}
-
-  scheduler-api:
-    build:
-      context: ./scheduler/src
-    image: ${SCHEDULER_IMG}
-    ports:
-      - ${DIALER_SCHEDULER_EXT_BIND_IP:-0.0.0.0}:${DIALER_SCHEDULER_EXT_PORT:-1441}:1441/tcp
-    networks:
-      - omnileads
-    stop_signal: SIGINT
-    tty: true
-    stdin_open: true
-    environment:
-      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
-      - REDIS_DIALER_SERVER=${REDIS_DIALER_SERVER}
-      - REDIS_DIALER_PORT=${REDIS_DIALER_PORT}
-      - TZ=${TZ}
 
   listener:
     build:

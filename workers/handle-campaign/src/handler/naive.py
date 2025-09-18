@@ -10,9 +10,11 @@ import os
 import redis
 from psycopg_pool import ConnectionPool
 import gearman.client
-import requests
 import datetime
 import time
+
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.executors.pool import ThreadPoolExecutor
 
 from datetime import timedelta
 from decimal import Decimal
@@ -284,10 +286,12 @@ class AverageWorker(DialerWorker):
             else:
                 # schedule process-campaign for the next time the campaign is allowed to run
                 next_allowed_date = cls.get_next_allowed_date(id_campaign, extra_info)
-                data = {'datetime_start': next_allowed_date.strftime('%d/%m/%y %H:%M:%S')}
-                host = SCHEDULER_API_HOST
-                uri = f'http://{host}/add-process-campaign/{id_campaign}'
-                requests.post(uri, json=data)
+                message = json.dumps({
+                    'datetime_start': next_allowed_date.strftime('%d/%m/%y %H:%M:%S'),
+                    'type': 'process-campaign',
+                    'id_campaign': str(id_campaign),
+                })
+                cls.GM_CLIENT.submit_job('schedule-agenda', message)
                 return None
 
     @classmethod
@@ -1548,16 +1552,6 @@ class AverageWorker(DialerWorker):
 
     @classmethod
     @job_handler_decorator
-    def schedule_agenda(cls, worker, job):
-        data = cls.decode_payload(job.data)
-        id_campaign = data['id_campaign']
-        host = SCHEDULER_API_HOST
-        uri = f'http://{host}/add-agenda/{id_campaign}'
-        requests.post(uri, json=data)
-        return b'Agenda was scheduled'
-
-    @classmethod
-    @job_handler_decorator
     def change_database(cls, worker, job):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
@@ -1671,3 +1665,64 @@ class AverageWorker(DialerWorker):
         if action == "stop":
             running = False
         return AdminRender.render_status_dialer(running)
+
+
+class SchedulerWorker(AverageWorker):
+
+    EXECUTORS = {
+        'default': ThreadPoolExecutor(1)
+    }
+
+    SCHEDULER = BackgroundScheduler(executors=EXECUTORS)
+
+    SCHEDULER.add_jobstore(
+        'redis', jobs_key='scheduler.jobs', run_times_key='scheduler.run_times',
+        host=REDIS_DIALER_SERVER, port=REDIS_DIALER_PORT, db=3
+    )
+
+    @classmethod
+    def schedule_contact(cls, phone_number, id_campaign, id_contact):
+        logger.debug(f'Campaign {id_campaign}: calling scheduled agenda for contact {id_contact}')
+        message = json.dumps({'contact': [id_contact, id_campaign, phone_number],
+                              'id_campaign': id_campaign})
+        cls.GM_CLIENT.submit_job('process-contact', message, background=True)
+        return 'GD!!!'
+
+    @classmethod
+    def schedule_process_campaign(cls, id_campaign):
+        logger.debug(f'Campaign {id_campaign} starting to run from the scheduler')
+        message = json.dumps({'id_campaign': id_campaign})
+        cls.GM_CLIENT.submit_job('process-campaign', message, background=True)
+        return 'GD!!!'
+
+    @classmethod
+    @job_handler_decorator
+    def schedule_agenda(cls, worker, job):
+        if not cls.SCHEDULER.running:
+            cls.SCHEDULER.start()
+        data = cls.decode_payload(job.data)
+        id_campaign = data['id_campaign']
+        schedule_type = data.get('type', 'agenda')
+        if schedule_type == 'process-campaign':
+            datetime_start_str = data.get('datetime_start', '')
+            datetime_start_campaign = datetime.datetime.strptime(
+                datetime_start_str, '%d/%m/%y %H:%M:%S')
+            name = f'scheduled_process_campaign_{id_campaign}'
+            cls.SCHEDULER.add_job(
+                cls.schedule_process_campaign, 'date', run_date=datetime_start_campaign,
+                args=[id_campaign],
+                name=name
+            )
+            return b'Campaign process was scheduled'
+        else:
+            datetime_agenda_str = data.get('datetime_agenda', '')
+            # datetime_agenda_str = '19/09/22 13:55:26' ## for example
+            datetime_agenda = datetime.datetime.strptime(datetime_agenda_str, '%d/%m/%y %H:%M:%S')
+            phone_number = data.get('phone_number', '')
+            id_contact = data.get('id_contact', '')
+            cls.SCHEDULER.add_job(
+                cls.schedule_contact, 'date', run_date=datetime_agenda,
+                args=[phone_number, id_campaign, id_contact],
+                name=schedule_type
+            )
+            return b'Agenda was scheduled'
