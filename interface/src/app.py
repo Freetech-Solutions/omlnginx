@@ -6,6 +6,22 @@ from dialer.multichannel import GearmanDialer
 
 from settings.default import WEBSOCKET_SERVER
 
+SYNC_OMNILEADS_TRUE_VALUES = {'1', 'true', 't', 'yes', 'y', 'on'}
+
+
+def _normalize_sync_omnileads(value):
+    """Normalize sync-omnileads parameter values to a boolean."""
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    if isinstance(value, bytes):
+        value = value.decode('utf-8', errors='ignore')
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        return normalized in SYNC_OMNILEADS_TRUE_VALUES
+    return bool(value)
+
 
 app = Flask(__name__)
 
@@ -30,19 +46,19 @@ def edit_campaign(id_campaign):
 
 @app.route('/start-campaign/<id_campaign>', methods=['POST'])
 def start_campaign(id_campaign):
-    sync_omnileads = request.form.get('sync-omnileads', False) and True
+    sync_omnileads = _normalize_sync_omnileads(request.form.get('sync-omnileads'))
     return DIALER.start_campaign(id_campaign, sync_omnileads=sync_omnileads)
 
 
 @app.route('/stop-campaign/<id_campaign>', methods=['POST'])
 def stop_campaign(id_campaign):
-    sync_omnileads = request.form.get('sync-omnileads', False) and True
+    sync_omnileads = _normalize_sync_omnileads(request.form.get('sync-omnileads'))
     return DIALER.stop_campaign(id_campaign, sync_omnileads=sync_omnileads)
 
 
 @app.route('/pause-campaign/<id_campaign>', methods=['POST'])
 def pause_campaign(id_campaign):
-    sync_omnileads = request.form.get('sync-omnileads', False) and True
+    sync_omnileads = _normalize_sync_omnileads(request.form.get('sync-omnileads'))
     return DIALER.pause_campaign(id_campaign, sync_omnileads=sync_omnileads)
 
 
