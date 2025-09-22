@@ -14,8 +14,6 @@ The relevant environment variables are in this case: *REDIS_OML_SERVER*, *REDIS_
 
 Usage:
 
-The simplest way to use the system is to run the script start-dedicated.bash
-
 Make sure you have Docker & Docker-Compose installed and that you have bash shell available.
 
 Then do:
@@ -154,6 +152,8 @@ Add disposition for contact
 The add-incidence-rule-disposition endpoint is meant to be used by OML to signal that a disposition option was added to a contact in the campaign and that an incidence rule should be analyzed in this case. OMD will add the information about the disposition to the contact history in the campaign and if the linked incidence rule matches it will schedule a call for the contact.
 
 The value <id_campaign> correspond to the id of a campaign in OML and OMD.
+
+Note: if the parameter 'disposition_options' is -2 the system will handle as an AMD(TERMINATED) event.
 
 #### Method
 - **HTTP Method:** `POST`
@@ -332,6 +332,10 @@ The data saved in Redis is related with contact history in a campaign and report
 The system also publish to a PUBSUB channel information about reports, events and status of the campaigns, users can subscribe to OML:CHANNEL:DIALER to get this information.
 
 It is also possible to places agendas for calls using a custom scheduler.
+
+There should be a worker for process-campaign for every campaign dialing in parallel.
+
+The system also includes a simple admin that allows some degree of management on the campaigns and allow to manipulate the general status of the system (start, stop and restart) in gracefully way.
 
 Horizontal scalability
 ======================

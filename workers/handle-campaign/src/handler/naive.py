@@ -10,12 +10,15 @@ import os
 import redis
 from psycopg_pool import ConnectionPool
 import gearman.client
-import requests
 import datetime
 import time
 
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.executors.pool import ThreadPoolExecutor
+
 from datetime import timedelta
 from decimal import Decimal
+from math import floor
 from time import sleep
 
 from settings.default import (REDIS_DIALER_PORT, REDIS_DIALER_SERVER, GEARMAN_JOB_SERVERS,
@@ -53,9 +56,9 @@ POSTGRES_OML_PORT = os.getenv('POSTGRES_OML_PORT', '5432')
 
 POSTGRES_OML_PASSWORD = os.getenv('POSTGRES_OML_PASSWORD')
 
-POSTGRES_OML_USER = 'omnileads'
+POSTGRES_OML_USER = os.getenv('POSTGRES_OML_USER', 'omnileads')
 
-POSTGRES_OML_DB = 'omnileads'
+POSTGRES_OML_DB = os.getenv('POSTGRES_OML_DB', 'omnileads')
 
 POSTGRES_DIALER_SERVER = os.getenv('POSTGRES_DIALER_SERVER', 'dialer-postgres')
 
@@ -206,14 +209,14 @@ class AverageWorker(DialerWorker):
     def get_oml_connection(cls):
         if cls.POSTGRES_OML_POOL is None:
             cls.POSTGRES_OML_POOL = ConnectionPool(cls.POSTGRES_OML_CONNECTION_STR,
-                                                   min_size=1, max_size=2, max_idle=120)
+                                                   min_size=1, max_size=2, open=True)
         return cls.POSTGRES_OML_POOL.connection()
 
     @classmethod
     def get_dialer_connection(cls):
         if cls.POSTGRES_DIALER_POOL is None:
             cls.POSTGRES_DIALER_POOL = ConnectionPool(cls.POSTGRES_DIALER_CONNECTION_STR,
-                                                      min_size=1, max_size=2, max_idle=120)
+                                                      min_size=1, max_size=2, open=True)
         return cls.POSTGRES_DIALER_POOL.connection()
 
     @classmethod
@@ -248,20 +251,59 @@ class AverageWorker(DialerWorker):
             return cursor_dialer.fetchone()[0]
 
     @classmethod
+    def allowed_calls_prority_percentage(cls, id_campaign, contacts_attempts_number_prev):
+        # we add the numer of call to Redis so other campaigns can use it too
+        cls.REDIS_DIALER_CONNECTION.hset(
+            f'CAMP:{id_campaign}:DISTRIBUTION', 'CALLS', contacts_attempts_number_prev)
+        # and we apply the percentage to the total of calls
+        total_calls = 0
+        for key in cls.REDIS_DIALER_CONNECTION.scan_iter(match='CAMP:*:DISTRIBUTION', count=1000):
+            if cls.REDIS_DIALER_CONNECTION.hget(key, 'STATUS') == '1':
+                total_calls += int(cls.REDIS_DIALER_CONNECTION.hget(key, 'CALLS'))
+
+        percentage = float(cls.REDIS_DIALER_CONNECTION.hget(
+            f'CAMP:{id_campaign}:DISTRIBUTION', 'PERCENTAGE'))
+
+        assigned_calls = max(floor(percentage * total_calls), 1)
+
+        return min(assigned_calls, contacts_attempts_number_prev)
+
+    @classmethod
+    def update_percentages_priority_campaigns(cls, id_campaign, activate):
+        cls.connect_redis_dialer()
+        cls.REDIS_DIALER_CONNECTION.hset(
+            f'CAMP:{id_campaign}:DISTRIBUTION', 'STATUS', int(activate))
+        priority = int(cls.REDIS_DIALER_CONNECTION.hget(
+            f'CAMP:{id_campaign}:DISTRIBUTION', 'PRIORITY'))
+
+        if activate:
+            # update the percentages of all active campaigns
+            total_priority = 0
+            for key in cls.REDIS_DIALER_CONNECTION.scan_iter(
+                    match='CAMP:*:DISTRIBUTION', count=1000):
+                if cls.REDIS_DIALER_CONNECTION.hget(key, 'STATUS') == '1':
+                    total_priority += int(cls.REDIS_DIALER_CONNECTION.hget(key, 'PRIORITY'))
+            percentage = priority / total_priority
+            cls.REDIS_DIALER_CONNECTION.hset(
+                f'CAMP:{id_campaign}:DISTRIBUTION', 'PERCENTAGE', percentage)
+
+    @classmethod
     def process_campaign_inside(cls, id_campaign):
         while cls.campaign_is_active(id_campaign):
             logger.debug(f'\nCampaign {id_campaign} is active')
             allowed_to_call, extra_info = cls.is_allowed_to_call(id_campaign)
             if allowed_to_call:
+                cls.update_percentages_priority_campaigns(id_campaign, True)
                 logger.debug(f'Campaign {id_campaign} is allowed to call')
-                contacts_attempts_number = cls.allowed_parallel_contact_attempts(id_campaign)
+                contacts_attempts_number_prev = cls.allowed_parallel_contact_attempts(id_campaign)
+                contacts_attempts_number = cls.allowed_calls_prority_percentage(
+                    id_campaign, contacts_attempts_number_prev)
                 initial_time = datetime.datetime.now()
                 caps_calls_counter = 0
                 contacts = cls.take_contacts(contacts_attempts_number, id_campaign)
                 if TIME_BETWEEN_CALLS:
                     if not contacts:
-                        sleep(int(TIME_BETWEEN_CALLS))
-                        continue
+                        sleep(float(TIME_BETWEEN_CALLS))
                 for contact in contacts:
                     while True:
                         # we need to ensure the selected contact is eventually called
@@ -285,11 +327,14 @@ class AverageWorker(DialerWorker):
             else:
                 # schedule process-campaign for the next time the campaign is allowed to run
                 next_allowed_date = cls.get_next_allowed_date(id_campaign, extra_info)
-                data = {'datetime_start': next_allowed_date.strftime('%d/%m/%y %H:%M:%S')}
-                host = SCHEDULER_API_HOST
-                uri = f'http://{host}/add-process-campaign/{id_campaign}'
-                requests.post(uri, json=data)
+                message = json.dumps({
+                    'datetime_start': next_allowed_date.strftime('%d/%m/%y %H:%M:%S'),
+                    'type': 'process-campaign',
+                    'id_campaign': str(id_campaign),
+                })
+                cls.GM_CLIENT.submit_job('schedule-agenda', message)
                 return None
+        cls.update_percentages_priority_campaigns(id_campaign, False)
 
     @classmethod
     def get_next_day_of_week_allowed(
@@ -308,12 +353,13 @@ class AverageWorker(DialerWorker):
     def get_next_allowed_date(cls, id_campaign, extra_info):
         (day_of_week_allowed, day_of_week, hour_match, current_date, hour,
          minute, campaign_info) = extra_info
-        (hour_start, hour_end, monday, tuesday, wednesday, thursday, friday, saturday,
+        (hour_start, __, monday, tuesday, wednesday, thursday, friday, saturday,
          sunday) = campaign_info
         permission_days_campaign = campaign_info[2:]
         # if the day of the week is not allowed get the next day of week allowed with hour_start
         if not day_of_week_allowed:
-            return cls.get_next_day_of_week_allowed(day_of_week, current_date, hour_start)
+            return cls.get_next_day_of_week_allowed(
+                permission_days_campaign, day_of_week, current_date, hour_start)
         # if current time < hour_start, just use the same day with hour_start
         # else, get the next day of week allowed with hour start
         current_time = datetime.time(hour, minute)
@@ -409,6 +455,7 @@ class AverageWorker(DialerWorker):
                     (campaign_id_data, incidence_rules_data,
                      incidence_rules_disposition_data) = cls.get_campaign_data(
                         id_campaign, cursor_oml, contact_strategy)
+                    priority = campaign_id_data[6]
                     # 1- update campaign table
                     logger.debug(
                         f'Campaign {id_campaign}: inserting the campaign data into omnidialer')
@@ -455,6 +502,9 @@ class AverageWorker(DialerWorker):
             cls.get_incidence_rule_disposition.cache_clear()
         except AttributeError:
             pass
+
+        cls.REDIS_DIALER_CONNECTION.hset(
+            f'CAMP:{id_campaign}:DISTRIBUTION', 'PRIORITY', priority)
 
         response = f'Campaign {id_campaign} with strategy {contact_strategy} succesfully updated!!!'
 
@@ -519,6 +569,7 @@ class AverageWorker(DialerWorker):
                     logger.debug(
                         f'Campaign {id_campaign}: inserting the campaign data into omnidialer')
                     campaign_id_data = campaign_id_data + (prefix,)
+                    priority = campaign_id_data[6]
                     cursor_dialer.execute(
                         """INSERT INTO campaign (id, oml_status, name, start_date, end_date,
                         duplicates_control, priority, strategy, wait, initial_predictive_model,
@@ -543,6 +594,8 @@ class AverageWorker(DialerWorker):
                             campaign_id) VALUES (%s, %s, %s, %s, %s, %s);""", incidence_rule)
                     cls.copy_contacts_from_oml(cursor_dialer, cursor_oml, id_campaign)
                     cls.REDIS_DIALER_CONNECTION.set(f'OML:CALLS:{id_campaign}:DIALER', 0)
+                    cls.REDIS_DIALER_CONNECTION.hset(
+                        f'CAMP:{id_campaign}:DISTRIBUTION', 'PRIORITY', priority)
                     cls.REDIS_OML_CONNECTION.publish(
                         'OML:CHANNEL:DIALER',
                         json.dumps({'type': 'CREATE',
@@ -892,7 +945,7 @@ class AverageWorker(DialerWorker):
             cursor_dialer = conn_dialer.cursor()
             status_campaign = cls.get_campaign_status(id_campaign, cursor_dialer)
             if status_campaign == ACTIVE:
-                if cls.is_allowed_to_call(id_campaign):
+                if cls.is_allowed_to_call(id_campaign)[0]:
                     logger.debug(
                         f'Attempting to make a contact in campaign {id_campaign} '
                         f'to contact {id_contact}')
@@ -1003,11 +1056,15 @@ class AverageWorker(DialerWorker):
         if not first_running_job:
             return b'Campaign already running'
         logger.debug(f'Campaign {id_campaign}: resuming the campaign')
-        cls.process_campaign_inside(id_campaign)
-        cls.REDIS_DIALER_CONNECTION.delete(f'PROCESS-CAMPAIGN-{id_campaign}')
-        response = f'Campaign {id_campaign} process ended!'
-        response = json.dumps({'msg': response})
-        return bytes(response, encoding='UTF8')
+        try:
+            cls.process_campaign_inside(id_campaign)
+            response = f'Campaign {id_campaign} process ended!'
+            response = json.dumps({'msg': response})
+            return bytes(response, encoding='UTF8')
+        except Exception as e:
+            raise e
+        finally:
+            cls.REDIS_DIALER_CONNECTION.delete(f'PROCESS-CAMPAIGN-{id_campaign}')
 
     @classmethod
     @timed_lru_cache(seconds=600, maxsize=128)
@@ -1545,16 +1602,6 @@ class AverageWorker(DialerWorker):
 
     @classmethod
     @job_handler_decorator
-    def schedule_agenda(cls, worker, job):
-        data = cls.decode_payload(job.data)
-        id_campaign = data['id_campaign']
-        host = SCHEDULER_API_HOST
-        uri = f'http://{host}/add-agenda/{id_campaign}'
-        requests.post(uri, json=data)
-        return b'Agenda was scheduled'
-
-    @classmethod
-    @job_handler_decorator
     def change_database(cls, worker, job):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
@@ -1668,3 +1715,64 @@ class AverageWorker(DialerWorker):
         if action == "stop":
             running = False
         return AdminRender.render_status_dialer(running)
+
+
+class SchedulerWorker(AverageWorker):
+
+    EXECUTORS = {
+        'default': ThreadPoolExecutor(1)
+    }
+
+    SCHEDULER = BackgroundScheduler(executors=EXECUTORS)
+
+    SCHEDULER.add_jobstore(
+        'redis', jobs_key='scheduler.jobs', run_times_key='scheduler.run_times',
+        host=REDIS_DIALER_SERVER, port=REDIS_DIALER_PORT, db=3
+    )
+
+    @classmethod
+    def schedule_contact(cls, phone_number, id_campaign, id_contact):
+        logger.debug(f'Campaign {id_campaign}: calling scheduled agenda for contact {id_contact}')
+        message = json.dumps({'contact': [id_contact, id_campaign, phone_number],
+                              'id_campaign': id_campaign})
+        cls.GM_CLIENT.submit_job('process-contact', message, background=True)
+        return 'GD!!!'
+
+    @classmethod
+    def schedule_process_campaign(cls, id_campaign):
+        logger.debug(f'Campaign {id_campaign} starting to run from the scheduler')
+        message = json.dumps({'id_campaign': id_campaign})
+        cls.GM_CLIENT.submit_job('process-campaign', message, background=True)
+        return 'GD!!!'
+
+    @classmethod
+    @job_handler_decorator
+    def schedule_agenda(cls, worker, job):
+        if not cls.SCHEDULER.running:
+            cls.SCHEDULER.start()
+        data = cls.decode_payload(job.data)
+        id_campaign = data['id_campaign']
+        schedule_type = data.get('type', 'agenda')
+        if schedule_type == 'process-campaign':
+            datetime_start_str = data.get('datetime_start', '')
+            datetime_start_campaign = datetime.datetime.strptime(
+                datetime_start_str, '%d/%m/%y %H:%M:%S')
+            name = f'scheduled_process_campaign_{id_campaign}'
+            cls.SCHEDULER.add_job(
+                cls.schedule_process_campaign, 'date', run_date=datetime_start_campaign,
+                args=[id_campaign],
+                name=name
+            )
+            return b'Campaign process was scheduled'
+        else:
+            datetime_agenda_str = data.get('datetime_agenda', '')
+            # datetime_agenda_str = '19/09/22 13:55:26' ## for example
+            datetime_agenda = datetime.datetime.strptime(datetime_agenda_str, '%d/%m/%y %H:%M:%S')
+            phone_number = data.get('phone_number', '')
+            id_contact = data.get('id_contact', '')
+            cls.SCHEDULER.add_job(
+                cls.schedule_contact, 'date', run_date=datetime_agenda,
+                args=[phone_number, id_campaign, id_contact],
+                name=schedule_type
+            )
+            return b'Agenda was scheduled'

@@ -14,8 +14,6 @@ Las variables de entorno relevantes en este caso son: *GEARMAN_OML_SERVER*, *GEA
 
 Uso:
 
-La forma más sencilla de utilizar el sistema es ejecutar el script start-dedicated.bash
-
 Asegúrate de tener Docker y Docker-Compose instalados y de que tienes la shell bash disponible.
 
 Luego, realiza lo siguiente:
@@ -159,6 +157,8 @@ Agregar calificación para el contacto
 El endpoint add-incidence-rule-disposition está diseñado para que OML indique que se ha agregado una opción de disposición a un contacto en la campaña y que debe analizarse una regla de incidencia en este caso. OMD agregará la información sobre la disposición al historial de contactos de la campaña y, si la regla de incidencia vinculada coincide, programará una llamada para el contacto.
 
 El valor <id_campaign> corresponde al id de una campaña en OML y OMD.
+
+Nota: si el parámetro 'disposition_options' es igual a -2 el sistema manejará la entrada como un evento AMD(TERMINATED).
 
 #### Método
 - **Método HTTP:** `POST`
@@ -335,6 +335,10 @@ Los datos guardados en Redis están relacionados con el historial de contactos e
 El sistema también publica en canales PUBSUB información sobre informes y estado de las campañas.
 
 También es posible agendar llamadas usando un scheduler personalizado.
+
+Debería haber un worker de la función de Gearman 'process-campaign' por cada campaña discando en paralelo.
+
+El sistema también incluye un simple admin que permite algun grado de administración de las campañas y manipular el status del sistema (start, stop y restart) de forma controlada.
 
 Escalabilidad horizontal
 ========================

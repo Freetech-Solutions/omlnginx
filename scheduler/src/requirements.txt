@@ -1,5 +1,0 @@
-requests
-apscheduler
-git+https://github.com/alejandrozf/python-gearman.git@azf-fix-python-3.12.8#egg=gearman3
-flask
-redis
