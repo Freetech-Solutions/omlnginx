@@ -6,20 +6,17 @@ import os
 import signal
 import sys
 import traceback
-import websocket
-import requests
-
-import gearman.client
-
 from pprint import pformat
+
+import requests
+import websocket
+import gearman
 
 from settings.default import GEARMAN_JOB_SERVERS
 
-
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
-
-ASTERISK_APP_DIALER = os.getenv('ASTERISK_APP_DIALER', 'call_manager_dialer')
+ASTERISK_APP_DIALER = os.getenv("ASTERISK_APP_DIALER", "call_manager_dialer")
 
 
 class CallManager:
@@ -28,65 +25,85 @@ class CallManager:
     and handles various call events through WebSocket.
     """
 
-    GM_CLIENT = gearman.GearmanClient(GEARMAN_JOB_SERVERS)
-
     def __init__(self):
         """
-        Initializes the CallManager with necessary components like
-        RabbitMQ and Redis managers,
-        and sets up ARI for interaction with Asterisk.
+        Initializes the CallManager and sets up ARI credentials.
         """
+        # Asegurate que este host coincida con tu DNS real
+        self.ari_host = os.getenv("ASTERISK_HOST", "dialer-acd")
+        self.ari_port = os.getenv("ASTERISK_PORT", "8888")
+        self.ari_user = os.getenv("ASTERISK_USER", "omnileads")
+        self.ari_password = os.getenv("ASTERISK_PASS", "change_me")
 
-        self.ari_host = os.getenv('ASTERISK_HOST', 'dialer_acd')
-        self.ari_port = os.getenv('ASTERISK_PORT', '8888')
-        self.ari_user = os.getenv('ASTERISK_USER', 'omnileads')
-        self.ari_password = os.getenv('ASTERISK_PASS', '5_MeO_DMT')
+        try:
+            servers = GEARMAN_JOB_SERVERS
+            # Acepta lista o string único
+            if isinstance(servers, str):
+                servers = [servers]
+            self.gm_client = gearman.GearmanClient(servers)
+        except Exception as err:
+            logging.error("Gearman client init error: %s", err)
+            self.gm_client = None
 
     def subscribe_to_events(self):
-        # subscribes the app 'call_manager_dialer' to the events of the OML dialplan for
-        # dialer calls
-        logging.info('Subscribing to the events ...')
-        json_data = {
-            'eventSource': 'endpoint:PJSIP',
-        }
-        response = requests.post(
-            f'http://{self.ari_host}:{self.ari_port}/ari/applications/{ASTERISK_APP_DIALER}/'
-            f'subscription',
-            headers={},
-            json=json_data,
-            auth=(self.ari_user, self.ari_password),
+        """Subscribes the app to the OML dialplan events for dialer calls."""
+        logging.info("Subscribing to the events ...")
+        json_data = {"eventSource": "endpoint:PJSIP"}
+        url = (
+            f"http://{self.ari_host}:{self.ari_port}/ari/applications/"
+            f"{ASTERISK_APP_DIALER}/subscription"
         )
-        logging.info(response.json())
+        try:
+            resp = requests.post(
+                url,
+                json=json_data,
+                auth=(self.ari_user, self.ari_password),
+                timeout=10,
+            )
+            resp.raise_for_status()
+            logging.info("Subscription OK (status=%s)", resp.status_code)
+        except requests.exceptions.RequestException as err:
+            logging.error("Subscription error: %s", err)
 
     def filter_incoming_events(self):
-        logging.info('Filtering events ...')
-        json_data = {'allowed': [{'type': 'Dial'}]}
-        response = requests.put(
-            f'http://{self.ari_host}:{self.ari_port}/ari/applications/{ASTERISK_APP_DIALER}/'
-            'eventFilter',
-            headers={},
-            json=json_data,
-            auth=(self.ari_user, self.ari_password),
+        """Configures the ARI application to filter only Dial events."""
+        logging.info("Filtering events ...")
+        json_data = {"allowed": [{"type": "Dial"}]}
+        url = (
+            f"http://{self.ari_host}:{self.ari_port}/ari/applications/"
+            f"{ASTERISK_APP_DIALER}/eventFilter"
         )
-        logging.info(response.json())
+        try:
+            resp = requests.put(
+                url,
+                json=json_data,
+                auth=(self.ari_user, self.ari_password),
+                timeout=10,
+            )
+            resp.raise_for_status()
+            logging.info("Event filter OK (status=%s)", resp.status_code)
+        except requests.exceptions.RequestException as err:
+            logging.error("Event filter error: %s", err)
 
     def client(self):
         """
         Sets up the WebSocket client to connect to ARI and handle events.
 
         Returns:
-            websocket.WebSocketApp: Configured WebSocket client.
+            websocket.WebSocketApp | None: Configured WebSocket client.
         """
         try:
-            ws_url = (f"ws://{self.ari_host}:{self.ari_port}/ari/events"
-                      f"?api_key={self.ari_user}:{self.ari_password}&app={ASTERISK_APP_DIALER}")
-            ari_client = websocket.WebSocketApp(
+            ws_url = (
+                f"ws://{self.ari_host}:{self.ari_port}/ari/events"
+                f"?api_key={self.ari_user}:{self.ari_password}"
+                f"&app={ASTERISK_APP_DIALER}"
+            )
+            return websocket.WebSocketApp(
                 ws_url,
                 on_message=self.on_message,
                 on_error=self.on_error,
-                on_close=self.on_close
+                on_close=self.on_close,
             )
-            return ari_client
         except Exception as e:
             logging.error("Error setting up ARI client: %s", str(e))
             logging.error(traceback.format_exc())
@@ -94,67 +111,59 @@ class CallManager:
 
     def on_message(self, ws, message):
         """
-        Handles incoming messages from the WebSocket
-        and directs them to the appropriate handler.
-
-        Args:
-            ws (websocket.WebSocketApp): The WebSocket client instance.
-            message (str): The received message.
+        Handles incoming messages from the WebSocket.
         """
-        event_dict = json.loads(message)
+        try:
+            event_dict = json.loads(message)
+        except json.JSONDecodeError:
+            logging.error("Invalid JSON message: %r", message[:200])
+            return
 
-        # Logging for debugging
-        logging.info('Received event: %s', pformat(event_dict))
-        self.GM_CLIENT.submit_job(
-            'process-event', bytes(message, encoding='utf8'), background=True
-        )
-        logging.info('Event was sent to Gearman job')
+        logging.info("Received event: %s", pformat(event_dict))
+        if not self.gm_client:
+            logging.error("No Gearman client. Skipping enqueue.")
+            return
+
+        try:
+            self.gm_client.submit_job(
+                "process-event",
+                bytes(message, encoding="utf8"),
+                background=True,
+            )
+            logging.info("Event was sent to Gearman job")
+        except Exception as err:
+            logging.error("Error sending job to Gearman: %s", err)
 
     def on_error(self, ws, error):
-        """
-        Handles WebSocket errors.
-
-        Args:
-            ws (websocket.WebSocketApp): The WebSocket client instance.
-            error (str): The error message.
-        """
+        """Handles WebSocket errors."""
         logging.error("WebSocket Error: %s", error)
 
     def on_close(self, ws, close_status_code, close_msg):
-        """
-        Handles the closing of the WebSocket connection.
-
-        Args:
-            ws (websocket.WebSocketApp): The WebSocket client instance.
-            close_status_code (int): The status code for the close.
-            close_msg (str): The close message.
-        """
+        """Handles the closing of the WebSocket connection."""
         logging.info("WebSocket closed connection")
 
     def on_open(self, ws):
-        """
-        Handles the opening of the WebSocket connection.
-
-        Args:
-            ws (websocket.WebSocketApp): The WebSocket client instance.
-        """
+        """Handles the opening of the WebSocket connection."""
         logging.info("WebSocket connection opened")
         self.subscribe_to_events()
         self.filter_incoming_events()
 
 
 if __name__ == "__main__":
-
-    call_manager = CallManager()
-
-    ws = call_manager.client()
+    cm = CallManager()
+    ws = cm.client()
+    if ws is None:
+        logging.error("WS client not initialized. Exiting.")
+        sys.exit(1)
 
     def signal_handler(signum, frame):
         logging.info("Signal received, closing connection")
-        ws.close()
+        try:
+            ws.close()
+        except Exception:
+            pass
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
-
-    ws.on_open = call_manager.on_open
-    ws.run_forever()
+    ws.on_open = cm.on_open
+    ws.run_forever(ping_interval=20, ping_timeout=10)
