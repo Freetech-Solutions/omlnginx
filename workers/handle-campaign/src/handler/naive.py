@@ -712,10 +712,37 @@ class AverageWorker(DialerWorker):
         return int(pending_attempts) == 0
 
     @classmethod
-    def no_active_agendas(cls):
-        cls.connect_redis_dialer()
-        len_agendas = AverageWorker.REDIS_DIALER_CONNECTION.zrange("scheduler.run_times", 0, -1)
-        return len_agendas == []
+    def no_active_agendas(cls, id_campaign):
+        """Return True when there are no agendas scheduled for the campaign."""
+        str_id_campaign = str(id_campaign)
+
+        def _job_matches_campaign(job):
+            args = getattr(job, 'args', ()) or ()
+            kwargs = getattr(job, 'kwargs', {}) or {}
+            name = getattr(job, 'name', '') or ''
+            job_id = getattr(job, 'id', '') or ''
+
+            if any(str(arg) == str_id_campaign for arg in args):
+                return True
+            if any(str(value) == str_id_campaign for value in kwargs.values()):
+                return True
+            if str_id_campaign in name:
+                return True
+            if str_id_campaign in job_id:
+                return True
+            return False
+
+        try:
+            jobs = SchedulerWorker.SCHEDULER.get_jobs()
+        except Exception as exc:
+            logger.debug('Error retrieving jobs from scheduler: %s', exc)
+            jobs = []
+
+        for job in jobs:
+            if _job_matches_campaign(job):
+                return False
+
+        return True
 
     @classmethod
     def campaign_is_active(cls, id_campaign):
@@ -740,9 +767,11 @@ class AverageWorker(DialerWorker):
                                 'camp_id': id_campaign}))
                 return False
 
-            # notify to OML if there are no more contacts for call and pause the campaign
+            # notify to OML if there are no more contacts for call and pause
+            # the campaign
             if cls.all_contacts_were_attempted(id_campaign) and \
-               cls.no_active_incidence_rules(id_campaign) and cls.no_active_agendas():
+               cls.no_active_incidence_rules(id_campaign) and \
+               cls.no_active_agendas(id_campaign):
                 logger.debug(f'Campaign {id_campaign}: no more contacts pending for call')
                 cls.set_campaign_status(id_campaign, FINALIZED, sync_omnileads=True)
                 cls.connect_redis_oml()
@@ -754,7 +783,8 @@ class AverageWorker(DialerWorker):
                     }))
                 return False
 
-            # notify to OML if there are less than PERCENTAGE_PENDING_CALL_THRESHOLD%
+            # notify to OML if there are less than
+            # PERCENTAGE_PENDING_CALL_THRESHOLD%
             # of contacts pending for call
             # TODO: not sure about the frequency of this notification
             cursor_dialer.execute(

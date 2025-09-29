@@ -5,6 +5,7 @@ import logging
 import os
 import signal
 import sys
+import time
 import traceback
 from pprint import pformat
 
@@ -34,6 +35,8 @@ class CallManager:
         self.ari_port = os.getenv("ASTERISK_PORT", "8888")
         self.ari_user = os.getenv("ASTERISK_USER", "omnileads")
         self.ari_password = os.getenv("ASTERISK_PASS", "change_me")
+        self.ws = None
+        self.shutting_down = False
 
         try:
             servers = GEARMAN_JOB_SERVERS
@@ -148,22 +151,43 @@ class CallManager:
         self.subscribe_to_events()
         self.filter_incoming_events()
 
+    def start_websocket(self):
+        """Starts the WebSocket connection with reconnection handling."""
+
+        def signal_handler(signum, frame):
+            logging.info("Signal received, shutting down...")
+            self.shutting_down = True
+            if self.ws:
+                self.ws.close()
+
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
+
+        while not self.shutting_down:
+            self.ws = self.client()
+            if self.ws is None:
+                logging.error(
+                    "Unable to create WebSocket client instance. "
+                    "Retrying in 10 seconds."
+                )
+                time.sleep(10)
+                continue
+
+            self.ws.on_open = self.on_open
+            self.ws.on_message = self.on_message
+            self.ws.on_error = self.on_error
+            self.ws.on_close = self.on_close
+
+            self.ws.run_forever(ping_interval=20, ping_timeout=10)
+
+            if not self.shutting_down:
+                logging.info(
+                    "WebSocket connection lost."
+                    "Attempting to reconnect in 10 seconds..."
+                )
+                time.sleep(10)
+
 
 if __name__ == "__main__":
     cm = CallManager()
-    ws = cm.client()
-    if ws is None:
-        logging.error("WS client not initialized. Exiting.")
-        sys.exit(1)
-
-    def signal_handler(signum, frame):
-        logging.info("Signal received, closing connection")
-        try:
-            ws.close()
-        except Exception:
-            pass
-
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-    ws.on_open = cm.on_open
-    ws.run_forever(ping_interval=20, ping_timeout=10)
+    cm.start_websocket()
