@@ -600,6 +600,10 @@ class AverageWorker(DialerWorker):
                         'OML:CHANNEL:DIALER',
                         json.dumps({'type': 'CREATE',
                                     'camp_id': id_campaign}))
+                    cls.REDIS_OML_CONNECTION.publish(
+                        'OML:CHANNEL:DIALER', json.dumps({'type': 'CALLS',
+                                                          'camp_id': id_campaign,
+                                                          'calls': 0}))
 
         response = f'Campaign {id_campaign} with strategy {contact_strategy} created!!!'
 
