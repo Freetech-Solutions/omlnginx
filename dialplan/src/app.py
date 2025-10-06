@@ -277,7 +277,11 @@ class CallManager:
                     if id_camp:
                         redis_key = f"OML:CALLS:{id_camp}:DIALER"
                         try:
-                            self.redis_client.incr(redis_key)
+                            calls = self.redis_client.incr(redis_key)
+                            self.redis_client.publish('OML:CHANNEL:DIALER',
+                                                      json.dumps({'type': 'CALLS',
+                                                                  'camp_id': id_camp,
+                                                                  'calls': calls}))
                             self.pstn_already_counted.add(peer_id)
                             logging.info(
                                 "Incremented calls counter in Redis key "
@@ -490,7 +494,11 @@ class CallManager:
                     if id_camp:
                         redis_key = f"OML:CALLS:{id_camp}:DIALER"
                         try:
-                            self.redis_client.decr(redis_key)
+                            calls = self.redis_client.decr(redis_key)
+                            self.redis_client.publish('OML:CHANNEL:DIALER',
+                                                      json.dumps({'type': 'CALLS',
+                                                                  'camp_id': id_camp,
+                                                                  'calls': calls}))
                             logging.info(
                                 "Decremented calls counter in "
                                 "Redis key '%s' for channel id %s",
