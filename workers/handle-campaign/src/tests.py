@@ -1,17 +1,12 @@
 # -*- coding: utf-8 -*-
 
 import datetime
-
 import unittest
-
 import uuid
-
 from unittest.mock import MagicMock
-
 from decimal import Decimal
-
 import psycopg
-
+import time
 import json
 
 from datetime import timedelta
@@ -25,6 +20,7 @@ from handler.naive import (AverageWorker, ACTIVE, PAUSED, CREATED, FINALIZED, ST
 class MyTestSuite(unittest.TestCase):
 
     def setUp(self):
+        self._wait_pg()
         self.fetchmany_counter = 0
         self._create_campaign()
 
@@ -38,6 +34,7 @@ class MyTestSuite(unittest.TestCase):
     def clean_databases(self):
         AverageWorker.connect_redis_dialer()
         AverageWorker.REDIS_DIALER_CONNECTION.flushdb()
+        self._wait_pg()
         with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute('DELETE FROM campaign;')
@@ -70,6 +67,19 @@ class MyTestSuite(unittest.TestCase):
                      '["Ashley Barrett", "Edward Townsend", "8718745", "5618936401", "1075763364"]',
                      True)]
         return []
+
+    def _wait_pg(self, attempts: int = 40, delay: float = 0.25):
+        """
+        Espera a que Postgres de tests acepte conexiones para evitar:
+        'connection refused ... port 5434'
+        """
+        for _ in range(attempts):
+            try:
+                with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR):
+                    return
+            except Exception:
+                time.sleep(delay)
+        raise RuntimeError("Postgres for tests not ready")
 
     def _create_campaign(self):
         # mocking Postgres connection to OML
@@ -443,34 +453,47 @@ class MyTestSuite(unittest.TestCase):
         self.assertEqual(status, 0)
 
     def test_calculation_percentage_priority_active_ones(self):
-        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:1:DISTRIBUTION', 'STATUS', 0)
-        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:1:DISTRIBUTION', 'PRIORITY', 3)
-        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:2:DISTRIBUTION', 'STATUS', 1)
-        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:2:DISTRIBUTION', 'PRIORITY', 10)
-        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:3:DISTRIBUTION', 'STATUS', 1)
-        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:3:DISTRIBUTION', 'PRIORITY', 5)
-        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:4:DISTRIBUTION', 'STATUS', 1)
-        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:4:DISTRIBUTION', 'PRIORITY', 1)
-        AverageWorker.update_percentages_priority_campaigns(4, True)
-        percentage = float(AverageWorker.REDIS_DIALER_CONNECTION.hget(
-            'CAMP:4:DISTRIBUTION', 'PERCENTAGE'))
+        r = AverageWorker.REDIS_DIALER_CONNECTION
+        r.hset('CAMP:1:DISTRIBUTION', 'STATUS', 0)
+        r.hset('CAMP:1:DISTRIBUTION', 'PRIORITY', 3)
+        r.hset('CAMP:2:DISTRIBUTION', 'STATUS', 1)
+        r.hset('CAMP:2:DISTRIBUTION', 'PRIORITY', 10)
+        r.hset('CAMP:3:DISTRIBUTION', 'STATUS', 1)
+        r.hset('CAMP:3:DISTRIBUTION', 'PRIORITY', 5)
+        r.hset('CAMP:4:DISTRIBUTION', 'STATUS', 1)
+        r.hset('CAMP:4:DISTRIBUTION', 'PRIORITY', 1)
+
+        # Sembrar campañas activas para el cálculo de porcentajes
+        r.delete(AverageWorker.ACTIVE_CAMPAIGNS_SET)
+        r.sadd(AverageWorker.ACTIVE_CAMPAIGNS_SET, 2, 3, 4)
+
+        # Nueva firma: sin argumentos
+        AverageWorker.update_percentages_priority_campaigns()
+
+        percentage = float(r.hget('CAMP:4:DISTRIBUTION', 'PERCENTAGE'))
         self.assertEqual(percentage, 0.0625)
 
     def test_distribution_according_priority(self):
-        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:1:DISTRIBUTION', 'STATUS', 0)
-        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:1:DISTRIBUTION', 'PRIORITY', 3)
+        r = AverageWorker.REDIS_DIALER_CONNECTION
+        r.hset('CAMP:1:DISTRIBUTION', 'STATUS', 0)
+        r.hset('CAMP:1:DISTRIBUTION', 'PRIORITY', 3)
 
-        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:2:DISTRIBUTION', 'STATUS', 1)
-        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:2:DISTRIBUTION', 'PRIORITY', 10)
-        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:2:DISTRIBUTION', 'CALLS', 20)
+        r.hset('CAMP:2:DISTRIBUTION', 'STATUS', 1)
+        r.hset('CAMP:2:DISTRIBUTION', 'PRIORITY', 10)
+        r.hset('CAMP:2:DISTRIBUTION', 'CALLS', 20)
 
-        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:3:DISTRIBUTION', 'STATUS', 1)
-        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:3:DISTRIBUTION', 'PRIORITY', 5)
-        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:3:DISTRIBUTION', 'CALLS', 30)
+        r.hset('CAMP:3:DISTRIBUTION', 'STATUS', 1)
+        r.hset('CAMP:3:DISTRIBUTION', 'PRIORITY', 5)
+        r.hset('CAMP:3:DISTRIBUTION', 'CALLS', 30)
 
-        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:4:DISTRIBUTION', 'STATUS', 1)
-        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:4:DISTRIBUTION', 'PRIORITY', 1)
-        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:4:DISTRIBUTION', 'PERCENTAGE', 0.0625)
+        r.hset('CAMP:4:DISTRIBUTION', 'STATUS', 1)
+        r.hset('CAMP:4:DISTRIBUTION', 'PRIORITY', 1)
+        r.hset('CAMP:4:DISTRIBUTION', 'PERCENTAGE', 0.0625)
+
+        # Sembrar campañas activas
+        r.delete(AverageWorker.ACTIVE_CAMPAIGNS_SET)
+        r.sadd(AverageWorker.ACTIVE_CAMPAIGNS_SET, 2, 3, 4)
+
         allowed_calls = AverageWorker.allowed_calls_prority_percentage(4, 50)
         self.assertEqual(allowed_calls, 6)
 
