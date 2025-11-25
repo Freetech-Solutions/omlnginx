@@ -31,8 +31,7 @@ from apscheduler.events import (
 )
 
 from datetime import timedelta
-from decimal import Decimal
-from math import floor
+from math import floor, ceil
 from time import sleep
 
 from settings.default import (REDIS_DIALER_PORT, REDIS_DIALER_SERVER, GEARMAN_JOB_SERVERS,
@@ -41,7 +40,6 @@ from settings.default import (REDIS_DIALER_PORT, REDIS_DIALER_SERVER, GEARMAN_JO
 import logging
 
 from ui.rendering import AdminRender
-
 # Flag global para registrar listener una sola vez
 _SCHED_LISTENER_REGISTERED = False
 # Flag global para shutdown ordenado
@@ -1174,25 +1172,62 @@ class AverageWorker(DialerWorker):
             return cursor_dialer.fetchone()[0]
 
     @classmethod
-    def get_allowed_attempts_according_agents(cls, id_campaign, active_channels,
-                                              campaign_max_available_channels):
+    def get_allowed_attempts_according_agents(
+        cls, id_campaign, active_channels, campaign_max_available_channels
+    ):
+        """
+        Devuelve cuántos intentos NUEVOS puede iniciar la campaña según:
+        - canales ya activos de la campaña
+        - canales máximos configurados para la campaña
+        - agentes disponibles en la campaña
+        (la "justicia" entre campañas ya la maneja allowed_calls_prority_percentage)
+        """
         available_agents, total_available_agents = cls.get_number_available_agents(id_campaign)
-        active_campaigns = cls.get_number_active_campaigns()
-        logger.debug("Campaign {0}: active_campaigns={1}".format(id_campaign, active_campaigns))
-        logger.debug("Campaign {0}: available_agents={1}".format(id_campaign, available_agents))
-        logger.debug("Campaign {0}: total_available_agents={1}".format(
-            id_campaign, total_available_agents))
-        if active_channels < campaign_max_available_channels:
-            if total_available_agents >= active_channels:
-                if active_campaigns > 0:
-                    # TODO: figure out how to get back to this heuristic when the agents
-                    # are assigned to the same campaign
-                    # return available_agents / active_campaigns
-                    return available_agents
-                return 0
-            logger.debug(f"Campaign {id_campaign}: too much calls for available agents")
+
+        logger.debug(
+            "Campaign %s: available_agents=%s total_available_agents=%s",
+            id_campaign, available_agents, total_available_agents
+        )
+
+        # No hay más canales libres configurados para esta campaña
+        if active_channels >= campaign_max_available_channels:
+            logger.debug(
+                "Campaign %s: no free channels (active=%s, max=%s)",
+                id_campaign, active_channels, campaign_max_available_channels
+            )
             return 0
-        return 0
+
+        # Si no hay agentes para ESTA campaña, no disques
+        if available_agents <= 0:
+            logger.debug(
+                "Campaign %s: no available agents for this campaign (avail=%s)",
+                id_campaign, available_agents
+            )
+            return 0
+
+        # Máximo de canales que me gustaría tener para esta campaña según agentes
+        # (1 canal por agente "equivalente")
+        desired_total_channels = min(available_agents, campaign_max_available_channels)
+
+        headroom = desired_total_channels - active_channels
+        logger.debug(
+            "Campaign %s: desired_total_channels=%s headroom=%s",
+            id_campaign, desired_total_channels, headroom
+        )
+
+        if headroom <= 0:
+            logger.debug(
+                "Campaign %s: already at desired load (headroom<=0)",
+                id_campaign
+            )
+            return 0
+
+        allowed = int(headroom)
+        logger.debug(
+            "Campaign %s: allowed_attempts_according_agents=%s",
+            id_campaign, allowed
+        )
+        return allowed
 
     @classmethod
     @timed_lru_cache(seconds=600, maxsize=128)
@@ -1206,26 +1241,102 @@ class AverageWorker(DialerWorker):
 
     @classmethod
     def allowed_parallel_contact_attempts(cls, id_campaign):
-        cls.connect_redis_dialer()
+        """
+        Calculates how many NEW calls this campaign can originate in the current cycle.
+
+        - In "predictive" mode (CUSTOMDIALERDST == '0'):
+            Desired Target = available_agents_score * boost_factor
+            New calls = Target - active_channels, limited by:
+                * Campaign's max_channels
+                * Actual available channels (num_available_channels)
+
+        - In "power dialer" mode (CUSTOMDIALERDST != '0'):
+            Simply fills up to max_channels, respecting the available free channels.
+        """
+        # 1) campaign status
         active_channels = cls.get_active_channels(id_campaign)
-        if active_channels == -1:
-            return 0
         campaign_max_available_channels = cls.get_campaign_max_available_channels(id_campaign)
+
+        # Free channels according to campaign config (campaign hard cap)
         num_available_channels = campaign_max_available_channels - active_channels
-        # ensure num_available_channels is not affected by changes in the config
-        # in the middle of the campaign process
         num_available_channels = max(num_available_channels, 0)
-        logger.debug("Campaign {0}: active_channels={1}".format(id_campaign, active_channels))
-        logger.debug("Campaign {0}: campaign_max_available_channels={1}".format(
-            id_campaign, campaign_max_available_channels))
-        boost_factor = cls.get_boost_factor(id_campaign)
-        if cls.REDIS_DIALER_CONNECTION.get(f'CAMP:{id_campaign}:CUSTOMDIALERDST') == '0':
-            allowed_parallel_attempts_acc_agents = int(Decimal(
-                cls.get_allowed_attempts_according_agents(
-                    id_campaign, active_channels,
-                    campaign_max_available_channels)) * boost_factor)
-            return min(num_available_channels, allowed_parallel_attempts_acc_agents)
-        return num_available_channels
+
+        logger.debug(
+            "Campaign %s: active_channels=%s campaign_max_available_channels=%s "
+            "num_available_channels=%s",
+            id_campaign, active_channels, campaign_max_available_channels, num_available_channels
+        )
+
+        # 2) POWER DIALER mode (customdest different from '0'):
+        #    here the idea is simply to fill channels up to the maximum.
+        customdialerdst = cls.REDIS_DIALER_CONNECTION.get(f'CAMP:{id_campaign}:CUSTOMDIALERDST')
+        if customdialerdst is not None and customdialerdst != '0':
+            logger.debug(
+                "Campaign %s: CUSTOMDIALERDST=%r => POWER DIALER mode, "
+                "allowed_parallel_contact_attempts=%s",
+                id_campaign, customdialerdst, num_available_channels
+            )
+            return num_available_channels
+
+        # 3) PREDICTIVE mode: use agents + boost_factor
+        #    available_agents_score is already weighted by number of campaigns/queues.
+        available_agents_score, total_agents_available = (
+            cls.get_number_available_agents(id_campaign)
+        )
+        logger.debug(
+            "Campaign %s: available_agents_score=%s total_agents_available=%s",
+            id_campaign, available_agents_score, total_agents_available
+        )
+
+        # If there are no available agents for THIS campaign, mark none.
+        if available_agents_score <= 0:
+            logger.debug("Campaign %s: no available agents for this campaign, returning 0",
+                         id_campaign)
+            return 0
+
+        # boost_factor puede venir como Decimal/None/float; normalizamos a float
+        raw_boost = cls.get_boost_factor(id_campaign)
+        try:
+            boost_factor = float(raw_boost or 1.0)
+        except (TypeError, ValueError):
+            boost_factor = 1.0
+
+        # 4) Capacidad deseada (target): cuántas llamadas QUEREMOS tener activas
+        #    Fórmula: agentes_equivalentes * boost_factor
+        target_concurrent_calls = available_agents_score * boost_factor
+
+        # Redondeo agresivo hacia arriba para no perder fracciones
+        # Ej: 0.5 * 1.5 = 0.75 => ceil(0.75) = 1
+        target_capped = min(ceil(target_concurrent_calls), campaign_max_available_channels)
+
+        # 5) Delta: cuántas llamadas faltan para llegar al target
+        calls_to_dial = target_capped - active_channels
+
+        logger.debug(
+            "Campaign %s: boost_factor=%s target_concurrent_calls=%s "
+            "target_capped=%s calls_to_dial(before caps)=%s",
+            id_campaign, boost_factor, target_concurrent_calls,
+            target_capped, calls_to_dial
+        )
+
+        if calls_to_dial <= 0:
+            logger.debug(
+                "Campaign %s: already at or above desired load (calls_to_dial<=0). Returning 0.",
+                id_campaign
+            )
+            return 0
+
+        # 6) Respetar canales libres reales
+        final_allowed = min(calls_to_dial, num_available_channels)
+        final_allowed = max(int(final_allowed), 0)
+
+        logger.debug(
+            "Campaign %s: final_allowed_parallel_contact_attempts=%s "
+            "(after channel cap num_available_channels=%s)",
+            id_campaign, final_allowed, num_available_channels
+        )
+
+        return final_allowed
 
     @classmethod
     def take_contacts(cls, contacts_attempts_number, id_campaign):

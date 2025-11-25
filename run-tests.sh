@@ -1,4 +1,5 @@
 #!/usr/bin/env sh
+export DOCKER_API_VERSION=1.44
 
 if [ -z "$1" ]; then
     docker-compose --env-file .env-tests -f docker-compose-test.yml up -d --build --remove-orphans
