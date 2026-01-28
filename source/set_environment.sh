@@ -21,6 +21,11 @@ location /static/ {
   expires 1y;
   add_header Cache-Control "public, immutable";
   
+  location ^~ /static/omnileads-frontend {
+    alias /opt/omnileads/static/omnileads-frontend;
+    try_files \$uri \$uri/ /static/omnileads-frontend/index.html;
+  }
+  
   # Configuración específica para archivos JavaScript
   location ~* \.js\$ {
     add_header Content-Type application/javascript;
