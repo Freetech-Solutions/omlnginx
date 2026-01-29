@@ -3,6 +3,11 @@ location ^~ /webui-premiumreports {
   try_files $uri $uri/ /webui-premiumreports/index.html;
 }
 
+location ^~ /webui-survey {
+  alias ${SURVEY_WEBUI_PATH};
+  try_files $uri $uri/ /webui-survey/index.html;
+}
+
 location ^~ /webui-wallboard {
   alias ${WALLBOARD_WEBUI_PATH};
   try_files $uri $uri/ /webui-wallboard/index.html;
