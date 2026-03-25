@@ -23,6 +23,17 @@ location /static/ {
   
   location ^~ /static/omnileads-frontend {
     alias /opt/omnileads/static/omnileads-frontend;
+
+    # NO CACHE para HTML
+    location ~* \.html\$ {
+      expires -1;
+      add_header Cache-Control "no-store, no-cache, must-revalidate, max-age=0" always;
+      add_header Pragma "no-cache" always;
+      add_header Expires "0" always;
+      try_files \$uri =404;
+    }
+
+    # SPA fallback
     try_files \$uri \$uri/ /static/omnileads-frontend/index.html;
   }
   
