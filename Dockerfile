@@ -1,4 +1,4 @@
-FROM nginx:1.23.2-alpine as run
+FROM nginx:1.29.4-alpine as run
 
 ENV INSTALL_PREFIX /opt/omnileads
 
