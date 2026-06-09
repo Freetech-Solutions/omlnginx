@@ -214,10 +214,8 @@ location /consumers {
 # Grabaciones
 # ----------------------------------------------------------------------------
 location /grabaciones/ {
+  internal;
   alias /opt/omnileads/asterisk/var/spool/asterisk/monitor/;
-  autoindex on;
-  allow all;
-  add_header Cache-Control "public, max-age=3600";
 }
 
 # ----------------------------------------------------------------------------
