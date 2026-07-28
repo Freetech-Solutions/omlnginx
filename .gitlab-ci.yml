@@ -4,6 +4,7 @@ include:
     file:
       - 'templates/security-scans.yml'
       - 'templates/gitleaks.yml'
+      - 'templates/sonarqube.yml'
 
 variables:
   IMAGE_NAME: "nginx"
@@ -66,21 +67,12 @@ stages:
     - if: '$FULL != "true" && $BUILD != "true" && $CI_PIPELINE_SOURCE == "web"'
     - if: '$FULL != "true" && $BUILD != "true" && ($CI_COMMIT_BRANCH == "develop-3.0" || $CI_COMMIT_BRANCH == "master-3.0" || $CI_COMMIT_BRANCH == "develop-2.0" || $CI_COMMIT_BRANCH == "master-2.0")'
 
-sonarqube-check:
+# Job SonarQube centralizado en omnileads/devsecops (templates/sonarqube.yml).
+sonarqube_scan:
   stage: sonarqube
-  image:
-    name: sonarsource/sonar-scanner-cli:latest
-    entrypoint: [""]
-  variables:
-    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"
-    GIT_DEPTH: "0"
-  cache:
-    key: "sonar-scanner-cache"
-    paths:
-      - .sonar/cache
-  script:
-    - sonar-scanner
-  allow_failure: true
+  <<: *sonar-rules
+
+sonarqube_defectdojo_upload:
   <<: *sonar-rules
 
 .build_template:
@@ -158,7 +150,7 @@ container-image-dev:
       - nginx.tar
     expire_in: 90 days
 
-# Los jobs trivy_scan, defectdojo_upload y gitleaks_defectdojo_upload se heredan de devsecops.
+# Los jobs trivy_scan, defectdojo_upload, gitleaks_defectdojo_upload y sonarqube_defectdojo_upload se heredan de devsecops.
 
 # GitLab no expande ${GITLEAKS_STAGE} del template incluido en el campo stage.
 gitleaks_scan:
