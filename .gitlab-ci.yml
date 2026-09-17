@@ -20,6 +20,10 @@ variables:
   # Para la estrategia "1 Repo = 1 Producto", mantén vacía la variable DEFECTDOJO_ENGAGEMENT_ID en GitLab
   # y este script creará/resolverá el producto y el engagement "Continuous Security" automáticamente.
   DEFECTDOJO_PRODUCT_NAME: "OMniNginx"
+  # SonarQube: conf/scripts del producto; exclusiones default del template (reportes CI).
+  SONAR_PROJECT_KEY: "omnileads-nginx"
+  SONAR_PROJECT_NAME: "OMniLeads Nginx"
+  SONAR_SOURCES: "source,templates"
   # DefectDojo con certificado interno/auto-firmado (override en CI/CD si usan CA pública).
   DEFECTDOJO_INSECURE: "true"
   # Sin variables → gitleaks, sonarqube, build, security_scan y security_report.
