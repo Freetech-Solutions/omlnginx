@@ -251,7 +251,7 @@ location / {
   proxy_connect_timeout 600s;
   proxy_send_timeout 600s;
 
-  client_max_body_size 50M;
+  client_max_body_size 250M;
 }
 EOF
 
