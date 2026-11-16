@@ -126,18 +126,13 @@ location /consumers {
   proxy_cache off;
 }
 
-# Configuración para grabaciones
-location /grabaciones {
+# Grabaciones: solo accesibles vía X-Accel-Redirect desde Django
+# (/api/v1/grabacion/archivo/), que autentica y autoriza por grabación.
+# Sin location anidada: "internal" no se hereda. La barra final en el
+# prefijo evita el alias traversal (/grabaciones../).
+location /grabaciones/ {
+  internal;
   alias /opt/omnileads/asterisk/var/spool/asterisk/monitor/;
-  autoindex on;
-  allow all;
-  
-  # Configuración específica para archivos de audio
-  location ~* \.(mp3|wav|ogg)\$ {
-    add_header Content-Type audio/mpeg;
-    add_header Cache-Control "public, max-age=3600";
-    try_files \$uri =404;
-  }
 }
 
 # Configuración principal para Django (debe ir al final)
