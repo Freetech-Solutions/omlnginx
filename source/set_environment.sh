@@ -41,6 +41,7 @@ server {
 server {
     listen 443 ssl;
     listen [::]:443 ssl;
+    http2 off;
     server_name _;
 
     access_log /dev/stdout;
